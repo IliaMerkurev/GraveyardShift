@@ -14,7 +14,7 @@ export interface GameConfig {
     workerWeight: number; coinWeight: number; bombWeight: number; rewindWeight: number;
   };
   pads: readonly { x: number; z: number; price: number }[];
-  mining: { radius: number; period: number; impactPhase: number; damageByLevel: readonly number[]; damageGrowth: number };
+  mining: { radius: number; period: number; speedGrowth: number; minPeriod: number; impactPhase: number; damageByLevel: readonly number[]; damageGrowth: number };
   slow: { duration: number };
   bomb: { radius: number; trackTolerance: number };
   visual: { helmetColors: readonly number[]; stoneRadius: number; maxEffects: number; pixelRatio: number };
@@ -49,7 +49,7 @@ export const CONFIG: GameConfig = {
     { x: -.75, z: .5, price: 150 },
     { x: .75, z: 3.5, price: 300 },
   ],
-  mining: { radius: 1.65, period: 1.2, impactPhase: 0.52, damageByLevel: [2, 5, 11, 24, 50], damageGrowth: 2 },
+  mining: { radius: 1.65, period: 1.2, speedGrowth: 1.2, minPeriod: 0.1, impactPhase: 0.52, damageByLevel: [2, 5, 11, 24, 50], damageGrowth: 2 },
   slow: { duration: 5 },
   bomb: { radius: 1.55, trackTolerance: 0.62 },
   visual: { helmetColors: [0xffcf3f, 0x6dddea, 0xee86ba, 0xb59bff, 0xff9356], stoneRadius: 0.23, maxEffects: 120, pixelRatio: 1.5 },

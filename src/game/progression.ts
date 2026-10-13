@@ -17,3 +17,11 @@ export function miningDamage(level: number, mining: GameConfig['mining']): numbe
   const maxExponent = Math.ceil(Math.log(Number.MAX_SAFE_INTEGER / last) / Math.log(growth));
   return Math.min(Number.MAX_SAFE_INTEGER, last * growth ** Math.min(safe - table.length, maxExponent));
 }
+
+/** First speed gain is level three; bound the exponent before it can overflow. */
+export function miningPeriod(level: number, mining: GameConfig['mining']): number {
+  const safe = Number.isFinite(level) ? Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(level))) : 1;
+  if (safe <= 2 || mining.speedGrowth === 1) return mining.period;
+  const maxExponent = Math.log(mining.period / mining.minPeriod) / Math.log(mining.speedGrowth);
+  return Math.max(mining.minPeriod, mining.period / mining.speedGrowth ** Math.min(safe - 2, maxExponent));
+}

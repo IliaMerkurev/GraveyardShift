@@ -1,7 +1,7 @@
 import { CONFIG, type GameConfig } from './config';
 import { createMiningState, type DropTarget, type Entity, type GameEvent, type GameState, type Stone, type Worker } from './GameState';
 import * as commands from './commands';
-import { miningDamage } from './progression';
+import { miningDamage, miningPeriod } from './progression';
 import { forwardSpeed, attractionSpeed } from './motion';
 import { getPathLength, samplePath } from './path';
 
@@ -34,7 +34,10 @@ export class Game {
         c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed ||
         c.stones.speed < 0 || c.stones.resources.length === 0 ||
         c.conveyor.count < 1 || c.conveyor.right <= c.conveyor.left || c.conveyor.speed < 0 ||
-        c.mining.period <= 0 || c.mining.impactPhase <= 0 || c.mining.impactPhase >= 1 ||
+        !Number.isFinite(c.mining.period) || c.mining.period <= 0 ||
+        !Number.isFinite(c.mining.speedGrowth) || c.mining.speedGrowth < 1 ||
+        !Number.isFinite(c.mining.minPeriod) || c.mining.minPeriod < c.simulation.fixedStep * 6 || c.mining.minPeriod > c.mining.period ||
+        c.mining.impactPhase <= 0 || c.mining.impactPhase >= 1 ||
         c.simulation.fixedStep <= 0 || c.simulation.maxDelta < c.simulation.fixedStep ||
         c.pads.length === 0 || c.mining.damageByLevel.length === 0 || !Number.isFinite(c.mining.damageGrowth) || c.mining.damageGrowth < 1 ||
         c.mining.damageByLevel.some(damage => !Number.isFinite(damage) || damage <= 0 || damage > Number.MAX_SAFE_INTEGER)) {
@@ -304,7 +307,8 @@ export class Game {
         cycle.targetId = nearest.id;
         cycle.hit = false;
       }
-      cycle.phase += dt / c.period;
+      // The renderer reads this same normalized phase, so the whole swing speeds up.
+      cycle.phase += dt / miningPeriod(worker.level, c);
       if (!cycle.hit && cycle.phase >= c.impactPhase) {
         cycle.hit = true;
         const stone = this.state.stones.find((candidate) => candidate.id === cycle.targetId);
