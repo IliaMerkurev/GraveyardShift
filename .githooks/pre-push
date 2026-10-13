@@ -1,0 +1,14 @@
+#!/bin/sh
+# Local guard only. Does not replace the user's explicit approval requirement
+# or server-side GitHub protection. Keep executable and enable with:
+# git config core.hooksPath .githooks
+while read -r local_ref local_sha remote_ref remote_sha
+ do
+    case "$remote_ref" in
+        refs/heads/main|refs/heads/master)
+            printf '%s\n' 'BLOCKED: pushing to main/master requires explicit approval from Ilia.' >&2
+            exit 1
+            ;;
+    esac
+ done
+exit 0
