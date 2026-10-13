@@ -60,6 +60,21 @@ export function createBomb(): THREE.Group {
   const fuse=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.15,5),new THREE.MeshBasicMaterial({color:0xffba4b}));fuse.position.set(.05,.64,0);fuse.rotation.z=-.3;
   group.add(body,fuse);return group;
 }
+export function createRewind(): THREE.Group {
+  const group=new THREE.Group();
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.13,12),new THREE.MeshLambertMaterial({color:0x167b91}));rim.position.y=.22;
+  const face=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.045,12),new THREE.MeshLambertMaterial({color:0x74f8f0}));face.position.y=.31;
+  group.add(rim,face);return group;
+}
+export function createSlow(): THREE.Group {
+  const group=new THREE.Group();
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.13,12),new THREE.MeshLambertMaterial({color:0x5149a8}));rim.position.y=.22;
+  const face=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.045,12),new THREE.MeshLambertMaterial({color:0xaaa1ff}));face.position.y=.31;
+  const handMaterial=new THREE.MeshBasicMaterial({color:0xf9f6ff});
+  const minute=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.18),handMaterial);minute.position.set(0,.344,-.07);
+  const hour=new THREE.Mesh(new THREE.BoxGeometry(.14,.018,.04),handMaterial.clone());hour.position.set(.055,.344,0);
+  group.add(rim,face,minute,hour);return group;
+}
 export function makeWallGeometry(): THREE.BufferGeometry {
   const pieces:THREE.BufferGeometry[]=[];for(const run of CONFIG.path.runs.slice(0,-1)){const z=run+CONFIG.path.bendRadius;let spans:[[number,number]]|[number,number][]=[[CONFIG.path.left+.15,CONFIG.path.right-.15]];for(const pad of CONFIG.pads.filter(p=>Math.abs(p.z-z)<.1)){spans=spans.flatMap(([a,b])=>{const result:[number,number][]=[];if(a<pad.x-.62)result.push([a,Math.min(b,pad.x-.62)]);if(b>pad.x+.62)result.push([Math.max(a,pad.x+.62),b]);return result;});}for(const[a,b]of spans)if(b-a>.05)pieces.push(box(b-a,.32,.20,0xffffff,(a+b)/2,.16,z));}return join(pieces);
 }

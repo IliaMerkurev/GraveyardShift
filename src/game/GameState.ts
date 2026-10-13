@@ -1,4 +1,4 @@
-export type ContentKind = 'worker' | 'coins' | 'bomb';
+export type ContentKind = 'worker' | 'coins' | 'bomb' | 'rewind' | 'slow';
 export type PlaceRef = { kind: 'slot' | 'pad'; id: string };
 export type EntityLocation = PlaceRef | { kind: 'drag' };
 export type DropTarget = PlaceRef | { kind: 'track'; x: number; z: number } | null;
@@ -8,7 +8,9 @@ interface EntityBase { id: string; location: EntityLocation }
 export interface Barrel extends EntityBase { kind: 'barrel'; content: ContentKind }
 export interface Worker extends EntityBase { kind: 'worker'; level: number; mining: MiningState }
 export interface Bomb extends EntityBase { kind: 'bomb' }
-export type Entity = Barrel | Worker | Bomb;
+export interface Rewind extends EntityBase { kind: 'rewind' }
+export interface Slow extends EntityBase { kind: 'slow' }
+export type Entity = Barrel | Worker | Bomb | Rewind | Slow;
 export interface Slot extends Point { id: string; entityId: string | null; reserved: boolean }
 export interface Pad extends Slot { price: number; unlocked: boolean }
 export interface Stone {
@@ -17,7 +19,7 @@ export interface Stone {
 }
 export interface DragState { entityId: string; source: PlaceRef }
 export interface GameEvent extends Point {
-  type: 'hit' | 'destroy' | 'coins' | 'merge' | 'bomb' | 'open' | 'purchase' | 'goal';
+  type: 'hit' | 'destroy' | 'coins' | 'merge' | 'bomb' | 'open' | 'purchase' | 'goal' | 'gameover' | 'rewind' | 'slow' | 'expired';
   entityId?: string; stoneId?: string; amount?: number; level?: number;
 }
 export interface GameState {
@@ -32,6 +34,8 @@ export interface GameState {
   paused: boolean;
   conveyorPaused: boolean;
   goalReached: boolean;
+  gameOver: boolean;
+  slowRemaining: number;
   tutorial: { opened: boolean; placed: boolean; merged: boolean; bought: boolean; bombed: boolean };
   stats: { opened: number; merged: number; purchased: number; destroyed: number; bombsUsed: number; coinsEarned: number };
 }

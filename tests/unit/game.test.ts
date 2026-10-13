@@ -60,8 +60,7 @@ describe('deterministic setup and path', () => {
     expect(game.state.pads.map((pad) => pad.unlocked)).toEqual([true, false, false, false]);
     expect(game.state.pads.map((pad) => pad.price)).toEqual([0, 50, 150, 300]);
     expect(padWorker(game).level).toBe(1);
-    expect(game.state.stones.length).toBeGreaterThanOrEqual(120);
-    expect(game.state.stones.length).toBeLessThanOrEqual(180);
+    expect(game.state.stones.length).toBe(CONFIG.stones.initialCount);
     expect(game.state.slots.map((slot) => {
       const entity = game.state.entities[slot.entityId!];
       return entity?.kind === 'barrel' ? entity.content : null;
@@ -87,36 +86,9 @@ describe('deterministic setup and path', () => {
     expect(samplePath(PATH_LENGTH + 100)).toEqual(samplePath(PATH_LENGTH));
   });
 
-  it('moves every stone at identical speed without replacing a destroyed interior gap', () => {
-    const game = new Game();
-    const interior = game.state.stones[50]!;
-    const next = game.state.stones[51]!;
-    const oldDistance = next.distance;
-    damageStone(game, interior.id, 1000);
-    game.tick(1 / 60);
-    expect(game.state.stones.some((stone) => stone.id === interior.id)).toBe(false);
-    expect(game.state.stones.find((stone) => stone.id === next.id)!.distance).toBeCloseTo(oldDistance + CONFIG.stones.speed / 60);
-  });
 
-  it('replenishes only at the entrance, removes exit stones without a reward, and respects the cap', () => {
-    const c = config();
-    c.stones.initialCount = 0;
-    const game = new Game(c);
-    advance(game, 0.72);
-    expect(game.state.stones).toHaveLength(0);
-    game.tick(1 / 60);
-    expect(game.state.stones).toHaveLength(1);
-    expect(game.state.stones[0]!.distance).toBe(0);
-    game.state.stones[0]!.distance = PATH_LENGTH;
-    game.tick(1 / 60);
-    expect(game.state.stones).toHaveLength(0);
-    expect(game.state.stats.destroyed).toBe(0);
-    expect(game.state.coins).toBe(0);
-    const full = new Game();
-    advance(full, 150);
-    expect(full.state.stones.length).toBeLessThanOrEqual(CONFIG.stones.maxCount);
-    expect(new Set(full.state.stones.map((stone) => stone.id)).size).toBe(full.state.stones.length);
-  });
+
+
 });
 
 describe('atomic barrels, buying, and ownership', () => {
@@ -313,67 +285,13 @@ describe('merge invariants and progression', () => {
 });
 
 describe('conveyor capacity and drag interruptions', () => {
-  it('moves carriers right-to-left, then stops at an occupied left edge without loss', () => {
-    const game = new Game();
-    const ids = game.state.slots.map((slot) => slot.entityId);
-    const x = game.state.slots[0]!.x;
-    advance(game, 0.5);
-    expect(game.state.slots[0]!.x).toBeLessThan(x);
-    advance(game, 3);
-    expect(game.state.conveyorPaused).toBe(true);
-    expect(game.state.slots[0]!.x).toBeCloseTo(CONFIG.conveyor.left);
-    const positions = game.state.slots.map((slot) => slot.x);
-    advance(game, 10);
-    expect(game.state.slots.map((slot) => slot.x)).toEqual(positions);
-    expect(game.state.slots.map((slot) => slot.entityId)).toEqual(ids);
-    assertOwnership(game);
-  });
 
-  it('keeps opened workers and bombs at the edge and resumes when the blocker is consumed', () => {
-    const game = new Game();
-    const worker = openWorker(game);
-    advance(game, 3);
-    expect(game.state.conveyorPaused).toBe(true);
-    expect(game.state.entities[worker.id]).toBe(worker);
-    expect(move(game, worker, { kind: 'pad', id: 'pad-0' })).toBe(true);
-    expect(game.state.conveyorPaused).toBe(false);
-    const x = game.state.slots[1]!.x;
-    advance(game, 0.2);
-    expect(game.state.slots[1]!.x).toBeLessThan(x);
-    expect(game.state.slots[0]!.x).toBeGreaterThan(CONFIG.conveyor.right - 0.1);
-    expect(game.state.entities[game.state.slots[0]!.entityId!]!.kind).toBe('barrel');
-    assertOwnership(game);
-  });
 
-  it('never silently discards a bomb waiting at the end of the conveyor', () => {
-    const game = new Game();
-    const worker = openWorker(game);
-    move(game, worker, { kind: 'pad', id: 'pad-0' });
-    game.openBarrel('slot-3');
-    const bomb = game.state.entities[game.state.slots[3]!.entityId!]!;
-    move(game, bomb, { kind: 'slot', id: 'slot-0' });
-    advance(game, 20);
-    expect(game.state.conveyorPaused).toBe(true);
-    expect(game.state.slots[0]!.x).toBeCloseTo(CONFIG.conveyor.left);
-    expect(game.state.slots[0]!.entityId).toBe(bomb.id);
-    expect(game.state.entities[bomb.id]).toBe(bomb);
-    assertOwnership(game);
-  });
 
-  it('freezes all carriers and prevents source replacement during a long drag', () => {
-    const game = new Game();
-    const worker = openWorker(game);
-    expect(game.beginDrag(worker.id)).toBe(true);
-    const positions = game.state.slots.map((slot) => slot.x);
-    advance(game, 15);
-    expect(game.state.slots.map((slot) => slot.x)).toEqual(positions);
-    expect(game.state.slots[0]!.entityId).toBeNull();
-    expect(game.state.slots[0]!.reserved).toBe(true);
-    expect(game.cancelDrag()).toBe(true);
-    expect(game.state.slots[0]!.entityId).toBe(worker.id);
-    expect(game.state.conveyorPaused).toBe(false);
-    assertOwnership(game);
-  });
+
+
+
+
 
   it('safe pause cancels a drag and discards hidden time', () => {
     const game = new Game();
@@ -409,7 +327,7 @@ describe('mining impact, rewards and bombs', () => {
   });
 
   it('applies mining damage only at the visible swing impact phase', () => {
-    const c = config(); c.stones.speed = 0;
+    const c = config(); c.stones.speed = 0; c.stones.acceleration = 0;
     const game = new Game(c);
     advance(game, 0.5);
     expect(game.state.events.filter((event) => event.type === 'hit')).toHaveLength(0);
@@ -438,7 +356,7 @@ describe('mining impact, rewards and bombs', () => {
   });
 
   it('awards exactly once when two miners reach a lethal impact together', () => {
-    const c = config(); c.stones.speed = 0;
+    const c = config(); c.stones.speed = 0; c.stones.acceleration = 0;
     const game = new Game(c);
     const worker = openWorker(game);
     game.openBarrel('slot-2'); game.buyPad('pad-1');

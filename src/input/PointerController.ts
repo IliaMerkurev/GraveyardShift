@@ -8,6 +8,7 @@ export class PointerController {
   dragPosition:Point|null=null;
   private start:{x:number;y:number;target:HitTarget|null}|null=null;
   private moved=false;
+  private draggedEntityId:string|null=null;
   private touch=false;
   private lastPoint:{x:number;y:number}|null=null;
   constructor(private canvas:HTMLCanvasElement,private game:Game,private view:SceneView,private feedback:(text:string)=>void){
@@ -20,29 +21,37 @@ export class PointerController {
     canvas.addEventListener('dragstart',event=>event.preventDefault());
   }
   private down=(event:PointerEvent)=>{
-    if(this.activePointerId!==null||this.game.state.paused||event.button!==0)return;
+    if(this.activePointerId!==null||this.game.state.paused||this.game.state.gameOver||event.button!==0)return;
     event.preventDefault();this.activePointerId=event.pointerId;this.touch=event.pointerType==='touch';this.moved=false;this.lastPoint={x:event.clientX,y:event.clientY};
     this.start={x:event.clientX,y:event.clientY,target:this.view.hit(event.clientX,event.clientY)};
     this.canvas.setPointerCapture(event.pointerId);
   };
   private move=(event:PointerEvent)=>{
-    if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();this.lastPoint={x:event.clientX,y:event.clientY};
+    if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();this.lastPoint={x:event.clientX,y:event.clientY};
     if(!this.moved&&Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx){
-      this.moved=true;const target=this.start.target;if(target?.kind==='entity')this.game.beginDrag(target.id);
+      this.moved=true;const target=this.start.target;if(target?.kind==='entity'&&this.game.beginDrag(target.id))this.draggedEntityId=target.id;
     }
     if(this.game.state.drag){this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));const target=this.view.dropTarget(event.clientX,event.clientY);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
   };
   private up=(event:PointerEvent)=>{
-    if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
+    if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
     if(this.game.state.drag){const target=this.view.dropTarget(event.clientX,event.clientY);if(!this.game.drop(target))this.feedback('Not a match. Returned safely.');}
     else if(!this.moved){const target=this.start.target;
-      if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='worker')this.feedback('Drag this worker onto a pad or matching level.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto the rock stream.');}
+      if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='worker')this.feedback('Drag this worker onto a pad or matching level.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto the rock stream.');}
       else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id))this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}
     }
     this.finish();
   };
   private pointerCancel=(event:PointerEvent)=>{if(event.pointerId===this.activePointerId)this.cancel();};
-  private finish(){const id=this.activePointerId;this.activePointerId=null;this.start=null;this.moved=false;this.dragPosition=null;this.lastPoint=null;this.view.showDrop(null,false,CONFIG.bomb.radius);if(id!==null&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}
-  refreshDrop(){if(this.game.state.drag&&this.lastPoint){const target=this.view.dropTarget(this.lastPoint.x,this.lastPoint.y);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}}
+  private finish(){const id=this.activePointerId;this.activePointerId=null;this.start=null;this.moved=false;this.touch=false;this.draggedEntityId=null;this.dragPosition=null;this.lastPoint=null;this.view.showDrop(null,false,CONFIG.bomb.radius);if(id!==null&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}
+  refreshDrop(){
+    if(this.activePointerId===null)return;
+    if(this.game.state.gameOver||this.game.state.paused){this.cancel();return;}
+    const target=this.start?.target;
+    const missingTarget=target?.kind==='entity'&&!this.game.state.entities[target.id];
+    const expiredDrag=this.draggedEntityId!==null&&this.game.state.drag?.entityId!==this.draggedEntityId;
+    if(missingTarget||expiredDrag){this.finish();this.feedback('That item left the belt.');return;}
+    if(this.game.state.drag&&this.lastPoint){const target=this.view.dropTarget(this.lastPoint.x,this.lastPoint.y);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
+  }
   cancel(){this.game.cancelDrag();this.finish();}
 }

@@ -1,4 +1,6 @@
-# Decisions and assumptions — v0.1
+# Decisions and assumptions — historical v0.1
+
+Current conflicting rules are superseded by [owner-approved prototype/0.2](RULES_V02.md). The v0.1 decisions below are retained as history, not active belt/chain/defeat requirements.
 
 ## Authority and scope
 

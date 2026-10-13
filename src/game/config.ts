@@ -5,16 +5,17 @@ export interface GameConfig {
   economy: { initialCoins: number; barrelCoins: number; maxLevel: number };
   path: { left: number; right: number; runs: readonly number[]; bendRadius: number };
   stones: {
-    initialCount: number; maxCount: number; speed: number; spacing: number;
+    initialCount: number; maxCount: number; speed: number; spacing: number; startFraction: number; rewindFraction: number; rewindNearStart: number; acceleration: number; maxSpeed: number;
     resources: readonly { color: number; hp: number; reward: number }[];
   };
   conveyor: {
     count: number; left: number; right: number; z: number; speed: number;
-    spawnInterval: number; starter: readonly ('worker' | 'coins' | 'bomb')[];
-    workerWeight: number; coinWeight: number;
+    spawnInterval: number; starter: readonly ('worker' | 'coins' | 'bomb' | 'rewind' | 'slow')[];
+    workerWeight: number; coinWeight: number; bombWeight: number; rewindWeight: number;
   };
   pads: readonly { x: number; z: number; price: number }[];
   mining: { radius: number; period: number; impactPhase: number; damageByLevel: readonly number[] };
+  slow: { factor: number; duration: number; recovery: number };
   bomb: { radius: number; trackTolerance: number };
   visual: { helmetColors: readonly number[]; stoneRadius: number; maxEffects: number; pixelRatio: number };
   input: { dragThreshold: number; targetRadius: number; touchLift: number; hitRadiusPx: number; touchLiftPx: number };
@@ -27,7 +28,7 @@ export const CONFIG: GameConfig = {
   economy: { initialCoins: 0, barrelCoins: 50, maxLevel: 5 },
   path: { left: -1.3, right: 1.3, runs: [-7, -4, -1, 2, 5], bendRadius: 1.5 },
   stones: {
-    initialCount: 156, maxCount: 200, speed: 0.34, spacing: 0.245,
+    initialCount: 65, maxCount: 200, speed: 0.34, spacing: 0.245, startFraction: 0.5, rewindFraction: 0.5, rewindNearStart: 0.8, acceleration: 0.0028, maxSpeed: 0.68,
     resources: [
       { color: 0x76cf9b, hp: 3, reward: 5 },
       { color: 0x60b4e2, hp: 5, reward: 8 },
@@ -38,8 +39,8 @@ export const CONFIG: GameConfig = {
     count: 6, left: -2.9, right: 2.9, z: 7, speed: 0.32,
     spawnInterval: 2.5,
     // Seven guaranteed workers in the starter sequence allow level three without RNG.
-    starter: ['worker', 'worker', 'coins', 'bomb', 'worker', 'worker', 'worker', 'worker', 'worker'],
-    workerWeight: 0.76, coinWeight: 0.13,
+    starter: ['worker', 'worker', 'coins', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker'],
+    workerWeight: 0.57, coinWeight: 0.13, bombWeight: 0.11, rewindWeight: 0.10,
   },
   pads: [
     { x: -.75, z: -5.5, price: 0 },
@@ -48,6 +49,7 @@ export const CONFIG: GameConfig = {
     { x: .75, z: 3.5, price: 300 },
   ],
   mining: { radius: 1.65, period: 1.2, impactPhase: 0.52, damageByLevel: [2, 5, 11, 24, 50] },
+  slow: { factor: 0.5, duration: 5, recovery: 0.5 },
   bomb: { radius: 1.55, trackTolerance: 0.62 },
   visual: { helmetColors: [0xffcf3f, 0x6dddea, 0xee86ba, 0xb59bff, 0xff9356], stoneRadius: 0.23, maxEffects: 120, pixelRatio: 1.5 },
   input: { dragThreshold: 9, targetRadius: 0.57, touchLift: 0.85, hitRadiusPx:24, touchLiftPx:32 },

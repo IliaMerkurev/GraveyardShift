@@ -3,7 +3,7 @@ import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
   type Pad, type PlaceRef, type Point, type Slot,
 } from './GameState';
-import { distanceToPath, samplePath } from './path';
+import { distanceToPath, samplePath, getPathLength } from './path';
 
 export interface CommandContext {
   state: GameState;
@@ -39,15 +39,15 @@ export function checkGoal(ctx: CommandContext): void {
 }
 
 export function openBarrel(ctx: CommandContext, slotId: string): boolean {
-  if (ctx.state.paused) return false;
+  if (ctx.state.paused || ctx.state.gameOver) return false;
   const slot = ctx.state.slots.find((candidate) => candidate.id === slotId);
   if (!slot || slot.reserved || !slot.entityId) return false;
   const barrel = ctx.state.entities[slot.entityId];
   if (!barrel || barrel.kind !== 'barrel') return false;
   if (barrel.content === 'worker') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level: 1, mining: createMiningState() };
-  } else if (barrel.content === 'bomb') {
-    ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'bomb', location: { kind: 'slot', id: slot.id } };
+  } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow') {
+    ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
   } else {
     delete ctx.state.entities[barrel.id];
     slot.entityId = null;
@@ -59,8 +59,40 @@ export function openBarrel(ctx: CommandContext, slotId: string): boolean {
   return true;
 }
 
+/** Snake-only time bonus; repeated collection refreshes, never stacks. */
+export function useSlow(ctx: CommandContext, entityId: string): boolean {
+  if (ctx.state.paused || ctx.state.gameOver) return false;
+  const entity = ctx.state.entities[entityId];
+  if (!entity || entity.kind !== 'slow' || entity.location.kind !== 'slot') return false;
+  const slot = getPlace(ctx.state, entity.location);
+  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
+  ctx.state.slowRemaining = ctx.config.slow.duration;
+  delete ctx.state.entities[entityId];
+  slot.entityId = null;
+  ctx.emit({ type: 'slow', x: slot.x, z: slot.z, entityId, amount: ctx.config.slow.duration });
+  return true;
+}
+
+/** Tap a revealed rewind token. Preserve IDs/HP and never advance the head. */
+export function useRewind(ctx: CommandContext, entityId: string): boolean {
+  if (ctx.state.paused || ctx.state.gameOver) return false;
+  const entity = ctx.state.entities[entityId];
+  if (!entity || entity.kind !== 'rewind' || entity.location.kind !== 'slot') return false;
+  const slot = getPlace(ctx.state, entity.location);
+  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
+  const head = ctx.state.stones.reduce((max, stone) => Math.max(max, stone.distance), 0);
+  const midpoint = getPathLength(ctx.config.path) * ctx.config.stones.rewindFraction;
+  const target = head < midpoint ? ctx.config.stones.rewindNearStart : midpoint;
+  const shift = Math.max(0, head - target);
+  for (const stone of ctx.state.stones) stone.distance -= shift;
+  delete ctx.state.entities[entityId];
+  slot.entityId = null;
+  ctx.emit({ type: 'rewind', x: slot.x, z: slot.z, entityId, amount: shift });
+  return true;
+}
+
 export function buyPad(ctx: CommandContext, padId: string): boolean {
-  if (ctx.state.paused) return false;
+  if (ctx.state.paused || ctx.state.gameOver) return false;
   const pad = ctx.state.pads.find((candidate) => candidate.id === padId);
   if (!pad || pad.unlocked || ctx.state.coins < pad.price) return false;
   ctx.state.coins -= pad.price;
@@ -73,9 +105,9 @@ export function buyPad(ctx: CommandContext, padId: string): boolean {
 }
 
 export function beginDrag(ctx: CommandContext, entityId: string): boolean {
-  if (ctx.state.paused || ctx.state.drag) return false;
+  if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
   const entity = ctx.state.entities[entityId];
-  if (!entity || entity.kind === 'barrel' || entity.location.kind === 'drag') return false;
+  if (!entity || entity.kind === 'barrel' || entity.kind === 'rewind' || entity.kind === 'slow' || entity.location.kind === 'drag') return false;
   const source = getPlace(ctx.state, entity.location);
   if (!source || source.reserved || source.entityId !== entityId) return false;
   const ref: PlaceRef = { ...entity.location };
@@ -84,7 +116,6 @@ export function beginDrag(ctx: CommandContext, entityId: string): boolean {
   entity.location = { kind: 'drag' };
   if (entity.kind === 'worker') entity.mining = createMiningState();
   ctx.state.drag = { entityId, source: ref };
-  ctx.state.conveyorPaused = true;
   return true;
 }
 
@@ -103,7 +134,7 @@ export function cancelDrag(ctx: CommandContext): boolean {
 }
 
 export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
-  if (ctx.state.paused || !ctx.state.drag || !target) return false;
+  if (ctx.state.paused || ctx.state.gameOver || !ctx.state.drag || !target) return false;
   const drag = ctx.state.drag;
   const entity = ctx.state.entities[drag.entityId];
   if (!entity) return false;
@@ -112,7 +143,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
     if (distanceToPath(target, ctx.config.path) > ctx.config.bomb.trackTolerance) return false;
     return ctx.state.stones.some((stone) => {
       const point = samplePath(stone.distance, ctx.config.path);
-      return stone.hp > 0 && Math.hypot(point.x - target.x, point.z - target.z) <= ctx.config.bomb.radius;
+      return stone.distance >= 0 && stone.hp > 0 && Math.hypot(point.x - target.x, point.z - target.z) <= ctx.config.bomb.radius;
     });
   }
   const place = getPlace(ctx.state, target);
@@ -136,6 +167,10 @@ export function damageStone(ctx: CommandContext, stoneId: string, damage: number
   if (stone.hp > 0) return false;
   const point = samplePath(stone.distance, ctx.config.path);
   ctx.state.stones.splice(index, 1);
+  // Keep the rear fixed; the front moves backwards by one removed link.
+  for (const front of ctx.state.stones) {
+    if (front.distance > stone.distance) front.distance -= ctx.config.stones.spacing;
+  }
   ctx.state.stats.destroyed++;
   reward(ctx, stone.reward, point);
   ctx.emit({ type: 'destroy', x: point.x, z: point.z, stoneId: stone.id, amount: stone.reward });
@@ -151,6 +186,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   if (target.kind === 'track') {
     // Snapshot IDs before removals; an ID can pass through the reward gate only once.
     const victims = ctx.state.stones.filter((stone) => {
+      if (stone.distance < 0) return false;
       const point = samplePath(stone.distance, ctx.config.path);
       return Math.hypot(point.x - target.x, point.z - target.z) <= ctx.config.bomb.radius;
     }).map((stone) => stone.id);

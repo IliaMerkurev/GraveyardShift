@@ -13,7 +13,6 @@ export class Game {
   private nextStone = 0;
   private barrelIndex = 0;
   private generation = 0;
-  private stoneTravel = 0;
   private barrelCooldown = 0;
 
   constructor(config: GameConfig = CONFIG) {
@@ -26,7 +25,10 @@ export class Game {
     const c = this.config;
     if (c.path.runs.length < 2 || c.path.right <= c.path.left || c.path.bendRadius <= 0 ||
         c.stones.maxCount > 200 || c.stones.initialCount < 0 || c.stones.initialCount > c.stones.maxCount ||
-        c.stones.spacing <= 0 || c.stones.speed < 0 || c.stones.resources.length === 0 ||
+        c.stones.spacing <= 0 || c.stones.startFraction <= 0 || c.stones.startFraction >= 1 ||
+        c.slow.factor <= 0 || c.slow.factor > 1 || c.slow.duration <= 0 || c.slow.recovery <= 0 || c.slow.recovery > c.slow.duration ||
+        c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed || c.stones.rewindNearStart < 0 ||
+        c.stones.rewindFraction < 0 || c.stones.rewindFraction >= 1 || c.stones.speed < 0 || c.stones.resources.length === 0 ||
         c.conveyor.count < 1 || c.conveyor.right <= c.conveyor.left || c.conveyor.speed < 0 ||
         c.mining.period <= 0 || c.mining.impactPhase <= 0 || c.mining.impactPhase >= 1 ||
         c.simulation.fixedStep <= 0 || c.simulation.maxDelta < c.simulation.fixedStep ||
@@ -47,7 +49,6 @@ export class Game {
     this.nextEntity = 0;
     this.nextStone = 0;
     this.barrelIndex = 0;
-    this.stoneTravel = 0;
     this.barrelCooldown = 0;
     const c = this.config;
     const slotSpacing = (c.conveyor.right - c.conveyor.left) / c.conveyor.count;
@@ -57,7 +58,7 @@ export class Game {
         id: `slot-${i}`, x: c.conveyor.left + slotSpacing * (i + 0.5), z: c.conveyor.z, entityId: null, reserved: false,
       })),
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
-      stones: [], drag: null, events: [], paused: false, conveyorPaused: false, goalReached: false,
+      stones: [], drag: null, events: [], paused: false, conveyorPaused: false, goalReached: false, gameOver: false, slowRemaining: 0,
       tutorial: { opened: false, placed: false, merged: false, bought: false, bombed: false },
       stats: { opened: 0, merged: 0, purchased: 0, destroyed: 0, bombsUsed: 0, coinsEarned: 0 },
     };
@@ -66,8 +67,8 @@ export class Game {
     this.state.entities[worker.id] = worker;
     pad.entityId = worker.id;
     for (const slot of this.state.slots) this.spawnBarrel(slot.id);
-    const spacing = Math.min(c.stones.spacing, getPathLength(c.path) / Math.max(1, c.stones.initialCount));
-    for (let i = 0; i < c.stones.initialCount; i++) this.spawnStone(i * spacing);
+    const head = getPathLength(c.path) * c.stones.startFraction;
+    for (let i = 0; i < c.stones.initialCount; i++) this.spawnStone(head - (c.stones.initialCount - 1 - i) * c.stones.spacing);
   }
 
   private entityId(): string { return `entity-${this.generation}-${this.nextEntity++}`; }
@@ -84,7 +85,9 @@ export class Game {
     const starter = this.config.conveyor.starter[this.barrelIndex++];
     const roll = starter ? 0 : this.random();
     const content = starter ?? (roll < this.config.conveyor.workerWeight ? 'worker' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight ? 'coins' : 'bomb');
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight ? 'coins' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight ? 'bomb' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' : 'slow');
     const entity: Entity = { id: this.entityId(), kind: 'barrel', content, location: { kind: 'slot', id: slot.id } };
     this.state.entities[entity.id] = entity;
     slot.entityId = entity.id;
@@ -112,6 +115,8 @@ export class Game {
   openBarrel(slotId: string): boolean {
     const result = commands.openBarrel(this, slotId); this.updateConveyorPaused(); return result;
   }
+  useSlow(entityId: string): boolean { return commands.useSlow(this, entityId); }
+  useRewind(entityId: string): boolean { return commands.useRewind(this, entityId); }
   buyPad(padId: string): boolean { return commands.buyPad(this, padId); }
   beginDrag(entityId: string): boolean { return commands.beginDrag(this, entityId); }
   canDrop(target: DropTarget): boolean { return commands.canDrop(this, target); }
@@ -131,39 +136,56 @@ export class Game {
 
   /** Call from one requestAnimationFrame loop. Long gaps are clamped, never replayed. */
   tick(dt: number): void {
-    if (this.state.paused || !Number.isFinite(dt) || dt <= 0) return;
+    if (this.state.paused || this.state.gameOver || !Number.isFinite(dt) || dt <= 0) return;
     this.accumulator += Math.min(dt, this.config.simulation.maxDelta);
     const fixed = this.config.simulation.fixedStep;
     while (this.accumulator + 1e-10 >= fixed) {
       this.accumulator = Math.max(0, this.accumulator - fixed);
       this.step(fixed);
+      if (this.state.gameOver) { this.accumulator = 0; break; }
     }
   }
 
   private step(dt: number): void {
     this.state.time += dt;
     this.tickStones(dt);
+    if (this.state.gameOver) return;
     this.tickConveyor(dt);
     this.tickMining(dt);
+    this.state.slowRemaining = Math.max(0, this.state.slowRemaining - dt);
   }
 
   private tickStones(dt: number): void {
-    const travel = this.config.stones.speed * dt;
+    const c = this.config.stones;
+    const speed = Math.min(c.maxSpeed, c.speed + c.acceleration * this.state.time);
+    // Restore continuously over the last recovery window, without resetting difficulty.
+    const slow = this.config.slow;
+    const blend = Math.min(1, this.state.slowRemaining / slow.recovery);
+    const factor = 1 - (1 - slow.factor) * blend;
+    const travel = speed * factor * dt;
     const end = getPathLength(this.config.path);
     for (const stone of this.state.stones) stone.distance += travel;
-    // Surviving stones leave without reward. Destroyed gaps stay empty and keep moving.
-    this.state.stones = this.state.stones.filter((stone) => stone.distance <= end);
-    this.stoneTravel += travel;
-    while (this.stoneTravel + 1e-10 >= this.config.stones.spacing) {
-      this.stoneTravel = Math.max(0, this.stoneTravel - this.config.stones.spacing);
-      this.spawnStone(0);
+    const head = this.state.stones.reduce((max, stone) => Math.max(max, stone.distance), -Infinity);
+    if (head >= end) {
+      // Clamp the complete chain by the final fractional step; no survivors disappear.
+      for (const stone of this.state.stones) stone.distance -= head - end;
+      this.cancelDrag();
+      this.state.gameOver = true;
+      this.updateConveyorPaused();
+      this.emit({ type: 'gameover', ...samplePath(end, this.config.path) });
+      return;
+    }
+    // Supply the tail only at the entrance, never ahead of the existing head.
+    let tail = this.state.stones.reduce((min, stone) => Math.min(min, stone.distance), Infinity);
+    if (!Number.isFinite(tail)) { this.spawnStone(0); return; }
+    while (tail >= this.config.stones.spacing && this.state.stones.length < this.config.stones.maxCount) {
+      tail -= this.config.stones.spacing;
+      this.spawnStone(tail);
     }
   }
 
   private updateConveyorPaused(): void {
-    const c = this.config.conveyor;
-    this.state.conveyorPaused = this.state.paused || this.state.drag !== null ||
-      this.state.slots.some((slot) => (slot.entityId !== null || slot.reserved) && slot.x <= c.left + 1e-8);
+    this.state.conveyorPaused = this.state.paused || this.state.gameOver;
   }
 
   private tickConveyor(dt: number): void {
@@ -171,22 +193,29 @@ export class Game {
     this.barrelCooldown = Math.max(0, this.barrelCooldown - dt);
     this.updateConveyorPaused();
     if (this.state.conveyorPaused) return;
-    let travel = c.speed * dt;
-    for (const slot of this.state.slots) {
-      if (slot.entityId || slot.reserved) travel = Math.min(travel, Math.max(0, slot.x - c.left));
-    }
     const width = c.right - c.left;
     const spacing = width / c.count;
     for (const slot of this.state.slots) {
-      slot.x -= travel;
-      if (slot.x <= c.left + 1e-8 && !slot.entityId && !slot.reserved) slot.x += width;
+      slot.x -= c.speed * dt;
+      if (slot.x <= c.left) {
+        const drag = this.state.drag;
+        const expiredId = drag?.source.kind === 'slot' && drag.source.id === slot.id ? drag.entityId : slot.entityId;
+        if (expiredId) {
+          delete this.state.entities[expiredId];
+          this.emit({ type: 'expired', x: c.left, z: slot.z, entityId: expiredId });
+        }
+        if (drag?.source.kind === 'slot' && drag.source.id === slot.id) this.state.drag = null;
+        slot.entityId = null;
+        slot.reserved = false;
+        // Carry fractional overrun through wrapping; never freeze a full belt.
+        slot.x = c.left + ((slot.x - c.left) % width + width) % width;
+        if (slot.x === c.left) slot.x = c.right;
+      }
     }
-    // Refill only at the right-hand entrance. A reserved source can never be filled.
     if (this.barrelCooldown <= 0) {
       const entrance = this.state.slots.find((slot) => !slot.entityId && !slot.reserved && slot.x >= c.right - spacing * 0.5);
       if (entrance) { this.spawnBarrel(entrance.id); this.barrelCooldown = c.spawnInterval; }
     }
-    this.updateConveyorPaused();
   }
 
   private tickMining(dt: number): void {
@@ -198,13 +227,14 @@ export class Game {
       const cycle = worker.mining;
       if (cycle.phase === 0 && cycle.targetId) {
         const previous = this.state.stones.find((stone) => stone.id === cycle.targetId);
-        const point = previous ? samplePath(previous.distance, this.config.path) : null;
+        const point = previous && previous.distance >= 0 ? samplePath(previous.distance, this.config.path) : null;
         if (!point || Math.hypot(point.x - pad.x, point.z - pad.z) > c.radius) cycle.targetId = null;
       }
       if (!cycle.targetId && cycle.phase === 0) {
         let nearest: Stone | undefined;
         let closest = c.radius;
         for (const stone of this.state.stones) {
+          if (stone.distance < 0) continue;
           const point = samplePath(stone.distance, this.config.path);
           const distance = Math.hypot(point.x - pad.x, point.z - pad.z);
           if (distance < closest) { nearest = stone; closest = distance; }
@@ -217,7 +247,7 @@ export class Game {
       if (!cycle.hit && cycle.phase >= c.impactPhase) {
         cycle.hit = true;
         const stone = this.state.stones.find((candidate) => candidate.id === cycle.targetId);
-        if (stone) {
+        if (stone && stone.distance >= 0) {
           const point = samplePath(stone.distance, this.config.path);
           if (Math.hypot(point.x - pad.x, point.z - pad.z) <= c.radius) {
             this.emit({ type: 'hit', x: point.x, z: point.z, entityId: worker.id, stoneId: stone.id, amount: c.damageByLevel[worker.level - 1]! });

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Game } from '../../src/game/Simulation';
+import { CONFIG } from '../../src/game/config';
 import { PointerController } from '../../src/input/PointerController';
 import type { DropTarget } from '../../src/game/GameState';
 import type { HitTarget, SceneView } from '../../src/render/SceneFactory';
@@ -177,5 +178,172 @@ describe('PointerController event contract (DOM-free unit tests)', () => {
     expect(s.game.state.pads[1]!.unlocked).toBe(true);
     expect(s.game.state.coins).toBe(0);
     expect(s.game.state.stats.purchased).toBe(1);
+  });
+});
+
+
+describe('v0.2 continuous belt, rewind and defeat pointer rules', () => {
+  it('keeps the belt moving during a captured drag and clears every stale input on source expiry', () => {
+    const s = setup();
+    s.openWorker();
+    s.startDrag();
+    const oldX = s.game.state.slots[0]!.x;
+    s.game.tick(1 / 60);
+    expect(s.game.state.slots[0]!.x).toBeLessThan(oldX);
+    expect(s.game.state.drag?.entityId).toBe(s.firstId);
+    s.game.state.slots[0]!.x = CONFIG.conveyor.left + .001;
+    s.game.tick(1 / 60);
+    expect(s.game.state.entities[s.firstId]).toBeUndefined();
+    expect(s.game.state.drag).toBeNull();
+    s.controller.refreshDrop();
+    expect(s.controller.activePointerId).toBeNull();
+    expect(s.controller.dragPosition).toBeNull();
+    expect(s.canvas.captures.size).toBe(0);
+    expect(s.showDrop).toHaveBeenLastCalledWith(null, false, CONFIG.bomb.radius);
+    expect(s.feedback).toHaveBeenCalledExactlyOnceWith('That item left the belt.');
+    const snapshot = structuredClone(s.game.state);
+    s.send('pointermove', { clientX: 180 });
+    s.send('pointerup', { clientX: 180 });
+    s.send('pointercancel');
+    expect(s.game.state).toEqual(snapshot);
+  });
+
+  it('rechecks expiry at pointerup before any frame has refreshed the gesture', () => {
+    const s = setup();
+    s.openWorker();
+    s.startDrag();
+    s.game.state.slots[0]!.x = CONFIG.conveyor.left + .001;
+    s.game.tick(1 / 60);
+    const drop = vi.spyOn(s.game, 'drop');
+    s.send('pointerup');
+    expect(drop).not.toHaveBeenCalled();
+    expect(s.game.state.stats.merged).toBe(0);
+    expect(s.controller.activePointerId).toBeNull();
+    expect(s.canvas.captures.size).toBe(0);
+    expect(s.showDrop).toHaveBeenLastCalledWith(null, false, CONFIG.bomb.radius);
+  });
+
+  it('does not open a replacement barrel when the originally pressed barrel leaves the belt', () => {
+    const s = setup();
+    s.send('pointerdown');
+    s.game.state.slots[0]!.x = CONFIG.conveyor.left + .001;
+    s.game.tick(1 / 60);
+    expect(s.game.state.slots[0]!.entityId).not.toBe(s.firstId);
+    s.send('pointerup');
+    expect(s.game.state.stats.opened).toBe(0);
+    expect(s.controller.activePointerId).toBeNull();
+    expect(s.canvas.captures.size).toBe(0);
+  });
+
+  it('reveals a rewind without activating it, then uses it exactly once on a completed tap', () => {
+    const s = setup();
+    const barrel = s.game.state.entities[s.firstId]!;
+    if (barrel.kind !== 'barrel') throw new Error('Expected starter barrel');
+    barrel.content = 'rewind';
+    const use = vi.spyOn(s.game, 'useRewind');
+    s.send('pointerdown');
+    s.send('pointerup');
+    expect(s.game.state.entities[s.firstId]?.kind).toBe('rewind');
+    expect(use).not.toHaveBeenCalled();
+    s.send('pointerdown');
+    expect(use).not.toHaveBeenCalled();
+    s.send('pointerup');
+    s.send('pointerup');
+    s.canvas.dispatchEvent(new Event('click'));
+    expect(use).toHaveBeenCalledExactlyOnceWith(s.firstId);
+    expect(s.game.state.entities[s.firstId]).toBeUndefined();
+    expect(s.game.state.events.filter(event => event.type === 'rewind')).toHaveLength(1);
+    expect(s.canvas.captures.size).toBe(0);
+  });
+
+  it('does not drag or activate a rewind when the gesture moves past the drag threshold', () => {
+    const s = setup();
+    s.game.state.entities[s.firstId] = { id: s.firstId, kind: 'rewind', location: { kind: 'slot', id: 'slot-0' } };
+    const use = vi.spyOn(s.game, 'useRewind');
+    s.startDrag({ pointerType: 'touch' });
+    expect(s.game.state.drag).toBeNull();
+    expect(s.game.state.slots[0]!.reserved).toBe(false);
+    s.send('pointerup', { pointerType: 'touch' });
+    expect(use).not.toHaveBeenCalled();
+    expect(s.game.state.entities[s.firstId]?.kind).toBe('rewind');
+    s.send('pointerdown', { pointerType: 'touch' });
+    s.send('pointerup', { pointerType: 'touch' });
+    expect(use).toHaveBeenCalledExactlyOnceWith(s.firstId);
+  });
+
+  it('clears an in-progress gesture when defeat arrives and rejects fresh taps', () => {
+    const s = setup();
+    s.openWorker();
+    s.startDrag();
+    s.game.state.gameOver = true;
+    s.controller.refreshDrop();
+    expect(s.controller.activePointerId).toBeNull();
+    expect(s.controller.dragPosition).toBeNull();
+    expect(s.canvas.captures.size).toBe(0);
+    expect(s.showDrop).toHaveBeenLastCalledWith(null, false, CONFIG.bomb.radius);
+    const snapshot = structuredClone(s.game.state);
+    s.send('pointerup');
+    s.send('pointerdown');
+    s.send('pointermove', { clientX: 200 });
+    s.send('pointerup');
+    expect(s.game.state).toEqual(snapshot);
+    expect(s.controller.activePointerId).toBeNull();
+    expect(s.feedback).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('v0.2 slow-token pointer rules', () => {
+  it('reveals a clock without activating it, then activates exactly once on a completed tap', () => {
+    const s = setup();
+    const barrel = s.game.state.entities[s.firstId]!;
+    if (barrel.kind !== 'barrel') throw new Error('Expected starter barrel');
+    barrel.content = 'slow';
+    const use = vi.spyOn(s.game, 'useSlow');
+    s.send('pointerdown');
+    s.send('pointerup');
+    expect(s.game.state.entities[s.firstId]?.kind).toBe('slow');
+    expect(s.game.state.slowRemaining).toBe(0);
+    expect(use).not.toHaveBeenCalled();
+    s.send('pointerdown');
+    expect(use).not.toHaveBeenCalled();
+    s.send('pointerup');
+    s.send('pointerup');
+    s.canvas.dispatchEvent(new Event('click'));
+    expect(use).toHaveBeenCalledExactlyOnceWith(s.firstId);
+    expect(s.game.state.slowRemaining).toBe(5);
+    expect(s.game.state.entities[s.firstId]).toBeUndefined();
+    expect(s.canvas.captures.size).toBe(0);
+  });
+
+  it('does not drag a clock; a subsequent touch tap activates it', () => {
+    const s = setup();
+    s.game.state.entities[s.firstId] = { id: s.firstId, kind: 'slow', location: { kind: 'slot', id: 'slot-0' } };
+    const use = vi.spyOn(s.game, 'useSlow');
+    s.startDrag({ pointerType: 'touch', pointerId: 4 });
+    expect(s.game.state.drag).toBeNull();
+    expect(s.game.state.slots[0]!.reserved).toBe(false);
+    s.send('pointerup', { pointerType: 'touch', pointerId: 4 });
+    expect(use).not.toHaveBeenCalled();
+    expect(s.game.state.entities[s.firstId]?.kind).toBe('slow');
+    s.send('pointerdown', { pointerType: 'touch', pointerId: 4 });
+    s.send('pointerup', { pointerType: 'touch', pointerId: 4 });
+    expect(use).toHaveBeenCalledExactlyOnceWith(s.firstId);
+    expect(s.game.state.slowRemaining).toBe(5);
+  });
+
+  it('cannot activate a held clock after it leaves the belt', () => {
+    const s = setup();
+    s.game.state.entities[s.firstId] = { id: s.firstId, kind: 'slow', location: { kind: 'slot', id: 'slot-0' } };
+    const use = vi.spyOn(s.game, 'useSlow');
+    s.send('pointerdown');
+    s.game.state.slots[0]!.x = CONFIG.conveyor.left + .001;
+    s.game.tick(1 / 60);
+    s.send('pointerup');
+    expect(use).not.toHaveBeenCalled();
+    expect(s.game.state.slowRemaining).toBe(0);
+    expect(s.game.state.entities[s.firstId]).toBeUndefined();
+    expect(s.controller.activePointerId).toBeNull();
+    expect(s.canvas.captures.size).toBe(0);
   });
 });
