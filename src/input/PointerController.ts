@@ -57,7 +57,7 @@ export class PointerController {
     this.finish();
   };
   private pointerCancel=(event:PointerEvent)=>{if(event.pointerId===this.activePointerId)this.cancel();};
-  private finish(){const id=this.activePointerId;this.activePointerId=null;this.start=null;this.moved=false;this.touch=false;this.draggedEntityId=null;this.dragPosition=null;this.lastPoint=null;this.view.showDrop(null,false,CONFIG.bomb.radius);if(id!==null&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}
+  private finish(){const id=this.activePointerId;this.activePointerId=null;this.start=null;this.moved=false;this.touch=false;this.draggedEntityId=null;this.dragPosition=null;this.lastPoint=null;this.view.showDrop(null,false,CONFIG.bomb.radius);this.view.clearMergeTargets();if(id!==null&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}
   refreshDrop(){
     if(this.activePointerId===null)return;
     if(this.game.state.gameOver||this.game.state.paused){this.cancel();return;}

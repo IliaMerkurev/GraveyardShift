@@ -9,6 +9,8 @@ These later instructions supersede the conflicting v0.1 infinite-flow, permanent
 
 ## Current playtest corrections
 
+[Upgrade bounce, merge targets and bomb camera shake](UPGRADE_MERGE_SHAKE_ITERATION.md) adds purchase-gated bouncing, live green highlighting for every legal matching worker, and a short decaying explosion shake.
+
 [Capped, visible worker upgrades](UPGRADE_CAP_ITERATION.md) caps both ends of the paid worker-drop range at the highest currently deployed worker (level 1 fallback). Purchases are blocked without charge when neither endpoint can improve. The upgrade control now occupies a dedicated high-contrast bottom rail outside the game canvas.
 
 [Bonus storage and additive worker-drop upgrades](STORAGE_UPGRADE_ITERATION.md) adds three permanent bonus slots per run and a coin-funded +1 drop-level button whose price doubles. It supplements the dynamic drop window below. Owner performs manual gameplay testing; only bundling/standalone packaging run for this iteration.

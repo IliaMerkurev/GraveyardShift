@@ -9,7 +9,7 @@ import { PlayableBridge } from './platform/PlayableBridge';
 const app=document.querySelector<HTMLElement>('#app')!;
 const shell=document.createElement('div');shell.className='game-shell';app.append(shell);
 try {
-  const game=new Game();const view=new SceneView(shell);const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;
+  const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;
   const pause=()=>{input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;bridge.start();lastTime=performance.now();};

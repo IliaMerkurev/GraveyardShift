@@ -19,9 +19,10 @@ export class SceneView {
   private storage=new Map<string,{group:THREE.Group;material:THREE.MeshLambertMaterial;label:HTMLDivElement}>();
   private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  private cameraBase=new THREE.Vector3();private shakeRemaining=0;private reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   private ring:THREE.Mesh; private targetRing:THREE.Mesh;private treads:THREE.InstancedMesh;private state:GameState|null=null;private lastWidth=0;private lastHeight=0;
   private trackPoints:Point[]=[];private landscape=false;private field=new THREE.Group();private floor:THREE.Mesh;private belt=new THREE.Group();
-  constructor(readonly shell:HTMLElement){
+  constructor(readonly shell:HTMLElement,private canDrop:(target:DropTarget)=>boolean=()=>false){
     this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap or drag cyan rewind, purple pause, or amber permanent slowdown bonuses onto the field. Drag unwanted workers into the discard pit.');this.canvas.dataset.testid='game-canvas';
     const context=this.canvas.getContext('webgl2',{antialias:true,alpha:false});
     if(!context) throw new Error('WebGL 2 is unavailable. Please open this prototype in a recent browser with graphics acceleration enabled.');
@@ -58,7 +59,7 @@ export class SceneView {
   }
   resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=w>h;this.field.rotation.y=this.landscape?Math.PI/2:0;this.belt.position.z=this.landscape?3.65:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.45:1,1,this.landscape?.59:1);this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
     const direction=new THREE.Vector3(...viewConfig.camera.direction).normalize();const vertical=this.landscape?CONFIG.camera.landscapeDepth:CONFIG.camera.frameDepth;const horizontal=this.landscape?CONFIG.camera.landscapeWidth:CONFIG.camera.frameWidth;const fov=THREE.MathUtils.degToRad(viewConfig.camera.fov);const distance=Math.max(vertical/2/Math.tan(fov/2),horizontal/2/Math.tan(fov/2)/this.camera.aspect)*viewConfig.camera.margin;
-    this.camera.position.copy(direction.multiplyScalar(distance));this.camera.lookAt(0,0,this.landscape?-.1:CONFIG.camera.target[2]);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
+    this.camera.position.copy(direction.multiplyScalar(distance));this.camera.lookAt(0,0,this.landscape?-.1:CONFIG.camera.target[2]);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();this.cameraBase.copy(this.camera.position);
   }
   private mapped(point:Point,belt=false):Point{return this.landscape?(belt?{x:point.x*2,z:3.65}:{x:point.z,z:-point.x}):point;}
   project(point:Point,y=0,belt=false):ScreenPoint{const p=this.mapped(point,belt);const v=new THREE.Vector3(p.x,y,p.z).project(this.camera);return{x:(v.x+1)*this.lastWidth/2,y:(1-v.y)*this.lastHeight/2};}
@@ -141,8 +142,43 @@ export class SceneView {
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
   }
   burst(x:number,z:number,color:number,count=10,large=false,coin=false){const p=this.mapped({x,z},z===CONFIG.conveyor.z);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?6:2),vy:2+Math.random()*2,vz:(Math.random()-.5)*(large?6:2),color,size:coin?.11:large?.12:.075,coin});}}
-  reset(){this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
-  sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;for(const[id,time]of this.flashes){if(time<=dt)this.flashes.delete(id);else this.flashes.set(id,time-dt);}for(const e of events)if(e.type==='hit'&&e.stoneId)this.flashes.set(e.stoneId,.16);
+  private updateCameraShake(state:GameState,dt:number,events:GameEvent[]){
+    // Always rebuild from the settled pose, so repeated bombs cannot accumulate drift.
+    this.camera.position.copy(this.cameraBase);
+    if(state.paused||state.gameOver||this.reducedMotion.matches){this.shakeRemaining=0;}
+    else{
+      if(events.some(event=>event.type==='bomb'))this.shakeRemaining=.28;
+      if(this.shakeRemaining>0){
+        this.shakeRemaining=Math.max(0,this.shakeRemaining-dt);
+        const elapsed=.28-this.shakeRemaining,strength=.13*(this.shakeRemaining/.28)**2;
+        this.camera.position.x+=Math.sin(elapsed*113)*strength;
+        this.camera.position.y+=Math.sin(elapsed*157+.8)*strength*.65;
+      }
+    }
+    // Labels, hit/drop projection and the render all use this same current camera.
+    this.camera.updateMatrixWorld();
+  }
+  clearMergeTargets(){
+    for(const view of this.entities.values()){
+      view.hit.classList.remove('merge-target');view.label.classList.remove('merge-target-label');
+      delete view.hit.dataset.mergeTarget;
+    }
+  }
+  private mergeTargets(state:GameState):Set<string>{
+    const targets=new Set<string>();
+    const held=state.drag?state.entities[state.drag.entityId]:undefined;
+    if(state.paused||state.gameOver||held?.kind!=='worker')return targets;
+    for(const kind of ['pad','slot'] as const)for(const place of kind==='pad'?state.pads:state.slots){
+      const other=place.entityId?state.entities[place.entityId]:undefined;
+      if(place.reserved||!other||other.id===held.id||other.kind!=='worker'||other.level!==held.level)continue;
+      if(other.location.kind!==kind||other.location.id!==place.id)continue;
+      // Use the command's live legality, including source ownership and pad locks.
+      if(this.canDrop({kind,id:place.id}))targets.add(other.id);
+    }
+    return targets;
+  }
+  reset(){this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
+  sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.updateCameraShake(state,dt,events);for(const[id,time]of this.flashes){if(time<=dt)this.flashes.delete(id);else this.flashes.set(id,time-dt);}for(const e of events)if(e.type==='hit'&&e.stoneId)this.flashes.set(e.stoneId,.16);
     // Read-only render mirrors support browser verification without a game-control hook.
     const ordered=[...state.stones].sort((a,b)=>a.distance-b.distance);
     const hasGap=ordered.some((stone,i)=>i>0&&stone.distance-ordered[i-1].distance>CONFIG.stones.spacing+1e-9);
@@ -176,8 +212,12 @@ export class SceneView {
     }
     this.carriers.count=carrierCount;this.carriers.instanceMatrix.needsUpdate=true;
     for(const [id,view]of this.entities)if(!state.entities[id]||state.entities[id].kind!==view.kind){if(view.worker)view.worker.dispose();else disposePrimitive(view.group);view.label.remove();view.hit.remove();this.entities.delete(id);}
+    const mergeTargets=this.mergeTargets(state);
     for(const entity of Object.values(state.entities)){
       let v=this.entities.get(entity.id);if(!v){const worker=entity.kind==='worker'?createWorker():undefined;const group=worker?.group??(entity.kind==='barrel'?createBarrel():entity.kind==='rewind'?createRewind():entity.kind==='slow'?createSlow():entity.kind==='brake'?createBrake():createBomb());const label=document.createElement('div');label.className=entity.kind==='worker'?'entity-label':'barrel-label';const hit=document.createElement('div');hit.className='entity-target';hit.dataset.entity=entity.id;hit.dataset.kind=entity.kind;if(entity.kind==='rewind'||entity.kind==='slow'||entity.kind==='brake'){const slow=entity.kind==='slow',brake=entity.kind==='brake';label.style.color=brake?'#54330b':slow?'#33277e':'#074b5e';label.style.background=brake?'#ffcf7e':slow?'#d7d0ff':'#a7fff6';label.style.borderRadius='7px';label.style.padding='0 3px';label.setAttribute('aria-label',brake?'Permanent slowdown: tap or drag onto the field. Current forward speed drops 20 percent, with a minimum speed. Acceleration continues.':slow?'Pause snake bonus. Tap or drag onto the field to freeze the snake for five seconds.':'Rewind bonus. Tap or drag onto the field to use.');}this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);}
+      const mergeTarget=mergeTargets.has(entity.id);
+      v.hit.classList.toggle('merge-target',mergeTarget);v.label.classList.toggle('merge-target-label',mergeTarget);
+      if(mergeTarget)v.hit.dataset.mergeTarget='true';else delete v.hit.dataset.mergeTarget;
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
       const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}

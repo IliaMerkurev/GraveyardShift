@@ -19,9 +19,17 @@
 .game-shell .footer{left:0;right:0;bottom:0;height:var(--upgrade-rail);padding:7px 12px calc(9px + env(safe-area-inset-bottom));display:grid;grid-template-columns:minmax(0,1fr) 44px;grid-template-rows:16px 54px;gap:6px 10px;background:#211b35;border-top:2px solid #b49bcc;box-shadow:0 -4px 16px #1b142b55}
 .footer .belt-status{grid-column:1/-1;grid-row:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0;border:0;background:transparent;font-size:10px;line-height:16px;letter-spacing:.6px}
 .upgrade-button{grid-column:1;grid-row:2;pointer-events:auto;min-width:0;width:100%;height:54px;border:2px solid #fff0ac;border-radius:12px;background:linear-gradient(#ffe58d,#ffc34f);color:#30213c;padding:4px 6px;white-space:pre-line;font-size:clamp(10px,2.8vw,14px);line-height:1.55;font-weight:900;box-shadow:0 3px 0 #956323}
-.upgrade-button[data-ready="true"]{border-color:#fff8d6;box-shadow:0 3px 0 #956323,0 0 17px #ffcf5277}
+.upgrade-button[data-ready="true"]:not(:disabled){border-color:#fff8d6;box-shadow:0 3px 0 #956323,0 0 17px #ffcf5277;transform-origin:50% 100%;animation:upgrade-ready-bounce 1.35s ease-in-out infinite}
 .upgrade-button:disabled{background:#e7c991;color:#51415c;border-color:#ffe1a6;box-shadow:0 3px 0 #735775;cursor:default}
 .upgrade-button[data-capped="true"]{background:#dbc9ec;border-color:#f5e6ff;color:#40314e}
 .footer .help-button{grid-column:2;grid-row:2;align-self:center}
 
 .discard-label{white-space:pre-line;text-align:center;font-size:8px;line-height:1.15;padding:2px 3px;background:#291c25;color:#ffc49a;border:1px solid #e08a59;pointer-events:none}.discard-label.active{background:#743c33;color:#fff1db;border-color:#ffb57e}
+
+/* Affordability is driven by the HUD's full purchase gate, never coins alone. */
+@keyframes upgrade-ready-bounce{0%,45%,100%{transform:translateY(0) scale(1)}12%{transform:translateY(-7px) scale(1.015)}24%{transform:translateY(0) scale(.99,1.02)}34%{transform:translateY(-3px) scale(1.005)}}
+/* Separate from hover rings and tutorial pulses; follows each worker every frame. */
+.entity-target.merge-target{border:3px solid #a1ffd0;border-radius:50%;background:#42ee9622;box-shadow:0 0 0 4px #36ee9566,0 0 22px #56ffaaa6}
+.entity-target.merge-target::after{content:'MERGE';position:absolute;top:100%;left:50%;transform:translateX(-50%);padding:1px 5px;border:1px solid #a1ffd0;border-radius:5px;background:#184c36;color:#caffdf;font-size:9px;font-weight:900;letter-spacing:.6px;white-space:nowrap}
+.entity-label.merge-target-label{background:#175f3b;border-color:#a1ffd0;color:#e4ffef;box-shadow:0 0 12px #56ffaa}
+@media(prefers-reduced-motion:reduce){.upgrade-button[data-ready="true"]:not(:disabled){animation:none;outline:3px solid #fff1a6;outline-offset:2px}}
