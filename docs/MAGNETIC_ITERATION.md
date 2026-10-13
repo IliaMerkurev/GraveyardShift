@@ -13,15 +13,15 @@ Owner feedback on 2026-10-13 supersedes the prior anchored rear, whole-chain gap
 
 ## Progressive pressure
 
-Following the owner’s immediate playtest request to halve acceleration, forward speed is `0.34 + 0.005t + 0.00075t²` path units/second for active seconds `t`:
+Following the owner’s second playtest request to halve acceleration again, forward speed is `0.34 + 0.0025t + 0.000375t²` path units/second for active seconds `t`:
 
 - Start: 0.34
-- 10 seconds: 0.465
-- 20 seconds: 0.74
-- 40 seconds: 1.74
-- 60 seconds: 3.34
+- 10 seconds: 0.4025
+- 20 seconds: 0.54
+- 40 seconds: 1.04
+- 60 seconds: 1.84
 
-Initial speed remains 0.34; every time-dependent speed gain is exactly half the preceding magnetic build. No gap, pull, recoil, mining or economy tuning changed. It continues growing after these samples. A remote numerical safety guard of 1,000,000 units/s is not a playable balance cap. Time in global pause does not age pressure; slow/rewind do not reset it. The smaller early linear term retains starter mining, while late pressure rapidly overwhelms ordinary mining. This is short-playable tuning, not a claim that every strategy or earning pace is fully balanced.
+Initial speed remains 0.34; every time-dependent speed gain is half the preceding published balance update and one quarter of the original magnetic build. No gap, pull, recoil, mining or economy tuning changed. It continues growing after these samples. A remote numerical safety guard of 1,000,000 units/s is not a playable balance cap. Time in global pause does not age pressure; slow/rewind do not reset it. The smaller early linear term retains starter mining, while late pressure rapidly overwhelms ordinary mining. This is short-playable tuning, not a claim that every strategy or earning pace is fully balanced.
 
 Historical measurements below belong to the preceding magnetic build (`0.34 + 0.010t + 0.0015t²`), not the halved-acceleration update. They use actual fixed-step movement and real mining, without forced defeat or event injection:
 

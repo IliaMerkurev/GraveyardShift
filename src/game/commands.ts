@@ -2,7 +2,7 @@ import type { GameConfig } from './config';
 import { nextWorkerLevel } from './progression';
 import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
-  type Pad, type PlaceRef, type Point, type Slot,
+  type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow,
 } from './GameState';
 import { distanceToPath, samplePath, getPathLength } from './path';
 
@@ -50,9 +50,11 @@ export function openBarrel(ctx: CommandContext, slotId: string): boolean {
   } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
   } else {
-    delete ctx.state.entities[barrel.id];
-    slot.entityId = null;
-    reward(ctx, ctx.config.economy.barrelCoins, slot);
+    // Coins used to leave no visible cargo, making these barrels appear empty.
+    // Keep their economy reward and reveal a useful token, including a safe
+    // rewind fallback for any unknown legacy content.
+    ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'rewind', location: { kind: 'slot', id: slot.id } };
+    if (barrel.content === 'coins') reward(ctx, ctx.config.economy.barrelCoins, slot);
   }
   ctx.state.stats.opened++;
   ctx.state.tutorial.opened = true;
@@ -60,27 +62,15 @@ export function openBarrel(ctx: CommandContext, slotId: string): boolean {
   return true;
 }
 
-/** Snake-only time bonus; repeated collection refreshes, never stacks. */
-export function useSlow(ctx: CommandContext, entityId: string): boolean {
-  if (ctx.state.paused || ctx.state.gameOver) return false;
-  const entity = ctx.state.entities[entityId];
-  if (!entity || entity.kind !== 'slow' || entity.location.kind !== 'slot') return false;
-  const slot = getPlace(ctx.state, entity.location);
-  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
-  ctx.state.slowRemaining = ctx.config.slow.duration;
-  delete ctx.state.entities[entityId];
-  slot.entityId = null;
-  ctx.emit({ type: 'slow', x: slot.x, z: slot.z, entityId, amount: ctx.config.slow.duration });
-  return true;
-}
-
-/** Tap a revealed rewind token. Preserve IDs/HP and never advance the head. */
-export function useRewind(ctx: CommandContext, entityId: string): boolean {
-  if (ctx.state.paused || ctx.state.gameOver) return false;
-  const entity = ctx.state.entities[entityId];
-  if (!entity || entity.kind !== 'rewind' || entity.location.kind !== 'slot') return false;
-  const slot = getPlace(ctx.state, entity.location);
-  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
+/** Both gestures share one consumption/effect gate. Call only after ownership validation. */
+function activateBonus(ctx: CommandContext, entity: Rewind | Slow, point: Point): void {
+  delete ctx.state.entities[entity.id];
+  if (entity.kind === 'slow') {
+    // Snake-only time bonus; repeated collection refreshes, never stacks.
+    ctx.state.slowRemaining = ctx.config.slow.duration;
+    ctx.emit({ type: 'slow', ...point, entityId: entity.id, amount: ctx.config.slow.duration });
+    return;
+  }
   const head = ctx.state.stones.reduce((max, stone) => Math.max(max, stone.distance), 0);
   const midpoint = getPathLength(ctx.config.path) * ctx.config.stones.rewindFraction;
   const target = head < midpoint ? ctx.config.stones.rewindNearStart : midpoint;
@@ -88,10 +78,31 @@ export function useRewind(ctx: CommandContext, entityId: string): boolean {
   // Simulation owns the motion; token consumption never teleports the chain.
   ctx.state.rewindTarget = shift > 0 ? target : null;
   ctx.state.rewindSpeed = shift / ctx.config.stones.rewindDuration;
-  delete ctx.state.entities[entityId];
+  ctx.emit({ type: 'rewind', ...point, entityId: entity.id, amount: shift });
+}
+
+function useSlotBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow'): boolean {
+  if (ctx.state.paused || ctx.state.gameOver) return false;
+  const entity = ctx.state.entities[entityId];
+  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow') || entity.kind !== kind || entity.location.kind !== 'slot') return false;
+  const slot = getPlace(ctx.state, entity.location);
+  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
   slot.entityId = null;
-  ctx.emit({ type: 'rewind', x: slot.x, z: slot.z, entityId, amount: shift });
+  activateBonus(ctx, entity, { x: slot.x, z: slot.z });
   return true;
+}
+
+export function useSlow(ctx: CommandContext, entityId: string): boolean { return useSlotBonus(ctx, entityId, 'slow'); }
+export function useRewind(ctx: CommandContext, entityId: string): boolean { return useSlotBonus(ctx, entityId, 'rewind'); }
+
+/** Route-and-ground footprint in field coordinates, excluding worker/purchase pads.
+ * The conveyor and UI are rejected separately by the pointer view. */
+export function isBonusFieldPoint(point: Point, config: GameConfig): boolean {
+  const { path } = config;
+  return Number.isFinite(point.x) && Number.isFinite(point.z) &&
+    point.x >= path.left - path.bendRadius - .5 && point.x <= path.right + path.bendRadius + .5 &&
+    point.z >= Math.min(...path.runs) - .5 && point.z <= Math.max(...path.runs) + .5 &&
+    !config.pads.some(pad => Math.abs(point.x - pad.x) <= .62 && Math.abs(point.z - pad.z) <= .57);
 }
 
 function canBuyPad(ctx: CommandContext, pad: Pad | undefined): pad is Pad {
@@ -118,7 +129,7 @@ export function buyPad(ctx: CommandContext, padId: string): boolean {
 export function beginDrag(ctx: CommandContext, entityId: string): boolean {
   if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
   const entity = ctx.state.entities[entityId];
-  if (!entity || entity.kind === 'barrel' || entity.kind === 'rewind' || entity.kind === 'slow' || entity.location.kind === 'drag') return false;
+  if (!entity || entity.kind === 'barrel' || entity.location.kind === 'drag') return false;
   const source = getPlace(ctx.state, entity.location);
   if (!source || source.reserved || source.entityId !== entityId) return false;
   const ref: PlaceRef = { ...entity.location };
@@ -148,7 +159,9 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (ctx.state.paused || ctx.state.gameOver || !ctx.state.drag || !target) return false;
   const drag = ctx.state.drag;
   const entity = ctx.state.entities[drag.entityId];
-  if (!entity) return false;
+  const source = getPlace(ctx.state, drag.source);
+  if (!entity || entity.location.kind !== 'drag' || !source?.reserved || source.entityId !== null) return false;
+  if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow') && isBonusFieldPoint(target, ctx.config);
   if (target.kind === 'track') {
     if (entity.kind !== 'bomb' || !Number.isFinite(target.x) || !Number.isFinite(target.z)) return false;
     if (distanceToPath(target, ctx.config.path) > ctx.config.bomb.trackTolerance) return false;
@@ -204,7 +217,10 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   const entity = ctx.state.entities[drag.entityId]!;
   const source = getPlace(ctx.state, drag.source)!;
   let purchasedPad: Pad | undefined;
-  if (target.kind === 'track') {
+  if (target.kind === 'field') {
+    if (entity.kind !== 'rewind' && entity.kind !== 'slow') { cancelDrag(ctx); return false; }
+    activateBonus(ctx, entity, { x: target.x, z: target.z });
+  } else if (target.kind === 'track') {
     // Snapshot IDs before removals; an ID can pass through the reward gate only once.
     const victims = ctx.state.stones.filter((stone) => {
       if (stone.distance < 0) return false;

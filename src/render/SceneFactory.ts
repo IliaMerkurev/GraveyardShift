@@ -21,7 +21,7 @@ export class SceneView {
   private ring:THREE.Mesh; private targetRing:THREE.Mesh;private treads:THREE.InstancedMesh;private state:GameState|null=null;private lastWidth=0;private lastHeight=0;
   private trackPoints:Point[]=[];private landscape=false;private field=new THREE.Group();private floor:THREE.Mesh;private belt=new THREE.Group();
   constructor(readonly shell:HTMLElement){
-    this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap cyan rewind or purple slow bonuses.');this.canvas.dataset.testid='game-canvas';
+    this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap or drag cyan rewind or purple slow bonuses onto the field.');this.canvas.dataset.testid='game-canvas';
     const context=this.canvas.getContext('webgl2',{antialias:true,alpha:false});
     if(!context) throw new Error('WebGL 2 is unavailable. Please open this prototype in a recent browser with graphics acceleration enabled.');
     this.renderer=new THREE.WebGLRenderer({canvas:this.canvas,context,antialias:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,viewConfig.dprLimit));
@@ -69,13 +69,27 @@ export class SceneView {
   }
   dropTarget(clientX:number,clientY:number):DropTarget{
     if(!this.state?.drag)return null;const bounds=this.canvas.getBoundingClientRect();if(clientX<bounds.left||clientX>bounds.right||clientY<bounds.top||clientY>bounds.bottom)return null;const entity=this.state.entities[this.state.drag.entityId];
+    if(entity?.kind==='rewind'||entity?.kind==='slow'){
+      // Pointer capture still delivers releases over HTML controls. Those are
+      // never part of the playfield, even if ground lies behind them.
+      for(const ui of this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')){
+        const rect=ui.getBoundingClientRect();
+        if(clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return null;
+      }
+      const rect=this.canvas.getBoundingClientRect();
+      for(const pad of this.state.pads){const screen=this.project(pad,.1);if(Math.hypot(clientX-rect.left-screen.x,clientY-rect.top-screen.y)<=viewConfig.hitRadiusPx)return{kind:'pad',id:pad.id};}
+      const point=this.world(clientX,clientY);if(!point)return null;
+      const ground=this.mapped(point),beltZ=this.landscape?3.65:CONFIG.conveyor.z;
+      if(Math.abs(ground.x)<=(this.landscape?6.5:3.25)&&Math.abs(ground.z-beltZ)<=.72)return null;
+      return{kind:'field',...point};
+    }
     if(entity?.kind==='bomb'){const rect=this.canvas.getBoundingClientRect();for(const slot of this.state.slots){const p=this.project(slot,.1,true);if(!slot.entityId&&Math.hypot(clientX-rect.left-p.x,clientY-rect.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}const p=this.world(clientX,clientY);return p?{kind:'track',...p}:null;}
     const rect=this.canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;const candidates:{target:DropTarget,d:number}[]=[];
     for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){const s=this.project(p,p.entityId && this.state.entities[p.entityId]?.kind==='worker' ? .4 : .10,kind==='slot');const d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.hitRadiusPx+5)candidates.push({target:{kind,id:p.id},d});}
     return candidates.sort((a,b)=>a.d-b.d)[0]?.target??null;
   }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
-    const color=valid?0x8effb7:0xff8580;if(target.kind==='track'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);this.ring.scale.setScalar(bombRadius);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
+    const color=valid?0x8effb7:0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);this.ring.scale.setScalar(target.kind==='field'?.55:bombRadius);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
   }
   burst(x:number,z:number,color:number,count=10,large=false,coin=false){const p=this.mapped({x,z},z===CONFIG.conveyor.z);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?6:2),vy:2+Math.random()*2,vz:(Math.random()-.5)*(large?6:2),color,size:coin?.11:large?.12:.075,coin});}}
@@ -103,7 +117,8 @@ export class SceneView {
     const showSlotTargets=dragged?.kind==='worker'||dragged?.kind==='bomb';
     let carrierCount=0;
     for(const slot of state.slots){
-      if(slot.entityId){const p=this.mapped(slot,true);this.dummy.position.set(p.x,.145,p.z);this.dummy.rotation.set(0,0,0);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();this.carriers.setMatrixAt(carrierCount++,this.dummy.matrix);}
+      const cargo=slot.entityId?state.entities[slot.entityId]:undefined;
+      if(cargo?.location.kind==='slot'&&cargo.location.id===slot.id){const p=this.mapped(slot,true);this.dummy.position.set(p.x,.145,p.z);this.dummy.rotation.set(0,0,0);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();this.carriers.setMatrixAt(carrierCount++,this.dummy.matrix);}
       let label=this.slotLabels.get(slot.id);if(!label){label=document.createElement('div');label.className='slot-label';label.dataset.slot=slot.id;label.textContent='＋';label.setAttribute('aria-label','Empty conveyor drop slot');this.labels.append(label);this.slotLabels.set(slot.id,label);}
       label.dataset.entityId=slot.entityId??'';label.dataset.reserved=String(slot.reserved);
       const isSource=state.drag?.source.kind==='slot'&&state.drag.source.id===slot.id;
@@ -113,7 +128,7 @@ export class SceneView {
     this.carriers.count=carrierCount;this.carriers.instanceMatrix.needsUpdate=true;
     for(const [id,view]of this.entities)if(!state.entities[id]||state.entities[id].kind!==view.kind){if(view.worker)view.worker.dispose();else disposePrimitive(view.group);view.label.remove();view.hit.remove();this.entities.delete(id);}
     for(const entity of Object.values(state.entities)){
-      let v=this.entities.get(entity.id);if(!v){const worker=entity.kind==='worker'?createWorker():undefined;const group=worker?.group??(entity.kind==='barrel'?createBarrel():entity.kind==='rewind'?createRewind():entity.kind==='slow'?createSlow():createBomb());const label=document.createElement('div');label.className=entity.kind==='worker'?'entity-label':'barrel-label';const hit=document.createElement('div');hit.className='entity-target';hit.dataset.entity=entity.id;hit.dataset.kind=entity.kind;if(entity.kind==='rewind'||entity.kind==='slow'){const slow=entity.kind==='slow';label.style.color=slow?'#33277e':'#074b5e';label.style.background=slow?'#d7d0ff':'#a7fff6';label.style.borderRadius='7px';label.style.padding='0 3px';label.setAttribute('aria-label',slow?'Slow snake bonus. Tap for five seconds of slower snake movement.':'Rewind bonus. Tap to use.');}this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);}
+      let v=this.entities.get(entity.id);if(!v){const worker=entity.kind==='worker'?createWorker():undefined;const group=worker?.group??(entity.kind==='barrel'?createBarrel():entity.kind==='rewind'?createRewind():entity.kind==='slow'?createSlow():createBomb());const label=document.createElement('div');label.className=entity.kind==='worker'?'entity-label':'barrel-label';const hit=document.createElement('div');hit.className='entity-target';hit.dataset.entity=entity.id;hit.dataset.kind=entity.kind;if(entity.kind==='rewind'||entity.kind==='slow'){const slow=entity.kind==='slow';label.style.color=slow?'#33277e':'#074b5e';label.style.background=slow?'#d7d0ff':'#a7fff6';label.style.borderRadius='7px';label.style.padding='0 3px';label.setAttribute('aria-label',slow?'Slow snake bonus. Tap or drag onto the field for five seconds of slower snake movement.':'Rewind bonus. Tap or drag onto the field to use.');}this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);}
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
       const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:.1,mapped.z);
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}

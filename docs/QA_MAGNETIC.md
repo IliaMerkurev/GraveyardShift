@@ -1,10 +1,14 @@
 # Magnetic-motion and difficulty production delta
 
+## Current owner testing instruction
+
+The latest barrel/bonus-drag update halves acceleration again. No automated tests, typecheck, browser QA, or Dreambook work are run; the owner is testing manually. The procedure and previous results below are historical, not a request to execute them. Only numeric curve expectations were updated. See [BONUS_DRAG_ITERATION.md](BONUS_DRAG_ITERATION.md).
+
 ## Build distinction
 
 The owner subsequently requested half the acceleration. Current script expectations use the halved time-dependent gain with unchanged initial 0.34 speed. A browser run already started on the earlier 600,149-byte build (SHA256 `1bf4acb2a159caa0aa6b851f5d868b49f33e511e1cc08ddd1181e67513dc4399`) remains evidence for that prior build; do not restart it or relabel its results as this balance update. No additional browser run is requested by this source change.
 
-## Scope and execution
+## Historical scope and execution (not authorized for this update)
 
 Run `scripts/production-magnetic-smoke.mjs` **once** on the authorized Dreambook executor after the changed single-file build is deployed to the existing Site. This is one bounded browser delta with two directly affected scenarios: isolated magnetic closure, then natural defeat while the ordinary starter miner keeps working. Do not rerun the previous six-feature smoke or broad regression suites.
 
@@ -50,9 +54,9 @@ Restart once more with the normal level-one starter miner left on its original p
 
 The changed forward difficulty is:
 
-`v(t) = 0.34 + 0.005t + 0.00075t²` path units/s, where `t` is active simulation time.
+`v(t) = 0.34 + 0.0025t + 0.000375t²` path units/s, where `t` is active simulation time.
 
-Reference values are 0.74 at 20 seconds, 1.74 at 40 seconds and 3.34 at 60 seconds. They describe the configured curve, **not a claim that a browser run survives to those times**. There is no reachable old 0.85 gameplay cap; an extreme numerical safety bound remains an implementation detail covered by model tests.
+Reference values are 0.54 at 20 seconds, 1.04 at 40 seconds and 1.84 at 60 seconds. They describe the configured curve, **not a claim that a browser run survives to those times**. There is no reachable old 0.85 gameplay cap; an extreme numerical safety bound remains an implementation detail covered by model tests.
 
 Assertions require:
 

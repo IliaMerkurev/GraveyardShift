@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 const DEFAULT_URL = 'https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site';
 const BUDGET_MS = 105_000;
 const SPACING = 0.245;
-const expectedForward = t => 0.34 + 0.005 * t + 0.00075 * t * t;
+const expectedForward = t => 0.34 + 0.0025 * t + 0.000375 * t * t;
 const HELP = `RockSnake magnetic-motion production delta (ONE run)
 node scripts/production-magnetic-smoke.mjs --playwright-module <existing module file or directory> --executable <installed Chrome or Edge> [--url <HTTP(S) URL>] [--output <directory>]
 

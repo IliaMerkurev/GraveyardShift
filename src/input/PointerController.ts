@@ -29,7 +29,7 @@ export class PointerController {
     const entity=target?.kind==='entity'?this.game.state.entities[target.id]:undefined;
     // Own a revealed belt item from first contact, including a hold before the
     // movement threshold. Pad workers can wait for movement without expiry risk.
-    if(entity?.location.kind==='slot'&&(entity.kind==='worker'||entity.kind==='bomb')&&this.game.beginDrag(entity.id)){
+    if(entity?.location.kind==='slot'&&entity.kind!=='barrel'&&this.game.beginDrag(entity.id)){
       this.draggedEntityId=entity.id;
       this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));
     }
@@ -43,6 +43,8 @@ export class PointerController {
   };
   private up=(event:PointerEvent)=>{
     if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
+    // A final release can arrive without the corresponding move sample.
+    this.moved ||= Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx;
     if(this.draggedEntityId!==null&&this.moved){const target=this.view.dropTarget(event.clientX,event.clientY);if(!this.game.drop(target))this.feedback('Not a match. Returned safely.');}
     else if(!this.moved){
       if(this.draggedEntityId!==null)this.game.cancelDrag();

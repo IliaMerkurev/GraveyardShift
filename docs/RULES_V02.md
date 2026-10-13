@@ -4,6 +4,8 @@ These later instructions supersede the conflicting v0.1 infinite-flow, permanent
 
 ## Current playtest corrections
 
+The latest [barrel and bonus-drag correction](BONUS_DRAG_ITERATION.md) supersedes coin-only disappearance, tap-only bonuses, and prior acceleration tuning. The owner now tests manually: do not run automated tests, typecheck, browser QA, or Dreambook work for this iteration.
+
 The latest [magnetic-motion correction](MAGNETIC_ITERATION.md) supersedes gap pauses, rear anchoring and acceleration caps in all earlier descriptions.
 
 The six later feedback corrections in [FEEDBACK_ITERATION.md](FEEDBACK_ITERATION.md) supersede the historical implementation below, particularly instant gap/rewind motion, slow acceleration, held-item expiry, and empty carrier visuals.

@@ -1,7 +1,7 @@
 export type ContentKind = 'worker' | 'coins' | 'bomb' | 'rewind' | 'slow';
 export type PlaceRef = { kind: 'slot' | 'pad'; id: string };
 export type EntityLocation = PlaceRef | { kind: 'drag' };
-export type DropTarget = PlaceRef | { kind: 'track'; x: number; z: number } | null;
+export type DropTarget = PlaceRef | { kind: 'track'; x: number; z: number } | { kind: 'field'; x: number; z: number } | null;
 export interface Point { x: number; z: number }
 export interface MiningState { phase: number; targetId: string | null; hit: boolean }
 interface EntityBase { id: string; location: EntityLocation }

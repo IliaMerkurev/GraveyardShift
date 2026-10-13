@@ -70,9 +70,9 @@ describe('magnetic motion delta',()=>{
 });
 describe('strong active-time pressure delta',()=>{
   it('measures actual 20/40/60 second travel and remains finite at extreme time',()=>{
-    for(const [t,speed] of [[20,.74],[40,1.74],[60,3.34]]) expect(forwardSpeed(t!)).toBeCloseTo(speed!,8);
+    for(const [t,speed] of [[20,.54],[40,1.04],[60,1.84]]) expect(forwardSpeed(t!)).toBeCloseTo(speed!,8);
     for(const t of [20,40,60]){const g=quiet();g.state.stones=[g.state.stones[0]!];g.state.stones[0]!.distance=-10000;g.state.time=t;const h=head(g);g.tick(1/60);expect((head(g)-h)*60).toBeCloseTo(forwardSpeed(t+1/60),7);}
-    expect(forwardSpeed(0)).toBe(.34);for(const t of [10,20,40,60,120])expect(forwardSpeed(t)-.34).toBeCloseTo((.010*t+.0015*t*t)/2,9);
+    expect(forwardSpeed(0)).toBe(.34);for(const t of [10,20,40,60,120])expect(forwardSpeed(t)-.34).toBeCloseTo((.010*t+.0015*t*t)/4,9);
     expect(Number.isFinite(forwardSpeed(Number.MAX_VALUE))).toBe(true);expect(forwardSpeed(120)).toBeGreaterThan(forwardSpeed(60)*2);
   });
   it('ordinary starter miner and four fully staffed miners still reach natural finite defeat',()=>{
