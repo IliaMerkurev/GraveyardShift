@@ -13,6 +13,8 @@ Owner requests, 2026-10-13: three buyable stands preserve bonuses; a separate pa
 
 ## Worker-drop button
 
+The later [capped, visible upgrade correction](UPGRADE_CAP_ITERATION.md) supersedes the uncapped ranges and small footer presentation described below.
+
 - WORKER DROP displays current additive boost and the next in-game coin cost: 50, 100, 200, 400, and so on. One click purchases one +1 boost, charging once. Insufficient funds, paused/game-over states and active drags reject purchase.
 - Base range still reads only workers actually occupying unlocked work pads at reveal time: low=max(1, highest-10), high=max(1, highest-1). Each purchased boost is added to both ends. Highest 13 plus two purchases gives levels 5–14; an empty/low-level map plus one purchase gives level 2 only. This can exceed the highest deployed level by design.
 - Lower levels retain the existing squared-uniform preference and seeded RNG. Changes affect only future worker-barrel reveals, including already-spawned unopened barrels; existing workers and barrel-kind odds are untouched. Restart clears the boost.

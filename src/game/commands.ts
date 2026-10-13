@@ -41,7 +41,7 @@ export function checkGoal(ctx: CommandContext): void {
 }
 
 /** Read occupied work pads at reveal time, never belt cargo or a held worker. */
-export function workerBarrelRange(state: GameState): { lowest: number; highest: number } {
+export function workerBarrelRange(state: GameState, boost = state.workerDropBoost): { lowest: number; highest: number } {
   let maxLevel = 1;
   for (const pad of state.pads) {
     if (!pad.unlocked || pad.reserved || !pad.entityId) continue;
@@ -51,9 +51,18 @@ export function workerBarrelRange(state: GameState): { lowest: number; highest: 
         !Number.isSafeInteger(worker.level) || worker.level < 1) continue;
     maxLevel = Math.max(maxLevel, worker.level);
   }
-  const addBoost = (level: number) => level > Number.MAX_SAFE_INTEGER - state.workerDropBoost
-    ? Number.MAX_SAFE_INTEGER : level + state.workerDropBoost;
+  // Clamp at reveal time too: lifting/removing the strongest worker can lower the cap.
+  // Clamp the increment before adding it to avoid safe-integer overflow.
+  const addBoost = (level: number) => level + Math.min(boost, maxLevel - level);
   return { lowest: addBoost(Math.max(1, maxLevel - 10)), highest: addBoost(Math.max(1, maxLevel - 1)) };
+}
+
+/** A capped upper bound can still leave room to improve the lower bound. */
+export function workerUpgradeHasEffect(state: GameState): boolean {
+  if (!Number.isSafeInteger(state.workerDropBoost + 1)) return false;
+  const current = workerBarrelRange(state);
+  const next = workerBarrelRange(state, state.workerDropBoost + 1);
+  return next.lowest > current.lowest || next.highest > current.highest;
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
@@ -64,7 +73,7 @@ export function workerUpgradePrice(state: GameState, config: GameConfig): number
 export function buyWorkerUpgrade(ctx: CommandContext): boolean {
   if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
   const price = workerUpgradePrice(ctx.state, ctx.config);
-  if (price === null || !Number.isSafeInteger(ctx.state.workerDropBoost + 1) || ctx.state.coins < price) return false;
+  if (price === null || !workerUpgradeHasEffect(ctx.state) || ctx.state.coins < price) return false;
   ctx.state.coins -= price;
   ctx.state.workerDropBoost++;
   return true;

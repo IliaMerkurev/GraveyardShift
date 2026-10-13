@@ -1,5 +1,6 @@
 import './style.css';
 import { Game } from './game/Simulation';
+import { workerBarrelRange } from './game/commands';
 import { SceneView } from './render/SceneFactory';
 import { PointerController } from './input/PointerController';
 import { Hud } from './ui/Hud';
@@ -12,7 +13,7 @@ try {
   const pause=()=>{input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade())hud.message(`Worker barrel levels +${game.state.workerDropBoost}. Future reveals upgraded.`);}});
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){const range=workerBarrelRange(game.state);hud.message(`Worker barrels upgraded: levels ${range.lowest}–${range.highest}. Capped at your strongest deployed worker.`);}}});
   const input=new PointerController(view.canvas,game,view,text=>hud.message(text));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});

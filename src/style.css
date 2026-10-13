@@ -12,4 +12,14 @@
 
 .storage-label,.storage-label.open{font-size:9px;padding:3px 5px;border:1px solid #8da7bb;border-radius:5px;letter-spacing:.2px}.storage-label.open{background:#263f50e8;color:#c9f3ef}
 
-.upgrade-button{pointer-events:auto;flex:none;min-height:44px;border:1px solid #ffe09a;border-radius:10px;background:#dbac57;color:#30273c;padding:5px 9px;white-space:pre-line;font-size:10px;line-height:1.5;font-weight:850}.upgrade-button:disabled{background:#383148;color:#aaa0b9;border-color:#756880;cursor:default}.footer{gap:8px}.footer .belt-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.footer .help-button{flex:none}
+/* A dedicated bottom rail keeps the upgrade visible without covering play targets. */
+.game-shell{--upgrade-rail:calc(94px + env(safe-area-inset-bottom))}
+.game-shell canvas{height:calc(100% - var(--upgrade-rail));bottom:auto}
+.game-shell .labels{bottom:var(--upgrade-rail)}
+.game-shell .footer{left:0;right:0;bottom:0;height:var(--upgrade-rail);padding:7px 12px calc(9px + env(safe-area-inset-bottom));display:grid;grid-template-columns:minmax(0,1fr) 44px;grid-template-rows:16px 54px;gap:6px 10px;background:#211b35;border-top:2px solid #b49bcc;box-shadow:0 -4px 16px #1b142b55}
+.footer .belt-status{grid-column:1/-1;grid-row:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0;border:0;background:transparent;font-size:10px;line-height:16px;letter-spacing:.6px}
+.upgrade-button{grid-column:1;grid-row:2;pointer-events:auto;min-width:0;width:100%;height:54px;border:2px solid #fff0ac;border-radius:12px;background:linear-gradient(#ffe58d,#ffc34f);color:#30213c;padding:4px 6px;white-space:pre-line;font-size:clamp(10px,2.8vw,14px);line-height:1.55;font-weight:900;box-shadow:0 3px 0 #956323}
+.upgrade-button[data-ready="true"]{border-color:#fff8d6;box-shadow:0 3px 0 #956323,0 0 17px #ffcf5277}
+.upgrade-button:disabled{background:#e7c991;color:#51415c;border-color:#ffe1a6;box-shadow:0 3px 0 #735775;cursor:default}
+.upgrade-button[data-capped="true"]{background:#dbc9ec;border-color:#f5e6ff;color:#40314e}
+.footer .help-button{grid-column:2;grid-row:2;align-self:center}

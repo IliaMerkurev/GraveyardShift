@@ -7,6 +7,8 @@ These later instructions supersede the conflicting v0.1 infinite-flow, permanent
 
 ## Current playtest corrections
 
+[Capped, visible worker upgrades](UPGRADE_CAP_ITERATION.md) caps both ends of the paid worker-drop range at the highest currently deployed worker (level 1 fallback). Purchases are blocked without charge when neither endpoint can improve. The upgrade control now occupies a dedicated high-contrast bottom rail outside the game canvas.
+
 [Bonus storage and additive worker-drop upgrades](STORAGE_UPGRADE_ITERATION.md) adds three permanent bonus slots per run and a coin-funded +1 drop-level button whose price doubles. It supplements the dynamic drop window below. Owner performs manual gameplay testing; only bundling/standalone packaging run for this iteration.
 
 [Progressive worker barrel levels](BARREL_LEVEL_ITERATION.md) samples from a sliding window of up to ten levels below the highest worker currently placed on a work pad, favoring the lower end. A maximum of 5 allows 1–4; a maximum of 13 allows 3–12. Empty pads or a maximum of 1–2 still yield level 1.
