@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Group, InstancedMesh, Matrix4, Mesh, Vector3 } from 'three';
+import { Group, InstancedMesh, Mesh } from 'three';
 import { Game } from '../../src/game/Simulation';
 import { CONFIG } from '../../src/game/config';
 import type { Barrel } from '../../src/game/GameState';
@@ -29,6 +29,9 @@ class TestElement {
   dataset: Record<string, string> = {};
   attributes: Record<string, string> = {};
   className = '';
+  classList = { toggle() {}, remove() {} };
+  clientWidth = 390;
+  clientHeight = 844;
   textContent = '';
   hidden = false;
   removed = false;
@@ -69,23 +72,15 @@ function setup() {
   return { game, view, visuals, sync };
 }
 
-function carrierPositions(carriers: InstancedMesh) {
-  const matrix = new Matrix4();
-  return Array.from({ length: carriers.count }, (_, index) => {
-    carriers.getMatrixAt(index, matrix);
-    const position = new Vector3().setFromMatrixPosition(matrix);
-    return { x: position.x, z: position.z };
-  });
-}
-
 beforeEach(() => {
+  vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
   vi.stubGlobal('document', { createElement: () => new TestElement() });
   vi.stubGlobal('devicePixelRatio', 1);
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('v0.2 feedback: no empty barrel visuals', () => {
-  it.each(['worker', 'coins', 'bomb', 'rewind', 'slow'] as const)(
+  it.each(['worker', 'brake', 'bomb', 'rewind', 'slow'] as const)(
     'opening %s removes the barrel mesh and gives exactly one real payload', content => {
       const { game, visuals, sync } = setup();
       const slot = game.state.slots[2];
@@ -105,20 +100,11 @@ describe('v0.2 feedback: no empty barrel visuals', () => {
       expect(disposeGeometry).toHaveBeenCalledTimes(2);
       expect(game.state.stats.opened).toBe(1);
       expect(game.openBarrel(slot.id)).toBe(false);
-      if (content === 'coins') {
-        expect(game.state.coins).toBe(initialCoins + CONFIG.economy.barrelCoins);
-        expect(slot.entityId).toBeNull();
-        expect(visuals.entities.has(id)).toBe(false);
-        expect(visuals.carriers.count).toBe(game.state.slots.length - 1);
-        expect(visuals.slotLabels.get(slot.id)!.hidden).toBe(true);
-        expect(carrierPositions(visuals.carriers).some(position => Math.abs(position.x - slot.x) < 1e-5)).toBe(false);
-      } else {
-        expect(game.state.coins).toBe(initialCoins);
-        expect(game.state.entities[id].kind).toBe(content);
-        expect(visuals.entities.get(id)!.kind).toBe(content);
-        expect(visuals.entities.get(id)!.group).not.toBe(barrelVisual.group);
-        expect(visuals.carriers.count).toBe(game.state.slots.length);
-      }
+      expect(game.state.coins).toBe(initialCoins);
+      expect(game.state.entities[id].kind).toBe(content);
+      expect(visuals.entities.get(id)!.kind).toBe(content);
+      expect(visuals.entities.get(id)!.group).not.toBe(barrelVisual.group);
+      expect(visuals.carriers.count).toBe(game.state.slots.length);
     },
   );
 
@@ -239,7 +225,7 @@ describe('v0.2 feedback: no empty barrel visuals', () => {
         if (entity.kind !== 'barrel' || seen.has(entity.id)) continue;
         seen.add(entity.id);
         contents.add(entity.content);
-        expect(['worker', 'coins', 'bomb', 'rewind', 'slow']).toContain(entity.content);
+        expect(['worker', 'brake', 'bomb', 'rewind', 'slow']).toContain(entity.content);
       }
       const source = game.state.slots[index % game.state.slots.length];
       source.x = CONFIG.conveyor.left;
@@ -249,7 +235,7 @@ describe('v0.2 feedback: no empty barrel visuals', () => {
       sync();
     }
     expect(seen.size).toBeGreaterThan(CONFIG.conveyor.starter.length);
-    expect(contents).toEqual(new Set(['worker', 'coins', 'bomb', 'rewind', 'slow']));
+    expect(contents).toEqual(new Set(['worker', 'brake', 'bomb', 'rewind', 'slow']));
   });
 });
 
