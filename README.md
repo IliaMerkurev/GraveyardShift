@@ -19,6 +19,10 @@ npm run preview:playable     # http://127.0.0.1:4173
 
 The finished export is `dist/playable/index.html`, one self-contained HTML. The preview URL above is local to the execution machine, not a public user URL. The user subsequently approved public built-in hosting for personal gameplay review; hosted QA URL: https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site . The cloud browser opened it but lacks WebGL 2, so actual gameplay there remains unverified. GitHub source remains private.
 
+## Production QA without a fresh install
+
+If an authorized computer already has Playwright and Chrome/Edge, the standalone scripts in [docs/PRODUCTION_QA.md](docs/PRODUCTION_QA.md) use those exact paths. Start with the short boot/screenshot check, then the bounded visible-UI input smoke. Neither needs @playwright/test, custom browser flags or a personal profile.
+
 ## Play
 
 Tap a barrel to reveal a worker, coins or a bomb. Drag matching worker levels together on the belt or a pad. Tap a priced pad when you can afford it, then drag a worker there to mine. Drag workers back to a free belt space or between pads. Drag a bomb onto the resource stream; its ring previews the blast. Invalid moves return safely. Restart resets the run; Help explains the controls. The prototype milestone is a level-3 worker and one purchased pad; continuing is allowed.

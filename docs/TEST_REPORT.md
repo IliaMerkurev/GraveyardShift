@@ -54,3 +54,7 @@ B/C: real state-driven mining, conveyor, drag, merge, economy, pad purchase and 
 D: state-driven tutorial, goal/continue, restart, lifecycle cancellation, DOM UI, responsive five-run portrait and rotated-field landscape layouts implemented. Projection review corrected oversized camera framing and tight conveyor hit spacing. Actual rendering remains unverified.
 
 E: one-file export, syntax/budget gates, tests, docs and local history prepared. Approved public hosting replaces VM-only delivery; source repository stays private. Main/master were not created, pushed or merged. No v0.2, generated art or ad-network integration work started.
+
+## Subsequent QA tooling iteration
+
+Added standalone boot/screenshot and visible-UI smoke scripts for an already-installed Playwright runtime and installed Chrome/Edge, with fresh contexts and sandbox enabled. Both passed `node --check`; no cloud browser was launched. Actual laptop results are separate and must be recorded from the produced JSON/screenshots. No game source, dependency, ad integration or hosted artifact changed in this tooling-only iteration. See `PRODUCTION_QA.md`.
