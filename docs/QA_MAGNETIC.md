@@ -1,5 +1,8 @@
 # Magnetic-motion and difficulty production delta
 
+Latest owner tuning: [full pause and rewind to entrance](PAUSE_REWIND_ITERATION.md). The historical values/procedures below are superseded; no test or browser run is authorized for that latest change.
+
+
 ## Current owner testing instruction
 
 The latest barrel/bonus-drag update halves acceleration again. No automated tests, typecheck, browser QA, or Dreambook work are run; the owner is testing manually. The procedure and previous results below are historical, not a request to execute them. Only numeric curve expectations were updated. See [BONUS_DRAG_ITERATION.md](BONUS_DRAG_ITERATION.md).

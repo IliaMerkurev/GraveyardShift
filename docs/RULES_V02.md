@@ -1,5 +1,8 @@
 # Owner-approved prototype/0.2 rules — 2026-10-13
 
+Latest authority: [Full snake pause and rewind to entrance](PAUSE_REWIND_ITERATION.md) supersedes all earlier slow/rewind behavior and acceleration values below.
+
+
 These later instructions supersede the conflicting v0.1 infinite-flow, permanent-gap, belt-stop and continuation rules. Primitive Three.js art, rigid individual stones, shared worker geometry, pointer/touch input and standalone export limits remain unchanged. Visual production comes later.
 
 ## Current playtest corrections

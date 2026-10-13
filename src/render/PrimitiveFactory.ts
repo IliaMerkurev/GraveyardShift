@@ -80,8 +80,8 @@ export function createSlow(): THREE.Group {
   const rim=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.13,12),new THREE.MeshLambertMaterial({color:0x5149a8}));rim.position.y=.22;
   const face=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.045,12),new THREE.MeshLambertMaterial({color:0xaaa1ff}));face.position.y=.31;
   const handMaterial=new THREE.MeshBasicMaterial({color:0xf9f6ff});
-  const minute=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.18),handMaterial);minute.position.set(0,.344,-.07);
-  const hour=new THREE.Mesh(new THREE.BoxGeometry(.14,.018,.04),handMaterial.clone());hour.position.set(.055,.344,0);
+  const minute=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.18),handMaterial);minute.position.set(-.075,.344,0);
+  const hour=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.18),handMaterial.clone());hour.position.set(.075,.344,0);
   group.add(rim,face,minute,hour);return group;
 }
 export function makeWallGeometry(): THREE.BufferGeometry {

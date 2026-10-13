@@ -28,11 +28,11 @@ export class Game {
     if (c.path.runs.length < 2 || c.path.right <= c.path.left || c.path.bendRadius <= 0 ||
         c.stones.maxCount > 200 || c.stones.initialCount < 0 || c.stones.initialCount > c.stones.maxCount ||
         c.stones.spacing <= 0 || c.stones.startFraction <= 0 || c.stones.startFraction >= 1 ||
-        c.slow.factor <= 0 || c.slow.factor > 1 || c.slow.duration <= 0 || c.slow.recovery <= 0 || c.slow.recovery > c.slow.duration ||
+        c.slow.duration <= 0 ||
         c.stones.gapDelay < 0.25 || c.stones.gapDelay > 0.5 || c.stones.retractSpeed <= 0 || c.stones.rewindDuration <= 0 ||
         c.stones.accelerationGrowth < 0 || c.stones.attraction < 0 || c.stones.bounceDuration <= 0 || c.stones.bounceDistance < 0 ||
-        c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed || c.stones.rewindNearStart < 0 ||
-        c.stones.rewindFraction < 0 || c.stones.rewindFraction >= 1 || c.stones.speed < 0 || c.stones.resources.length === 0 ||
+        c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed ||
+        c.stones.speed < 0 || c.stones.resources.length === 0 ||
         c.conveyor.count < 1 || c.conveyor.right <= c.conveyor.left || c.conveyor.speed < 0 ||
         c.mining.period <= 0 || c.mining.impactPhase <= 0 || c.mining.impactPhase >= 1 ||
         c.simulation.fixedStep <= 0 || c.simulation.maxDelta < c.simulation.fixedStep ||
@@ -158,17 +158,23 @@ export class Game {
     if (this.state.gameOver) return;
     this.tickConveyor(dt);
     this.tickMining(dt);
-    this.state.slowRemaining = Math.max(0, this.state.slowRemaining - dt);
+    this.state.slowRemaining = this.state.slowRemaining - dt > 1e-9 ? this.state.slowRemaining - dt : 0;
   }
 
   private tickStones(dt: number): void {
     const c = this.config.stones;
+    // Freeze every snake motion, including recoil and pending rewind. Mining,
+    // conveyor, effects and the active difficulty clock still run in step().
+    const frozenDt = Math.min(dt, this.state.slowRemaining);
+    if (frozenDt > 0) {
+      for (const id of Object.keys(this.state.gapReadyAt)) this.state.gapReadyAt[id]! += frozenDt;
+      this.state.headSpeed = 0;
+      dt -= frozenDt;
+      if (dt <= 1e-9) return;
+    }
+    for (const stone of this.state.stones) delete stone.frozenRenderDistance;
     const speed = forwardSpeed(this.state.time, c);
-    // Restore continuously over the last recovery window, without resetting difficulty.
-    const slow = this.config.slow;
-    const blend = Math.min(1, this.state.slowRemaining / slow.recovery);
-    const factor = 1 - (1 - slow.factor) * blend;
-    const travel = speed * factor * dt;
+    const travel = speed * dt;
     const end = getPathLength(this.config.path);
     const ordered = [...this.state.stones].sort((a, b) => a.distance - b.distance);
     const previousHead = ordered.at(-1)?.distance ?? 0;
@@ -203,7 +209,7 @@ export class Game {
         // when the moving rear reaches the front before its pause has elapsed.
         const gap = front.distance - rear.distance - c.spacing;
         const readyAt = this.state.gapReadyAt[front.id] ?? 0;
-        const pull = this.state.time <= readyAt + 1e-9 ? 0 : attractionSpeed(gap, c) * factor * dt;
+        const pull = this.state.time <= readyAt + 1e-9 ? 0 : attractionSpeed(gap, c) * dt;
         shift = Math.max(-gap, -pull);
         if (gap + shift <= 1e-9) {
           for (const stone of section) stone.bounceRemaining = c.bounceDuration;

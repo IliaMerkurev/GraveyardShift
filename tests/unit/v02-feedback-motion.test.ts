@@ -41,7 +41,7 @@ describe('feedback: whole-chain animated rewind', () => {
   it('earlier head slides near first miner, keeps negative tail spacing, and never rewinds forward', () => {
     const g=quiet(); for(const s of g.state.stones)s.distance-=3;
     const before=ordered(g), h=head(g), tail=before[0]!.distance; g.useRewind(token(g)); advance(g,1.2);
-    expect(head(g)).toBeCloseTo(CONFIG.stones.rewindNearStart); expect(ordered(g)[0]!.distance).toBeCloseTo(tail-h+CONFIG.stones.rewindNearStart);
+    expect(head(g)).toBeCloseTo(0); expect(ordered(g)[0]!.distance).toBeCloseTo(tail-h+0);
     expect(ordered(g)[0]!.distance).toBeLessThan(0); assertConnected(g);
     for(const s of g.state.stones)s.distance-=1; const earlier=head(g); g.useRewind(token(g)); expect(head(g)).toBe(earlier); expect(g.state.rewindTarget).toBeNull();
   });

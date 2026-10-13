@@ -1,5 +1,6 @@
 import type { GameConfig } from './config';
 import { nextWorkerLevel } from './progression';
+import { recoilDistances } from './motion';
 import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
   type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow,
@@ -66,14 +67,18 @@ export function openBarrel(ctx: CommandContext, slotId: string): boolean {
 function activateBonus(ctx: CommandContext, entity: Rewind | Slow, point: Point): void {
   delete ctx.state.entities[entity.id];
   if (entity.kind === 'slow') {
-    // Snake-only time bonus; repeated collection refreshes, never stacks.
+    // Preserve impact poses too, even if mining removes a neighboring constraint.
+    const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
+    const rendered = recoilDistances(ordered, getPathLength(ctx.config.path), ctx.config.stones);
+    for (const [i, stone] of ordered.entries()) stone.frozenRenderDistance ??= rendered[i];
+    ctx.state.headSpeed = 0;
+    // Snake-only full pause; repeated collection refreshes, never stacks.
     ctx.state.slowRemaining = ctx.config.slow.duration;
     ctx.emit({ type: 'slow', ...point, entityId: entity.id, amount: ctx.config.slow.duration });
     return;
   }
   const head = ctx.state.stones.reduce((max, stone) => Math.max(max, stone.distance), 0);
-  const midpoint = getPathLength(ctx.config.path) * ctx.config.stones.rewindFraction;
-  const target = head < midpoint ? ctx.config.stones.rewindNearStart : midpoint;
+  const target = 0;
   const shift = Math.max(0, head - target);
   // Simulation owns the motion; token consumption never teleports the chain.
   ctx.state.rewindTarget = shift > 0 ? target : null;

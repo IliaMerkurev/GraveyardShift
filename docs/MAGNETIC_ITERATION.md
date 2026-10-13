@@ -1,5 +1,8 @@
 # Moving rear and magnetic contact — prototype/0.2
 
+Latest owner tuning: [full pause and rewind to entrance](PAUSE_REWIND_ITERATION.md). The historical values/procedures below are superseded; no test or browser run is authorized for that latest change.
+
+
 Owner feedback on 2026-10-13 supersedes the prior anchored rear, whole-chain gap freeze, constant pull and early speed cap. All other previously approved features remain unchanged.
 
 ## Actual motion

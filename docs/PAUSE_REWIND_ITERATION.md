@@ -1,0 +1,13 @@
+# Full snake pause and rewind to entrance — prototype/0.2
+
+Owner playtest feedback on 2026-10-13 supersedes all older slow and rewind rules, plus the previous acceleration values.
+
+- Starting speed stays 0.34. Acceleration is halved again, 0.0025 → 0.00125; growth factor remains 0.15. Forward speed is `0.34 + 0.00125t + 0.0001875t²`: 0.44 / 0.69 / 1.09 at 20 / 40 / 60 active seconds. Only elapsed speed gain changes.
+- The purple token now shows a pause symbol and fully freezes the snake for five active seconds. No forward movement, magnetic gap closure, rewind travel or contact recoil progresses. There is no partial final-half-second recovery. A repeat pickup refreshes five seconds; global pause also freezes the countdown. The difficulty clock, miners, belt and visual hit/coin effects continue during snake-only pause.
+- Recoil poses are captured when the bonus activates and held per surviving stone, so removing a neighboring stone does not release a visual constraint mid-freeze. Mining and bombs still damage/remove stones and award coins exactly once. Gap deadlines retain their remaining snake-motion delay; gaps created during freeze wait until the freeze ends before their normal magnetic behavior proceeds. No new tail stones spawn during freeze.
+- Rewind always targets actual path coordinate zero, preserving the gradual 1.2-second whole-chain backward translation, IDs, HP, gaps and negative tail spacing. It cannot move a head forward that is already at/before zero, and never resurrects removed stones. A rewind activated or already moving during freeze waits, then resumes from the held positions. Repeated rewind retargets from the current positions. Destruction can shorten remaining travel; it never causes forward rewind.
+- Tap/drag ownership, coin barrels (+50 and rewind), uncapped merge, normal magnetic rear/front motion, mining and economy tuning remain unchanged. Internal entity/event names retain `slow` for existing input integration; the player-facing bonus is Pause.
+
+## Delivery evidence
+
+No tests, typecheck, browser or Dreambook activity are run for this iteration, per owner instruction. Only direct Vite bundling and standalone HTML packaging are used. The packager inherently parses embedded JavaScript and rejects external/dev references; these are packaging checks, not gameplay QA. Numeric speed expectations are updated without execution. Older slowdown/rewind tests and browser procedures are historical and need adaptation before a future authorized test run. The owner is manually testing this build.

@@ -15,7 +15,7 @@ export interface Slot extends Point { id: string; entityId: string | null; reser
 export interface Pad extends Slot { price: number; unlocked: boolean }
 export interface Stone {
   id: string; distance: number; resource: number; hp: number; maxHp: number;
-  reward: number; variant: number; bounceRemaining?: number;
+  reward: number; variant: number; bounceRemaining?: number; frozenRenderDistance?: number;
 }
 export interface DragState { entityId: string; source: PlaceRef }
 export interface GameEvent extends Point {

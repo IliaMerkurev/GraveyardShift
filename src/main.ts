@@ -25,7 +25,7 @@ try {
     view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);
     if(events.some(e=>e.type==='goal'))hud.goal();
     const coinBarrel=events.find(e=>e.type==='coins'&&events.some(open=>open.type==='open'&&open.x===e.x&&open.z===e.z));if(coinBarrel)hud.message(`+${coinBarrel.amount} coins!`);
-    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.message(rewind.amount?'Rewind! The snake is moving back.':'The head is already near the start.');
+    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.message(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until the snake pause ends.':'Rewind! Back to the start.'):'The head is already at the start.');
     if(events.some(e=>e.type==='gameover')){input.cancel();hud.defeat();modalPaused=true;bridge.end();}
     frames++;if(now-fpsAt>=1000){fps=frames*1000/(now-fpsAt);frames=0;fpsAt=now;}
     if(diagnostics){const m=view.metrics();diagnostics.textContent=`${fps.toFixed(1)} fps · ${m.calls} calls · ${m.triangles} tris\n${game.state.stones.length} rocks · ${m.effects} effects`;}
