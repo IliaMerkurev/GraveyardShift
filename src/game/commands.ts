@@ -101,11 +101,8 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
   } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
   } else {
-    // Coins used to leave no visible cargo, making these barrels appear empty.
-    // Keep their economy reward and reveal a useful token, including a safe
-    // rewind fallback for any unknown legacy content.
-    ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'rewind', location: { kind: 'slot', id: slot.id } };
-    if (barrel.content === 'coins') reward(ctx, ctx.config.economy.barrelCoins, slot);
+    // Unknown content cannot manufacture a reward or consume a barrel.
+    return false;
   }
   ctx.state.stats.opened++;
   ctx.state.tutorial.opened = true;

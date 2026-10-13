@@ -2,7 +2,7 @@
 export interface GameConfig {
   seed: number;
   simulation: { fixedStep: number; maxDelta: number; maxEvents: number };
-  economy: { initialCoins: number; barrelCoins: number; workerUpgradeBaseCost: number };
+  economy: { initialCoins: number; workerUpgradeBaseCost: number };
   path: { left: number; right: number; runs: readonly number[]; bendRadius: number };
   stones: {
     initialCount: number; maxCount: number; speed: number; spacing: number; startFraction: number; acceleration: number; accelerationGrowth: number; maxSpeed: number; gapDelay: number; retractSpeed: number; attraction: number; bounceDuration: number; bounceDistance: number; rewindDuration: number; rewindBeforeFirstBend: number;
@@ -10,8 +10,8 @@ export interface GameConfig {
   };
   conveyor: {
     count: number; left: number; right: number; z: number; speed: number;
-    spawnInterval: number; starter: readonly ('worker' | 'coins' | 'bomb' | 'rewind' | 'slow' | 'brake')[];
-    workerWeight: number; coinWeight: number; bombWeight: number; rewindWeight: number; brakeWeight: number;
+    spawnInterval: number; starter: readonly ('worker' | 'bomb' | 'rewind' | 'slow' | 'brake')[];
+    workerWeight: number; bombWeight: number; rewindWeight: number; brakeWeight: number;
   };
   pads: readonly { x: number; z: number; price: number }[];
   storage: readonly { x: number; z: number; price: number }[];
@@ -28,7 +28,7 @@ export interface GameConfig {
 export const CONFIG: GameConfig = {
   seed: 0x726f636b,
   simulation: { fixedStep: 1 / 60, maxDelta: 0.1, maxEvents: 256 },
-  economy: { initialCoins: 0, barrelCoins: 50, workerUpgradeBaseCost: 50 },
+  economy: { initialCoins: 0, workerUpgradeBaseCost: 50 },
   path: { left: -1.3, right: 1.3, runs: [-7, -4, -1, 2, 5], bendRadius: 1.5 },
   stones: {
     initialCount: 65, maxCount: 200, speed: 0.34, spacing: 0.245, startFraction: 0.5, acceleration: 0.00125, accelerationGrowth: 0.15, maxSpeed: 1_000_000,
@@ -45,8 +45,9 @@ export const CONFIG: GameConfig = {
     count: 6, left: -2.9, right: 2.9, z: 8, speed: 0.32,
     spawnInterval: 2.5,
     // Seven guaranteed workers in the starter sequence allow level three without RNG.
-    starter: ['worker', 'worker', 'coins', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake'],
-    workerWeight: 0.57, coinWeight: 0.13, bombWeight: 0.11, rewindWeight: 0.10, brakeWeight: 0.045,
+    starter: ['worker', 'worker', 'rewind', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake'],
+    // Pause uses the remaining probability: the same 35% / 3 as rewind and brake.
+    workerWeight: 0.50, bombWeight: 0.15, rewindWeight: 0.35 / 3, brakeWeight: 0.35 / 3,
   },
   pads: [
     { x: -.75, z: -5.5, price: 0 },

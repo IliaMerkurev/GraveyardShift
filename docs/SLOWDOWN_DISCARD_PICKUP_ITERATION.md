@@ -8,7 +8,7 @@
 
 ## Permanent slowdown
 
-A separate amber `↓ 20%` token (`brake`) is available from barrels. The existing purple pause token still freezes all snake motion for five seconds. Seven guaranteed starter workers and previous starter bonuses remain intact; an amber token follows them. The previous 9% random pause remainder is split into 4.5% pause and 4.5% slowdown; other drop weights stay unchanged. Coins still award 50 and reveal rewind, so no barrel opens empty.
+A separate amber `↓ 20%` token (`brake`) is available from barrels. The existing purple pause token still freezes all snake motion for five seconds. Seven guaranteed starter workers and previous starter bonuses remain intact; an amber token follows them. The subsequent [barrel balance correction](BARREL_BALANCE_ITERATION.md) sets worker drops to 50%, bombs to 15% and divides the remaining 35% equally among rewind, pause and slowdown. It replaces the third starter coin outcome with plain rewind and removes all barrel coin awards.
 
 Tapping a belt/stored token or dropping it onto valid field consumes it once. It uses the same source ownership/reservation gate as rewind and pause, survives the belt exit while held, and can occupy any purchased bonus stand. Invalid drops return it safely.
 

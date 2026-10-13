@@ -100,10 +100,9 @@ export class Game {
     const starter = this.config.conveyor.starter[this.barrelIndex++];
     const roll = starter ? 0 : this.random();
     const content = starter ?? (roll < this.config.conveyor.workerWeight ? 'worker' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight ? 'coins' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight ? 'bomb' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight ? 'brake' : 'slow');
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight ? 'bomb' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight ? 'brake' : 'slow');
     const entity: Entity = { id: this.entityId(), kind: 'barrel', content, location: { kind: 'slot', id: slot.id } };
     this.state.entities[entity.id] = entity;
     slot.entityId = entity.id;

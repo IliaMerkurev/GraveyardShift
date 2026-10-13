@@ -1,5 +1,7 @@
 # Playtest feedback iteration — prototype/0.2
 
+Current barrel rules: [Barrel reward balance](BARREL_BALANCE_ITERATION.md) supersedes historical coin outcomes, coin grants and reward fallback described below. Barrels now reveal only worker/bomb/rewind/pause/permanent slowdown and never award coins.
+
 This iteration supersedes conflicting instant-motion, held-expiry and empty-carrier rules in earlier reports. It does not change primitive art direction or introduce a new Site.
 
 ## Superseded motion tuning

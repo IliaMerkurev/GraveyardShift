@@ -1,5 +1,7 @@
 # Decisions and assumptions — historical v0.1
 
+Current barrel rules: [Barrel reward balance](BARREL_BALANCE_ITERATION.md) supersedes historical coin outcomes, coin grants and reward fallback described below. Barrels now reveal only worker/bomb/rewind/pause/permanent slowdown and never award coins.
+
 Current conflicting rules are superseded by [owner-approved prototype/0.2](RULES_V02.md). The v0.1 decisions below are retained as history, not active belt/chain/defeat requirements.
 
 ## Authority and scope

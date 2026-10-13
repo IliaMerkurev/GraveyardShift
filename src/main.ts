@@ -25,7 +25,6 @@ try {
   const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
     view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);
     if(events.some(e=>e.type==='goal'))hud.goal();
-    const coinBarrel=events.find(e=>e.type==='coins'&&events.some(open=>open.type==='open'&&open.x===e.x&&open.z===e.z));if(coinBarrel)hud.message(`+${coinBarrel.amount} coins!`);
     const brake=events.find(e=>e.type==='brake');if(brake)hud.message(brake.amount?'Snake speed reduced permanently. Acceleration continues.':'Snake is already at minimum speed. Acceleration continues.');
     if(events.some(e=>e.type==='discard'))hud.message('Worker discarded. No coins awarded.');
     const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.message(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until the snake pause ends.':'Rewind! Back to the first bend.'):'The head is already at or before the rewind point.');

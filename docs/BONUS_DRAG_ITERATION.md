@@ -1,5 +1,7 @@
 # Barrel rewards, bonus dragging, and gentler acceleration
 
+Current barrel rules: [Barrel reward balance](BARREL_BALANCE_ITERATION.md) supersedes historical coin outcomes, coin grants and reward fallback described below. Barrels now reveal only worker/bomb/rewind/pause/permanent slowdown and never award coins.
+
 Latest owner tuning: [full pause and rewind to entrance](PAUSE_REWIND_ITERATION.md). The historical values/procedures below are superseded; no test or browser run is authorized for that latest change.
 
 

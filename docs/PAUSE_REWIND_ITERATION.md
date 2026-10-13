@@ -1,5 +1,7 @@
 # Full snake pause and rewind near the first bend — prototype/0.2
 
+Current barrel rules: [Barrel reward balance](BARREL_BALANCE_ITERATION.md) supersedes historical coin outcomes, coin grants and reward fallback described below. Barrels now reveal only worker/bomb/rewind/pause/permanent slowdown and never award coins.
+
 Owner playtest feedback on 2026-10-13 supersedes all older slow and rewind rules, plus the previous acceleration values. The later annotated screenshot moves the rewind destination from the entrance to just before the first bend.
 
 - Starting speed stays 0.34. Acceleration is halved again, 0.0025 → 0.00125; growth factor remains 0.15. Forward speed is `0.34 + 0.00125t + 0.0001875t²`: 0.44 / 0.69 / 1.09 at 20 / 40 / 60 active seconds. Only elapsed speed gain changes.

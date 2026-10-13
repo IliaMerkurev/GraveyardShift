@@ -1,4 +1,4 @@
-export type ContentKind = 'worker' | 'coins' | 'bomb' | 'rewind' | 'slow' | 'brake';
+export type ContentKind = 'worker' | 'bomb' | 'rewind' | 'slow' | 'brake';
 export type PlaceRef = { kind: 'slot' | 'pad' | 'storage'; id: string };
 export type EntityLocation = PlaceRef | { kind: 'drag' };
 export type DropTarget = PlaceRef | { kind: 'discard' } | { kind: 'track'; x: number; z: number } | { kind: 'field'; x: number; z: number } | null;
