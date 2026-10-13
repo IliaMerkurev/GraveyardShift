@@ -25,6 +25,8 @@ export interface GameEvent extends Point {
 }
 export interface GameState {
   time: number;
+  /** Snake acceleration time; excludes bonus freeze and global pause. */
+  difficultyTime: number;
   coins: number;
   workerDropBoost: number;
   entities: Record<string, Entity>;

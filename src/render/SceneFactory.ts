@@ -148,7 +148,7 @@ export class SceneView {
     const hasGap=ordered.some((stone,i)=>i>0&&stone.distance-ordered[i-1].distance>CONFIG.stones.spacing+1e-9);
     const motion=state.slowRemaining>0?'frozen':state.rewindTarget!==null?'rewind':hasGap?(state.gapRecoveryRemaining>1e-9?'gap-pause':'gap-retract'):'forward';
     const slowFactor=state.slowRemaining>0?0:1;
-    const advancingSpeed=effectiveForwardSpeed(state.time,state.permanentSpeedReduction)*slowFactor;
+    const advancingSpeed=effectiveForwardSpeed(state.difficultyTime,state.permanentSpeedReduction)*slowFactor;
     const speed=state.paused||state.gameOver||state.slowRemaining>0?0:state.headSpeed;
     this.canvas.dataset.speedReduction=String(state.permanentSpeedReduction);this.canvas.dataset.forwardSpeed=String(advancingSpeed);this.canvas.dataset.time=String(state.time);this.canvas.dataset.motion=motion;this.canvas.dataset.speed=String(speed);
     const recoils=recoilDistances(ordered,PATH_LENGTH);const rendered=new Map(ordered.map((s,i)=>[s.id,s.frozenRenderDistance??recoils[i]]));

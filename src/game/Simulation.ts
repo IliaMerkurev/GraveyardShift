@@ -66,7 +66,7 @@ export class Game {
     const c = this.config;
     const slotSpacing = (c.conveyor.right - c.conveyor.left) / c.conveyor.count;
     this.state = {
-      time: 0, coins: c.economy.initialCoins, workerDropBoost: 0, entities: {},
+      time: 0, difficultyTime: 0, coins: c.economy.initialCoins, workerDropBoost: 0, entities: {},
       slots: Array.from({ length: c.conveyor.count }, (_, i) => ({
         id: `slot-${i}`, x: c.conveyor.left + slotSpacing * (i + 0.5), z: c.conveyor.z, entityId: null, reserved: false,
       })),
@@ -166,6 +166,9 @@ export class Game {
 
   private step(dt: number): void {
     this.state.time += dt;
+    // Count only the unfrozen part of this step, including a fractional expiry.
+    // Global pause skips step(); rewind and gap recovery still age difficulty.
+    this.state.difficultyTime += dt - Math.min(dt, this.state.slowRemaining);
     this.tickStones(dt);
     if (this.state.gameOver) return;
     this.tickConveyor(dt);
@@ -176,7 +179,7 @@ export class Game {
   private tickStones(dt: number): void {
     const c = this.config.stones;
     // Freeze every snake motion, including recoil and pending rewind. Mining,
-    // conveyor, effects and the active difficulty clock still run in step().
+    // conveyor and effects still run; difficulty excludes the same frozen interval.
     const frozenDt = Math.min(dt, this.state.slowRemaining);
     if (frozenDt > 0) {
       for (const id of Object.keys(this.state.gapReadyAt)) this.state.gapReadyAt[id]! += frozenDt;
@@ -185,7 +188,7 @@ export class Game {
       if (dt <= 1e-9) return;
     }
     for (const stone of this.state.stones) delete stone.frozenRenderDistance;
-    const speed = effectiveForwardSpeed(this.state.time, this.state.permanentSpeedReduction, this.config);
+    const speed = effectiveForwardSpeed(this.state.difficultyTime, this.state.permanentSpeedReduction, this.config);
     const travel = speed * dt;
     const end = getPathLength(this.config.path);
     const ordered = [...this.state.stones].sort((a, b) => a.distance - b.distance);

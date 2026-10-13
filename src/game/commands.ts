@@ -114,7 +114,7 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
 function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake, point: Point): void {
   delete ctx.state.entities[entity.id];
   if (entity.kind === 'brake') {
-    const speed = effectiveForwardSpeed(ctx.state.time, ctx.state.permanentSpeedReduction, ctx.config);
+    const speed = effectiveForwardSpeed(ctx.state.difficultyTime, ctx.state.permanentSpeedReduction, ctx.config);
     const floor = ctx.config.stones.speed * ctx.config.brake.minimumBaseFraction;
     const reduction = Math.min(speed * ctx.config.brake.reductionFraction, Math.max(0, speed - floor));
     ctx.state.permanentSpeedReduction += reduction;
