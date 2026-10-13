@@ -17,11 +17,11 @@ npm run check:budget
 npm run preview:playable     # http://127.0.0.1:4173
 ```
 
-The finished export is `dist/playable/index.html`, one self-contained HTML. The preview URL above is local to the execution machine, not a public user URL. The user subsequently approved public built-in hosting for personal gameplay review; hosted QA URL: https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site . The cloud browser opened it but lacks WebGL 2, so actual gameplay there remains unverified. GitHub source remains private.
+The finished export is `dist/playable/index.html`, one self-contained HTML. The preview URL above is local to the execution machine, not a public user URL. The user subsequently approved public built-in hosting for personal gameplay review; hosted QA URL: https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site . Production gameplay was subsequently tested in Edge 155 on Windows: mouse at 360×640 and 1280×720, plus one 360×640 emulated-touch/bomb run. Actual screenshots were inspected. GitHub source remains private.
 
 ## Production QA without a fresh install
 
-If an authorized computer already has Playwright and Chrome/Edge, the standalone scripts in [docs/PRODUCTION_QA.md](docs/PRODUCTION_QA.md) use those exact paths. Start with the short boot/screenshot check, then the bounded visible-UI input smoke. Neither needs @playwright/test, custom browser flags or a personal profile.
+If an authorized computer already has Playwright and Chrome/Edge, the standalone scripts in [docs/PRODUCTION_QA.md](docs/PRODUCTION_QA.md) use those exact paths. Start with the short boot/screenshot check, then the bounded visible-UI mouse smoke. A separate short portrait script covers emulated touch cancellation, merge and bomb targeting. None needs @playwright/test, custom browser flags or a personal profile.
 
 ## Play
 
@@ -53,4 +53,4 @@ The executable local guard rejects main/master destinations. Never use force-pus
 
 ## Current validation limits
 
-The development execution sandbox prevented Chromium IPC startup. The attempted supported escalation returned `TurnAborted`; it was not bypassed. The hosted cloud-browser check reaches the intended WebGL 2 unavailable message. Automated mouse/touch gameplay, final scene screenshots, rendered performance, five-minute soak, offline runtime and physical-phone tests are not claimed as passed. See the current test report.
+56 unit tests and strict typecheck pass. Actual production QA passed 22 mouse checks across portrait/landscape and 9 emulated-touch/bomb checks in portrait, with no uncaught page errors. Two strict mouse console checks failed because hosting injects a Cloudflare script blocked by the export’s CSP; the CSP remains unchanged. Physical touch, full 40-case E2E, five-minute soak, blocked-network runtime and rendered performance are not tested. The cloud browser still lacks WebGL 2; laptop Edge supplied the successful runtime. See [the test report](docs/TEST_REPORT.md) for precise evidence and limits.

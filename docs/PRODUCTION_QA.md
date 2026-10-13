@@ -1,6 +1,6 @@
 # Production QA with an existing Playwright runtime
 
-These two standalone Node scripts let an authorized executor inspect the public playable using an already-installed Playwright runtime and an installed Chrome/Edge executable. They do **not** require this project's `node_modules`, `@playwright/test`, a package installation or a browser download.
+These standalone Node scripts let an authorized executor inspect the public playable using an already-installed Playwright runtime and an installed Chrome/Edge executable. They do **not** require this project's `node_modules`, `@playwright/test`, a package installation or a browser download.
 
 The executor supplies verified absolute paths. Do not guess the user's executable paths or access a personal browser profile.
 
@@ -36,9 +36,23 @@ Optional `--url` selects another explicitly authorized production URL. `--help` 
 
 This script uses ordinary Playwright APIs and real mouse input against visible DOM targets. It checks initial mining earnings (up to 30 seconds per viewport), barrel opening, drag/merge, coin bonus, pad purchase, placement, Help pause/return and repeated Restart. Individual failures and blocked dependent actions are recorded rather than being treated as passes. It saves screenshots, console/page errors and `report.json`.
 
-The production DOM markers are the visible interaction targets rendered by the game. Neither script reads development hooks, alters GameState, injects commands or grants coins. A portrait mouse viewport is **not** a touch test.
+The production DOM markers are the visible interaction targets rendered by the game. No script reads development hooks, alters GameState, injects commands or grants coins. A portrait mouse viewport is **not** a touch test.
 
-This bounded smoke does not replace the project's full E2E suite, real touch input, bomb targeting, offline request interception, five-minute soak or device performance checks. The actual report, not the existence of these scripts, is execution evidence.
+This mouse smoke does not replace the project's full E2E suite, physical touch input, offline request interception, five-minute soak or device performance checks. The actual report, not the existence of these scripts, is execution evidence.
+
+## One portrait touch/bomb check
+
+```text
+node scripts/production-touch-bomb-smoke.mjs PLAYWRIGHT_MODULE_FILE BROWSER_EXECUTABLE OUTPUT_DIRECTORY BOMB_X,BOMB_Y [URL]
+```
+
+This separate short run uses a fresh 360×640 mobile/touch-enabled context and official CDP `Input.dispatchTouchEvent` through Playwright `CDPSession`. This is **browser touch emulation, not a physical touchscreen**. It tests a tap, visibly moving a worker followed by `touchCancel`, merge, returning the miner to a free carrier, opening a bomb, detonation and Restart. It stops at the first failed gameplay dependency.
+
+The optional bomb point must be selected from actual inspected 360×640 production screenshot pixels. It is not inferred from debug hooks. The executed run used `180,294`, on the visible middle rock row. Omitting the point skips detonation and produces a partial report. The miner is moved off its pad first, so ordinary mining cannot be mistaken for a bomb reward. Preview/after screenshots need visual review to confirm the actual gap in the rocks; DOM coin/count assertions alone do not prove destruction geometry. Two later taps on the empty source check that they do not grant another reward.
+
+The output is `touch-bomb-report.json` and screenshots. Console messages are retained without being silently filtered; `gameplay_passed_with_console_errors` is not a clean-console pass and exits nonzero. See `TEST_REPORT.md` for the hosting CSP finding. No security or graphics restriction is relaxed to make a result pass.
+
+Official API references: [Playwright CDPSession](https://playwright.dev/docs/api/class-cdpsession), [Chrome DevTools Input protocol](https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent).
 
 ## Portability
 

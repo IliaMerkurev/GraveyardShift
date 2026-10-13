@@ -1,21 +1,21 @@
 # Приёмка v0.1
 
-Implementation handoff: see `TEST_REPORT.md` for 56 passing unit tests, the 587,682-byte syntax-checked export and actual blockers. Unchecked browser/publishing items are not claimed complete. Hosted Chromium reaches the WebGL2-unavailable fallback; actual playthrough and screenshots are not verified. Later owner approval replaces VM-browser delivery with an approved public built-in hosted game; GitHub remains private.
+Updated 2026-10-13: `TEST_REPORT.md` records 56 passing unit tests, the 587,682-byte syntax-checked export, actual production mouse QA (22 checks passed in 360×640 and 1280×720) and emulated-touch/bomb QA (9 checks passed in 360×640). Actual screenshots were inspected. Two strict mouse console checks failed only for a hosting-injected Cloudflare script blocked by CSP; no uncaught page errors. Unchecked compound items below are not claimed fully complete. Physical touch, full E2E, offline runtime, performance and five-minute soak remain untested. Later explicit owner approval replaces VM-browser delivery with the public hosted game; GitHub remains private.
 
-Статус при подготовке пакета: игра не реализована; все пункты ниже — будущие проверки dots, не результаты тестирования.
+The original checklist remains the acceptance scope. Checked items have evidence; unit-only and partial browser coverage are detailed in `TEST_REPORT.md` rather than promoted to full acceptance.
 
 ## Git и передача
-- [ ] Подтверждён точный репозиторий `IliaMerkurev/RockSnakePlayableTest` и `isPrivate: true`.
-- [ ] Исходники и документация запушены в `prototype/0.1`; удалённый SHA проверен.
+- [x] Подтверждён точный репозиторий `IliaMerkurev/RockSnakePlayableTest` и `isPrivate: true`.
+- [x] Исходники и документация запушены в `prototype/0.1`; удалённый SHA проверен.
 - [x] В main нет push/merge со стороны dots; auto-merge не включён.
 - [x] При наличии main открыт draft PR. При отсутствии main это явно указано, main не создана. (main отсутствовала; PR не создавался.)
-- [ ] Сервер на VM запущен; браузер с игрой открыт; фактический URL сообщён.
-- [ ] Preview-ссылка проверена именно в заявленном способе доступа, localhost не выдан за публичный адрес.
+- [ ] Сервер на VM запущен; браузер с игрой открыт; фактический URL сообщён. (Заменено прямым одобрением владельца: public hosting; VM-доставка не заявлена.)
+- [x] Preview-ссылка проверена именно в заявленном способе доступа, localhost не выдан за публичный адрес.
 
 ## Механики
 - [ ] Поток камней двигается по извилистой трассе без деформации мешей.
 - [ ] Бочки движутся на конвейере и открываются однократным тапом/кликом.
-- [ ] Из бочек появляются работники, монеты и бомба.
+- [x] Из бочек появляются работники, монеты и бомба. (Actual mouse + emulated-touch production checks.)
 - [ ] Работник устанавливается на свободную открытую площадку и начинает добычу.
 - [ ] Работник возвращается в резерв и переносится между площадками.
 - [ ] Merge одинаковых уровней работает на ленте и на рабочей площадке.
@@ -26,7 +26,7 @@ Implementation handoff: see `TEST_REPORT.md` for 56 passing unit tests, the 587,
 - [ ] Покупка площадки проверяет баланс; быстрый повтор не списывает деньги дважды.
 - [ ] При заполнении ленты работники/бомбы не исчезают и не занимают одно место вдвоём.
 - [ ] Бомба показывает радиус, действует в нём, невалидный сброс возвращает предмет.
-- [ ] Без debug-кнопок доступны первое объединение и покупка.
+- [x] Без debug-кнопок доступны первое объединение и покупка. (Production mouse, оба размера.)
 - [ ] Restart возвращает начальное состояние; несколько рестартов не умножают таймеры.
 
 ## Мышь / touch
@@ -47,9 +47,9 @@ Implementation handoff: see `TEST_REPORT.md` for 56 passing unit tests, the 587,
 - [ ] 768×1024 и 1280×720: интерфейс и камера адаптированы, горизонтальный режим играбелен.
 - [ ] Проверены пауза/возврат без скачка времени и внезапных наград за скрытую вкладку.
 - [ ] Проверены минимум 5 минут игры и несколько Restart без роста числа объектов/циклов.
-- [ ] Нет ошибок приложения в консоли.
+- [x] Нет ошибок приложения в консоли. (`pageErrors: []`; отдельно сохранены hosting CSP console errors, clean-console не заявлен.)
 - [ ] Зафиксированы фактические calls/triangles/FPS и условия VM; нет выдуманных результатов телефона.
-- [ ] При отсутствии WebGL 2 есть объясняющее сообщение.
+- [x] При отсутствии WebGL 2 есть объясняющее сообщение. (Actual cloud browser.)
 
 ## Экспорт
 - [ ] `npm ci`, typecheck, unit tests и E2E реально выполняются.
@@ -57,7 +57,7 @@ Implementation handoff: see `TEST_REPORT.md` for 56 passing unit tests, the 587,
 - [x] `check:budget` измеряет байты файла и отклоняет размер ≥5 000 000.
 - [x] Вес прототипа приведён в отчёте; цель ≤2 000 000 байт не выдана за измерение.
 - [ ] После загрузки документа заблокированы все дальнейшие запросы; игра продолжает работать.
-- [ ] Нет CDN, соседних JS/CSS, remote images/fonts, source maps, HMR и исходного видео.
+- [x] Нет CDN, соседних JS/CSS, remote images/fonts, source maps, HMR и исходного видео. (Статическая проверка standalone; injected hosting script указан отдельно.)
 - [x] В production нет чит-команд/дев-панелей и настоящего redirect по CTA. (Статическая проверка.)
 - [x] Звук не начинается до пользовательского действия; без звука игра полностью понятна. (Звук не добавлен; вся обратная связь визуальная.)
 - [x] Прототип не назван готовым рекламным креативом до интеграции выбранной сети.
