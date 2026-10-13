@@ -61,6 +61,16 @@ Read the JSON evidence and actually inspect the PNGs:
 
 Screenshots need human review of visible rigid stones, spacing, continuity, ghosts and target feedback. A headless browser's JSON cannot certify these pixels. Report automated assertions and inspected visual evidence separately. Do not call a screenshot visually reviewed merely because it exists. If a motion/action fails, keep its artifacts and report the specific failed/inconclusive check; do not rerun the old full suite or claim an unperformed physical-device test.
 
-## Current execution status
+## Completed production result — 2026-10-13
 
-This QA script and procedure were authored and syntax-checked in the cloud repository. They have **not** been run in a browser by the authoring worker. The root task owns the one authorized Dreambook production run, final screenshot inspection, and recording actual results after the deployment is verified.
+The parent supplied the final Dreambook report: **one 52.3-second run passed all six landscape feedback checks and the portrait emulated-touch purchase/drop check** on the updated existing Site. The QA executor inspected the actual rewind, closure/contact, held-worker and placement frames. Source gameplay checkpoint: `d6699fb95c28be00a1489ac001f9d518c6c9ede3` (tree `9fd9490ce1c637705178c567d9aa08347e10e080`).
+
+- Actual forward displacement: initial speed 0.34014 → 0.68014 path units/s at 20 seconds (1.99958×); fitted acceleration 0.017.
+- Gap pause: observed 0.3333 simulation seconds / 333.3 ms wall time, within the requested range and sampled resolution of the configured 0.35 seconds. Retraction measured 1.20 path units/s; contact spacing 0.245. Evidence contained 86 frames with a maximum 0.0333-second sample gap. Inspected frames showed gradual closure and no overlap.
+- Rewind: observed 1.1833 simulation seconds / 1181.6 ms wall time across 39 sampled frames. All 74 stones translated backward together; sampled travel 1.92225 units, maximum sampled step 0.05492. Intermediate frames confirmed gradual motion rather than teleportation.
+- Held worker survived source-carrier wrap. Invalid release returned the same worker without duplication or ghosts; coins stayed 50.
+- Locked-pad worker drops worked with mouse and emulated touch: 50 → 0 coins, with 40 sampled ownership/coin frames consistent with atomic purchase and placement.
+- Coin barrel paid +50; its barrel/carrier disappeared, with no idle plus marker or stale empty barrel in the inspected frame.
+- No uncaught page errors in either viewport. The known host-injected Cloudflare CSP console diagnostic was retained; the CSP was not relaxed.
+
+The exact 0.85 cap and the alternate near-first-miner rewind branch remain model-test evidence, not claims from this browser run. Touch was browser-emulated, not physical hardware. No full legacy suite, additional browser run, soak or performance benchmark was performed. These final results supersede the earlier authoring-only status; this documentation update does not change or rebuild the 599123-byte app artifact.

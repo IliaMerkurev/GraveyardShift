@@ -25,6 +25,8 @@
 
 ## Publication and browser QA status
 
+**Final update:** source gameplay checkpoint `d6699fb95c28be00a1489ac001f9d518c6c9ede3` was published and the updated existing Site passed one 52.3-second Dreambook run: all six feedback checks plus portrait emulated-touch purchase/drop, with actual screenshot inspection by the QA executor. See [measured production results and remaining limits](QA_FEEDBACK.md#completed-production-result--2026-10-13). The app bytes/hash above are unchanged. The paragraph below records the earlier pre-publication checkpoint, not the current status.
+
 At this checkpoint, source publication, deployment to the existing Site and the single focused Dreambook production run are **pending parent-owned actions**. No cloud browser, new Site, desktop operation or direct Git push was performed by the implementation worker. The new script's syntax/CLI validation is not a browser pass.
 
 Use `scripts/production-feedback-smoke.mjs` and `docs/QA_FEEDBACK.md`. The script measures actual positions at multiple times for progressive motion and captures frames for human inspection. Its machine-readable report must be reviewed before production behavior is claimed. Full legacy E2E, soak/performance, physical-touch hardware and unrelated earlier scenarios remain unexecuted this iteration.
