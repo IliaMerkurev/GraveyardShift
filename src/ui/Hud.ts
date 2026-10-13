@@ -18,8 +18,8 @@ export class Hud {
   private modal(title:string,text:string,defeat:boolean){this.overlay.querySelector('h1')!.textContent=title;this.overlay.querySelector('p')!.textContent=text;const resume=this.overlay.querySelector<HTMLButtonElement>('[data-continue]')!;resume.hidden=defeat;const restart=this.overlay.querySelector<HTMLButtonElement>('[data-restart]')!;restart.classList.toggle('secondary',!defeat);this.overlay.hidden=false;(defeat?restart:resume).focus();}
   goal(){if(this.goalShown||this.ended)return;this.goalShown=true;this.guidance('Level 3! Keep mining','goal');}
   defeat(){if(this.ended)return;this.ended=true;this.toastElement.classList.remove('visible');this.modal('Game over','The head reached the finish. Restart to try again. Mine and bomb rocks to push it back, and tap rewind tokens before they leave the belt.',true);}
-  message(text:string){if(this.ended)return;this.toastElement.textContent=text;this.toastUntil=performance.now()+2400;this.toastElement.classList.add('visible');}
-  guidance(text:string,key:string){const count=this.guidanceCounts.get(key)??0;if(count>=2||this.ended)return;this.guidanceCounts.set(key,count+1);this.message(text);}
+  message(text:string,guidance=false){if(this.ended)return;this.toastElement.dataset.guidance=String(guidance);this.toastElement.textContent=text;this.toastUntil=performance.now()+2400;this.toastElement.classList.add('visible');}
+  guidance(text:string,key:string){const count=this.guidanceCounts.get(key)??0;if(count>=2||this.ended)return;this.guidanceCounts.set(key,count+1);this.message(text,true);}
   reset(){this.onboarding=0;this.guidanceCounts.clear();this.goalShown=false;this.ended=false;this.overlay.hidden=true;this.toastUntil=0;this.toastElement.classList.remove('visible');}
   render(state:GameState){
     const price=workerUpgradePrice(state,CONFIG),range=workerBarrelRange(state),hasEffect=workerUpgradeHasEffect(state);
@@ -34,8 +34,8 @@ export class Hud {
     this.coin.textContent=String(state.coins);const t=state.tutorial;
     // Only two automatic action hints per run. Help remains available on demand.
     if(!state.gameOver&&!state.paused){
-      if(this.onboarding===0){this.onboarding=1;this.message('Tap barrels · keep items off the belt exit');}
-      else if(this.onboarding===1&&t.opened&&performance.now()>this.toastUntil){this.onboarding=2;this.message('Drag workers to pads · merge matching levels');}
+      if(this.onboarding===0){this.onboarding=1;this.message('Tap barrels · keep items off the belt exit',true);}
+      else if(this.onboarding===1&&t.opened&&performance.now()>this.toastUntil){this.onboarding=2;this.message('Drag workers to pads · merge matching levels',true);}
     }
     const slowing=state.slowRemaining>0&&!state.gameOver;
     this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');

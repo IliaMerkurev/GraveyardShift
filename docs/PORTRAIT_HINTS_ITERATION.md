@@ -11,3 +11,12 @@ Owner feedback, 2026-10-13: text obscures the conveyor in portrait; keep brief g
 Delivery: source inspection and direct Vite/standalone packaging only before publication, per the latest requested order. Parent coordinates bounded checks after the updated Site is shared. No test/typecheck/browser/device checks claimed here.
 
 Canonical base: 1208a1281aec10e05872c9ad33b6ce039db61942. Local base: 69b8f5b81b89bb21f2221b5d4922e4c158f04f3a. Publish the frozen delta onto canonical prototype/0.3 rather than pushing divergent local history. No main edits in this package.
+
+## Bounded layout correction after v17 screenshots
+
+Reviewed 844×390, 390×844 and 320×568 captures. The landscape guidance strip crossed the discard marker; the compact portrait discard wording touched the right storage price; the decorative HEAD badge crossed a pad price.
+
+- Automatic guidance is now hidden in landscape. Wider landscape action/error feedback uses the empty header gap, outside the field; very narrow landscape suppresses the strip entirely.
+- Portrait discard wording is anchored to the right of its pit with a canvas-edge clamp, separating it from the storage prices.
+- Removed the decorative HEAD badge from view; the snake itself and FINISH remain visible. Numeric worker levels, pad/storage prices and pause timer are unchanged.
+- No camera, motion, economy or input change in this correction. Parent owns the single targeted layout recheck.

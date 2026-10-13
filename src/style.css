@@ -42,3 +42,11 @@
   .game-shell .labels{top:var(--top-rail)}
   .game-shell .toast{top:calc(72px + env(safe-area-inset-top))}
 }
+
+/* Landscape has no automatic tip strip over the rotated track or discard pit. */
+@media(min-aspect-ratio:1/1){
+  .game-shell .toast{top:18px;left:180px;right:180px;height:44px;font-size:10px}
+  .game-shell .toast[data-guidance="true"]{display:none}
+}
+/* Very narrow landscape has no safe text gap between its header controls. */
+@media(min-aspect-ratio:1/1) and (max-width:600px){.game-shell .toast{display:none}}
