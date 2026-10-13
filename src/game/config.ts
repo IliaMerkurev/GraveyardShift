@@ -22,7 +22,7 @@ export interface GameConfig {
   bomb: { radius: number; trackTolerance: number };
   visual: { helmetColors: readonly number[]; stoneRadius: number; maxEffects: number; pixelRatio: number };
   input: { dragThreshold: number; targetRadius: number; touchLift: number; hitRadiusPx: number; pickupRadiusPx: number; touchLiftPx: number };
-  camera: { fov: number; near: number; far: number; position: readonly [number, number, number]; target: readonly [number, number, number]; margin:number; frameWidth:number; frameDepth:number; landscapeWidth:number; landscapeDepth:number };
+  camera: { fov: number; near: number; far: number; position: readonly [number, number, number]; target: readonly [number, number, number]; margin:number; frameWidth:number; frameDepth:number; landscapeWidth:number; landscapeDepth:number; portraitBounds: { left:number; right:number; back:number; front:number; height:number; targetZ:number; paddingPx:number } };
 }
 
 export const CONFIG: GameConfig = {
@@ -67,5 +67,5 @@ export const CONFIG: GameConfig = {
   bomb: { radius: 1.55, trackTolerance: 0.62 },
   visual: { helmetColors: [0xffcf3f, 0x6dddea, 0xee86ba, 0xb59bff, 0xff9356], stoneRadius: 0.23, maxEffects: 120, pixelRatio: 1.5 },
   input: { dragThreshold: 9, targetRadius: 0.57, touchLift: 0.85, hitRadiusPx:24, pickupRadiusPx:34, touchLiftPx:32 },
-  camera: { fov: 38, near: 0.1, far: 80, position: [0, 17, 12], target: [0, 0, -.25], margin:1.03, frameWidth:7.8, frameDepth:21.2, landscapeWidth:18, landscapeDepth:10.4 },
+  camera: { fov: 38, near: 0.1, far: 80, position: [0, 17, 12], target: [0, 0, -.25], margin:1.03, frameWidth:7.8, frameDepth:21.2, landscapeWidth:18, landscapeDepth:10.4, portraitBounds:{left:-3.6,right:3.6,back:-7.6,front:8.7,height:1.3,targetZ:1.75,paddingPx:12} },
 };

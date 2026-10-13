@@ -1,6 +1,5 @@
 import './style.css';
 import { Game } from './game/Simulation';
-import { workerBarrelRange } from './game/commands';
 import { SceneView } from './render/SceneFactory';
 import { PointerController } from './input/PointerController';
 import { Hud } from './ui/Hud';
@@ -13,8 +12,8 @@ try {
   const pause=()=>{input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){const range=workerBarrelRange(game.state);hud.message(`Worker barrels upgraded: levels ${range.lowest}–${range.highest}. Capped at your strongest deployed worker.`);}}});
-  const input=new PointerController(view.canvas,game,view,text=>hud.message(text));
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{game.buyWorkerUpgrade();}});
+  const input=new PointerController(view.canvas,game,view,text=>{if(text.startsWith('Drag '))hud.guidance(text,text);else hud.message(text);});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});
   window.addEventListener('focus',()=>{if(lostFocus&&!modalPaused)resume();});
@@ -25,9 +24,9 @@ try {
   const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
     view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);
     if(events.some(e=>e.type==='goal'))hud.goal();
-    const brake=events.find(e=>e.type==='brake');if(brake)hud.message(brake.amount?'Snake speed reduced permanently. Acceleration continues.':'Snake is already at minimum speed. Acceleration continues.');
-    if(events.some(e=>e.type==='discard'))hud.message('Worker discarded. No coins awarded.');
-    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.message(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until the snake pause ends.':'Rewind! Back to the first bend.'):'The head is already at or before the rewind point.');
+    const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
+    if(events.some(e=>e.type==='discard'))hud.guidance('Worker discarded · no coins','discard');
+    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until pause ends':'Rewound to the first bend'):'Already before the rewind point','rewind');
     if(events.some(e=>e.type==='gameover')){input.cancel();hud.defeat();modalPaused=true;bridge.end();}
     frames++;if(now-fpsAt>=1000){fps=frames*1000/(now-fpsAt);frames=0;fpsAt=now;}
     if(diagnostics){const m=view.metrics();diagnostics.textContent=`${fps.toFixed(1)} fps · ${m.calls} calls · ${m.triangles} tris\n${game.state.stones.length} rocks · ${m.effects} effects`;}

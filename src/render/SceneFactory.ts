@@ -57,9 +57,27 @@ export class SceneView {
     this.targetRing=new THREE.Mesh(new THREE.RingGeometry(.56,.62,32),new THREE.MeshBasicMaterial({color:0x8effc5,transparent:true,opacity:.95,side:THREE.DoubleSide,depthTest:false}));this.targetRing.rotation.x=-Math.PI/2;this.targetRing.visible=false;this.targetRing.renderOrder=20;this.scene.add(this.targetRing);
     this.resize();
   }
-  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=w>h;this.field.rotation.y=this.landscape?Math.PI/2:0;this.belt.position.z=this.landscape?3.65:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.45:1,1,this.landscape?.59:1);this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
+  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.belt.position.z=this.landscape?3.65:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.45:1,1,this.landscape?.59:.88);this.floor.position.z=this.landscape?0:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
     const direction=new THREE.Vector3(...viewConfig.camera.direction).normalize();const vertical=this.landscape?CONFIG.camera.landscapeDepth:CONFIG.camera.frameDepth;const horizontal=this.landscape?CONFIG.camera.landscapeWidth:CONFIG.camera.frameWidth;const fov=THREE.MathUtils.degToRad(viewConfig.camera.fov);const distance=Math.max(vertical/2/Math.tan(fov/2),horizontal/2/Math.tan(fov/2)/this.camera.aspect)*viewConfig.camera.margin;
-    this.camera.position.copy(direction.multiplyScalar(distance));this.camera.lookAt(0,0,this.landscape?-.1:CONFIG.camera.target[2]);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();this.cameraBase.copy(this.camera.position);
+    if(this.landscape){
+      // Preserve the established landscape camera exactly.
+      this.camera.position.copy(direction.multiplyScalar(distance));this.camera.lookAt(0,0,-.1);
+    }else{
+      // Fit playable geometry, not the decorative floor, inside the reserved HUD rails.
+      // Perspective constraints account for the nearer belt and the highest workers.
+      const bounds=CONFIG.camera.portraitBounds;
+      const target=new THREE.Vector3(0,0,bounds.targetZ);
+      const right=new THREE.Vector3(1,0,0),up=new THREE.Vector3().crossVectors(direction,right).normalize();
+      const tanY=Math.tan(fov/2)*Math.max(.1,1-2*bounds.paddingPx/h);
+      const tanX=Math.tan(fov/2)*this.camera.aspect*Math.max(.1,1-2*bounds.paddingPx/w);
+      let fit=0;
+      for(const x of [bounds.left,bounds.right])for(const y of [0,bounds.height])for(const z of [bounds.back,bounds.front]){
+        const point=new THREE.Vector3(x,y,z).sub(target),depth=point.dot(direction);
+        fit=Math.max(fit,Math.abs(point.dot(right))/tanX+depth,Math.abs(point.dot(up))/tanY+depth);
+      }
+      this.camera.position.copy(target).addScaledVector(direction,fit*1.02);this.camera.lookAt(target);
+    }
+    this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();this.cameraBase.copy(this.camera.position);
   }
   private mapped(point:Point,belt=false):Point{return this.landscape?(belt?{x:point.x*2,z:3.65}:{x:point.z,z:-point.x}):point;}
   project(point:Point,y=0,belt=false):ScreenPoint{const p=this.mapped(point,belt);const v=new THREE.Vector3(p.x,y,p.z).project(this.camera);return{x:(v.x+1)*this.lastWidth/2,y:(1-v.y)*this.lastHeight/2};}

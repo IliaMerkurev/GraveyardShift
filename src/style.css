@@ -33,3 +33,12 @@
 .entity-target.merge-target::after{content:'MERGE';position:absolute;top:100%;left:50%;transform:translateX(-50%);padding:1px 5px;border:1px solid #a1ffd0;border-radius:5px;background:#184c36;color:#caffdf;font-size:9px;font-weight:900;letter-spacing:.6px;white-space:nowrap}
 .entity-label.merge-target-label{background:#175f3b;border-color:#a1ffd0;color:#e4ffef;box-shadow:0 0 12px #56ffaa}
 @media(prefers-reduced-motion:reduce){.upgrade-button[data-ready="true"]:not(:disabled){animation:none;outline:3px solid #fff1a6;outline-offset:2px}}
+
+/* Compact feedback occupies a fixed HUD row, never storage or conveyor targets. */
+.game-shell .toast{top:72px;bottom:auto;left:12px;right:12px;max-width:none;transform:none;height:30px;display:flex;align-items:center;justify-content:center;padding:3px 6px;border:0;border-radius:8px;font-size:11px;line-height:1.2;background:#211c35ee}
+@media(max-aspect-ratio:1/1){
+  .game-shell{--top-rail:calc(108px + env(safe-area-inset-top))}
+  .game-shell canvas{top:var(--top-rail);height:calc(100% - var(--upgrade-rail) - var(--top-rail))}
+  .game-shell .labels{top:var(--top-rail)}
+  .game-shell .toast{top:calc(72px + env(safe-area-inset-top))}
+}
