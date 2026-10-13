@@ -253,16 +253,7 @@ describe('merge invariants and progression', () => {
     assertOwnership(game);
   });
 
-  it('rejects a maximum-level merge without consuming either worker', () => {
-    const game = new Game();
-    const source = openWorker(game), destination = padWorker(game);
-    source.level = destination.level = CONFIG.economy.maxLevel;
-    expect(move(game, source, { kind: 'pad', id: 'pad-0' })).toBe(false);
-    expect(source.level).toBe(5);
-    expect(destination.level).toBe(5);
-    expect(game.state.entities[source.id]).toBe(source);
-    assertOwnership(game);
-  });
+
 
   it('achieves the goal via real barrels/merges and purchase, only once, without ending play', () => {
     const game = new Game();

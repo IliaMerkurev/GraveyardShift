@@ -40,7 +40,16 @@ export function createWorker(): WorkerVisual {
   const helmet = new THREE.Mesh(helmetGeometry,helmetMaterial); group.add(helmet);
   const arm = new THREE.Group(); arm.position.set(.215,.61,.02); arm.add(new THREE.Mesh(toolGeometry,solid)); group.add(arm);
   return {group,helmet,arm,
-    setLevel(level) { helmetMaterial.color.setHex(helmetColors[level-1] ?? helmetColors[0]); },
+    setLevel(level) {
+      const safeLevel = Number.isSafeInteger(level) && level > 0 ? level : 1;
+      if (safeLevel <= helmetColors.length) {
+        helmetMaterial.color.setHex(helmetColors[safeLevel-1]);
+      } else {
+        // Reduce before multiplying so even the largest safe level retains a finite hue.
+        const hue = ((safeLevel % 360) * 137.508 % 360) / 360;
+        helmetMaterial.color.setHSL(hue, .7, .62);
+      }
+    },
     setAction(phase) { const hit=CONFIG.mining.impactPhase;arm.rotation.x=phase<=0?-.16:phase<hit*.58?-.16-2*(phase/(hit*.58)):phase<hit?-2.16+2.66*((phase-hit*.58)/(hit*.42)):.5-.66*((phase-hit)/(1-hit)); },
     dispose(){helmetMaterial.dispose();group.removeFromParent();}
   };

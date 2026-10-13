@@ -1,4 +1,5 @@
 import type { GameConfig } from './config';
+import { nextWorkerLevel } from './progression';
 import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
   type Pad, type PlaceRef, type Point, type Slot,
@@ -153,7 +154,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (entity.kind !== 'worker') return false;
   if (!place.entityId) return true;
   const other = ctx.state.entities[place.entityId];
-  return other?.kind === 'worker' && other.level === entity.level && entity.level < ctx.config.economy.maxLevel;
+  return other?.kind === 'worker' && other.level === entity.level;
 }
 
 /** Single reward gate for mining and bombs. Removing the ID makes repeated damage inert. */
@@ -199,7 +200,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
     const destination = getPlace(ctx.state, target)!;
     const occupant = destination.entityId ? ctx.state.entities[destination.entityId] : undefined;
     if (occupant?.kind === 'worker' && entity.kind === 'worker') {
-      occupant.level++;
+      occupant.level = nextWorkerLevel(occupant.level);
       occupant.mining = createMiningState();
       delete ctx.state.entities[entity.id];
       ctx.state.stats.merged++;

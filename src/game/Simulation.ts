@@ -1,6 +1,7 @@
 import { CONFIG, type GameConfig } from './config';
 import { createMiningState, type DropTarget, type Entity, type GameEvent, type GameState, type Stone, type Worker } from './GameState';
 import * as commands from './commands';
+import { miningDamage } from './progression';
 import { getPathLength, samplePath } from './path';
 
 /** State and command facade. No rendering, DOM, timers, random globals or WebGL. */
@@ -32,7 +33,8 @@ export class Game {
         c.conveyor.count < 1 || c.conveyor.right <= c.conveyor.left || c.conveyor.speed < 0 ||
         c.mining.period <= 0 || c.mining.impactPhase <= 0 || c.mining.impactPhase >= 1 ||
         c.simulation.fixedStep <= 0 || c.simulation.maxDelta < c.simulation.fixedStep ||
-        c.pads.length === 0 || c.economy.maxLevel > c.mining.damageByLevel.length) {
+        c.pads.length === 0 || c.mining.damageByLevel.length === 0 || !Number.isFinite(c.mining.damageGrowth) || c.mining.damageGrowth < 1 ||
+        c.mining.damageByLevel.some(damage => !Number.isFinite(damage) || damage <= 0 || damage > Number.MAX_SAFE_INTEGER)) {
       throw new Error('Invalid game configuration');
     }
     for (let i = 1; i < c.path.runs.length; i++) {
@@ -250,8 +252,9 @@ export class Game {
         if (stone && stone.distance >= 0) {
           const point = samplePath(stone.distance, this.config.path);
           if (Math.hypot(point.x - pad.x, point.z - pad.z) <= c.radius) {
-            this.emit({ type: 'hit', x: point.x, z: point.z, entityId: worker.id, stoneId: stone.id, amount: c.damageByLevel[worker.level - 1]! });
-            commands.damageStone(this, stone.id, c.damageByLevel[worker.level - 1]!);
+            const damage = miningDamage(worker.level, c);
+            this.emit({ type: 'hit', x: point.x, z: point.z, entityId: worker.id, stoneId: stone.id, amount: damage });
+            commands.damageStone(this, stone.id, damage);
           }
         }
       }

@@ -44,6 +44,8 @@ Inspect the generated PNGs, not just their existence:
 
 The report deliberately uses `automated_pass_visual_review_required`, not a blanket visual pass. Screen-space marker movement does not prove arc-length values, continuous rigid geometry, backward gap closure after destruction, or WebGL mesh cleanup. Exact gap closure, both rewind branches (midpoint and near first miner), elapsed-time acceleration with its cap, and snake-only 0.5× slow for five seconds with timer refresh and smooth final 0.5-second recovery must be covered by the focused v0.2 simulation tests. No state-injected production proof is permitted.
 
+High-level merges (5→6, 6→7, later levels), damage growth and numeric/color safety are covered by new focused model/primitive tests. The short production script deliberately does not inject workers or claim a naturally reached level-six run.
+
 ## Record actual results
 
 Deliver the report, inspected screenshots, deployed HTML hash/byte size, actual browser version, and focused simulator results. Distinguish failed, blocked, not run, automated pass, and visually reviewed. Authoring or syntax-checking the smoke script is not a browser test. No physical-device test, performance benchmark, five-minute soak, old broad regression, or end-to-end bomb targeting is claimed by this script.
