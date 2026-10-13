@@ -12,7 +12,7 @@ try {
   const pause=()=>{input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume});
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade())hud.message(`Worker barrel levels +${game.state.workerDropBoost}. Future reveals upgraded.`);}});
   const input=new PointerController(view.canvas,game,view,text=>hud.message(text));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});
@@ -32,7 +32,7 @@ try {
     requestAnimationFrame(frame);
   };requestAnimationFrame(frame);
   if(import.meta.env.DEV){
-    const api={snapshot:()=>structuredClone(game.state),metrics:()=>({...view.metrics(),fps}),screenFor:(id:string)=>{const entity=game.state.entities[id];const ref=entity?.location;const place=ref&&ref.kind!=='drag'?(ref.kind==='pad'?game.state.pads:game.state.slots).find(p=>p.id===ref.id):[...game.state.pads,...game.state.slots].find(p=>p.id===id);if(!place)return null;const p=view.project(place,entity?(entity.kind==='worker'?.4:.27):.1,ref?.kind==='slot'||id.startsWith('slot-')),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};},point:(x:number,z:number)=>{const p=view.project({x,z}),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};}};
+    const api={snapshot:()=>structuredClone(game.state),metrics:()=>({...view.metrics(),fps}),screenFor:(id:string)=>{const entity=game.state.entities[id];const ref=entity?.location;const place=ref&&ref.kind!=='drag'?(ref.kind==='pad'?game.state.pads:ref.kind==='storage'?game.state.storage:game.state.slots).find(p=>p.id===ref.id):[...game.state.pads,...game.state.storage,...game.state.slots].find(p=>p.id===id);if(!place)return null;const p=view.project(place,entity?(entity.kind==='worker'?.4:ref?.kind==='storage'?.39:.27):.1,ref?.kind==='slot'||id.startsWith('slot-')),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};},point:(x:number,z:number)=>{const p=view.project({x,z}),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};}};
     Object.defineProperty(window,'__rocksnake',{value:Object.freeze(api),writable:false});
   }
 } catch(error){shell.innerHTML='';const message=document.createElement('div');message.className='fatal';message.setAttribute('role','alert');message.textContent=error instanceof Error?error.message:'This browser could not initialize the playable.';shell.append(message);}

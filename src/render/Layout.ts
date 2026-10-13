@@ -3,7 +3,7 @@ import { CONFIG } from '../game/config';
 export const viewConfig = {
   camera: { fov: CONFIG.camera.fov, target:CONFIG.camera.target, direction:CONFIG.camera.position, margin:CONFIG.camera.margin },
   dprLimit: CONFIG.visual.pixelRatio, dragThresholdPx:CONFIG.input.dragThreshold, hitRadiusPx:CONFIG.input.hitRadiusPx, touchLiftPx:CONFIG.input.touchLiftPx,
-  floor: { width: 7.8, depth: 17.8 }, maxEffects: CONFIG.visual.maxEffects
+  floor: { width: 7.8, depth: 19.8 }, maxEffects: CONFIG.visual.maxEffects
 } as const;
 export interface Point {x:number;z:number}
 export interface ScreenPoint {x:number;y:number}

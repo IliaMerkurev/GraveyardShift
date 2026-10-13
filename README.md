@@ -21,6 +21,8 @@ The finished export is `dist/playable/index.html`, one self-contained HTML. The 
 
 ## Current iteration validation
 
+Latest: [bonus storage and additive worker-drop upgrades](docs/STORAGE_UPGRADE_ITERATION.md), following dynamic barrel levels. Owner tests manually: no tests, typecheck, browser QA or Dreambook runs for these latest changes. Build directly with `npx vite build && node scripts/build-single.mjs`; the historical commands/results below do not verify this iteration.
+
 For the latest six playtest corrections, run `npm run test:feedback`, typecheck/build/budget and the bounded [feedback production QA](docs/QA_FEEDBACK.md). Do not rerun already-verified broad legacy suites. The 81 focused source checks passed. One 52.3-second Dreambook run passed all six changes plus portrait emulated-touch purchase/drop, with actual motion samples and inspected screenshots; see [production results and limits](docs/QA_FEEDBACK.md#completed-production-result--2026-10-13). Current source-check evidence is in [the feedback report](docs/TEST_REPORT_FEEDBACK.md); [prior v0.2 evidence](docs/TEST_REPORT_V02.md) describes the superseded checkpoint and is historical.
 
 ## Production QA without a fresh install

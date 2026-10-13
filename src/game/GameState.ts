@@ -1,5 +1,5 @@
 export type ContentKind = 'worker' | 'coins' | 'bomb' | 'rewind' | 'slow';
-export type PlaceRef = { kind: 'slot' | 'pad'; id: string };
+export type PlaceRef = { kind: 'slot' | 'pad' | 'storage'; id: string };
 export type EntityLocation = PlaceRef | { kind: 'drag' };
 export type DropTarget = PlaceRef | { kind: 'track'; x: number; z: number } | { kind: 'field'; x: number; z: number } | null;
 export interface Point { x: number; z: number }
@@ -25,9 +25,11 @@ export interface GameEvent extends Point {
 export interface GameState {
   time: number;
   coins: number;
+  workerDropBoost: number;
   entities: Record<string, Entity>;
   slots: Slot[];
   pads: Pad[];
+  storage: Pad[];
   stones: Stone[];
   drag: DragState | null;
   events: GameEvent[];

@@ -63,11 +63,12 @@ export class Game {
     const c = this.config;
     const slotSpacing = (c.conveyor.right - c.conveyor.left) / c.conveyor.count;
     this.state = {
-      time: 0, coins: c.economy.initialCoins, entities: {},
+      time: 0, coins: c.economy.initialCoins, workerDropBoost: 0, entities: {},
       slots: Array.from({ length: c.conveyor.count }, (_, i) => ({
         id: `slot-${i}`, x: c.conveyor.left + slotSpacing * (i + 0.5), z: c.conveyor.z, entityId: null, reserved: false,
       })),
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
+      storage: c.storage.map((stand, i) => ({ ...stand, id: `storage-${i}`, unlocked: false, entityId: null, reserved: false })),
       stones: [], drag: null, events: [], paused: false, conveyorPaused: false, goalReached: false, gameOver: false, slowRemaining: 0,
       headSpeed: 0, gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
       tutorial: { opened: false, placed: false, merged: false, bought: false, bombed: false },
@@ -129,6 +130,8 @@ export class Game {
   useSlow(entityId: string): boolean { return commands.useSlow(this, entityId); }
   useRewind(entityId: string): boolean { return commands.useRewind(this, entityId); }
   buyPad(padId: string): boolean { return commands.buyPad(this, padId); }
+  buyWorkerUpgrade(): boolean { return commands.buyWorkerUpgrade(this); }
+  buyStorage(standId: string): boolean { return commands.buyStorage(this, standId); }
   beginDrag(entityId: string): boolean { return commands.beginDrag(this, entityId); }
   canDrop(target: DropTarget): boolean { return commands.canDrop(this, target); }
   drop(target: DropTarget): boolean {

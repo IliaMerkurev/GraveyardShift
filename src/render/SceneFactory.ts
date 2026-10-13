@@ -6,7 +6,7 @@ import { samplePath, PATH_LENGTH } from '../game/path';
 import { createWorker, createBarrel, createBomb, createRewind, createSlow, disposePrimitive, makeWallGeometry, makeBrickTexture, type WorkerVisual } from './PrimitiveFactory';
 import { viewConfig, type Point, type ScreenPoint } from './Layout';
 
-export type HitTarget = {kind:'entity'|'pad'|'slot';id:string};
+export type HitTarget = {kind:'entity'|'pad'|'slot'|'storage';id:string};
 type EntityView = {kind:string;group:THREE.Group; worker?:WorkerVisual;label:HTMLDivElement;hit:HTMLDivElement};
 type Effect = {active:boolean;age:number;life:number;x:number;y:number;z:number;vx:number;vy:number;vz:number;color:number;size:number;coin:boolean};
 const resourceColors=CONFIG.stones.resources.map(r=>r.color);
@@ -16,6 +16,7 @@ export class SceneView {
   readonly canvas:HTMLCanvasElement;
   private finishLabel:HTMLDivElement;private headLabel:HTMLDivElement;
   private labels:HTMLDivElement; private entities=new Map<string,EntityView>(); private pads=new Map<string,{mesh:THREE.Mesh;label:HTMLDivElement}>();
+  private storage=new Map<string,{group:THREE.Group;material:THREE.MeshLambertMaterial;label:HTMLDivElement}>();
   private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   private ring:THREE.Mesh; private targetRing:THREE.Mesh;private treads:THREE.InstancedMesh;private state:GameState|null=null;private lastWidth=0;private lastHeight=0;
@@ -57,11 +58,18 @@ export class SceneView {
   private mapped(point:Point,belt=false):Point{return this.landscape?(belt?{x:point.x*2,z:3.65}:{x:point.z,z:-point.x}):point;}
   project(point:Point,y=0,belt=false):ScreenPoint{const p=this.mapped(point,belt);const v=new THREE.Vector3(p.x,y,p.z).project(this.camera);return{x:(v.x+1)*this.lastWidth/2,y:(1-v.y)*this.lastHeight/2};}
   world(clientX:number,clientY:number):Point|null{const rect=this.canvas.getBoundingClientRect();this.raycaster.setFromCamera(new THREE.Vector2((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1),this.camera);const v=new THREE.Vector3();return this.raycaster.ray.intersectPlane(this.plane,v)?(this.landscape?{x:-v.z,z:v.x}:{x:v.x,z:v.z}):null;}
-  private location(entityId:string):Point|null{const e=this.state?.entities[entityId];if(!e||!this.state||e.location.kind==='drag')return null;const ref=e.location;return(ref.kind==='pad'?this.state.pads:this.state.slots).find(p=>p.id===ref.id)??null;}
+  private location(entityId:string):Point|null{const e=this.state?.entities[entityId];if(!e||!this.state||e.location.kind==='drag')return null;const ref=e.location;return(ref.kind==='pad'?this.state.pads:ref.kind==='storage'?this.state.storage:this.state.slots).find(p=>p.id===ref.id)??null;}
   hit(clientX:number,clientY:number):HitTarget|null{
     if(!this.state)return null;const rect=this.canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;
     const candidates:{target:HitTarget,d:number}[]=[];
-    for(const e of Object.values(this.state.entities)){const loc=this.location(e.id);if(!loc)continue;const p=this.project(loc,e.kind==='worker'?.40:.27,e.location.kind==='slot');const d=Math.hypot(x-p.x,y-p.y);if(d<=viewConfig.hitRadiusPx)candidates.push({target:{kind:'entity',id:e.id},d});}
+    for(const e of Object.values(this.state.entities)){const loc=this.location(e.id);if(!loc)continue;const p=this.project(loc,e.kind==='worker'?.40:e.location.kind==='storage'?.39:.27,e.location.kind==='slot');const d=Math.hypot(x-p.x,y-p.y);if(d<=viewConfig.hitRadiusPx)candidates.push({target:{kind:'entity',id:e.id},d});}
+    for(const p of this.state.storage){
+      // Occupied stands are represented by their bonus; empty stands compete
+      // by actual distance, so a neighboring belt token cannot steal the tap.
+      if(p.entityId||p.reserved)continue;
+      const s=this.project(p,.1),d=Math.hypot(x-s.x,y-s.y);
+      if(d<=viewConfig.hitRadiusPx)candidates.push({target:{kind:'storage',id:p.id},d});
+    }
     if(candidates.length)return candidates.sort((a,b)=>a.d-b.d)[0].target;
     for(const p of this.state.pads){const s=this.project(p,.1);if(Math.hypot(x-s.x,y-s.y)<=viewConfig.hitRadiusPx)return{kind:'pad',id:p.id};}
     for(const p of this.state.slots){const s=this.project(p,.1,true);if(Math.hypot(x-s.x,y-s.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:p.id};}
@@ -69,6 +77,21 @@ export class SceneView {
   }
   dropTarget(clientX:number,clientY:number):DropTarget{
     if(!this.state?.drag)return null;const bounds=this.canvas.getBoundingClientRect();if(clientX<bounds.left||clientX>bounds.right||clientY<bounds.top||clientY>bounds.bottom)return null;const entity=this.state.entities[this.state.drag.entityId];
+    // UI and every storage stand take precedence over bonus activation. In
+    // particular, an occupied/unaffordable stand returns an invalid storage
+    // target rather than falling through to field/track consumption.
+    for(const ui of this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')){
+      const rect=ui.getBoundingClientRect();
+      if(clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return null;
+    }
+    const groundPoint=this.world(clientX,clientY);
+    for(const stand of this.state.storage){
+      const screen=this.project(stand,.1);
+      const occupied=this.project(stand,.39);
+      if(Math.hypot(clientX-bounds.left-screen.x,clientY-bounds.top-screen.y)<=viewConfig.hitRadiusPx||
+         (stand.entityId&&Math.hypot(clientX-bounds.left-occupied.x,clientY-bounds.top-occupied.y)<=viewConfig.hitRadiusPx)||
+         (groundPoint&&Math.abs(groundPoint.x-stand.x)<=.48&&Math.abs(groundPoint.z-stand.z)<=.4))return{kind:'storage',id:stand.id};
+    }
     if(entity?.kind==='rewind'||entity?.kind==='slow'){
       // Pointer capture still delivers releases over HTML controls. Those are
       // never part of the playfield, even if ground lies behind them.
@@ -90,7 +113,7 @@ export class SceneView {
   }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
     const color=valid?0x8effb7:0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);this.ring.scale.setScalar(target.kind==='field'?.55:bombRadius);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
-    else {const p=(target.kind==='pad'?this.state?.pads:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
+    else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
   }
   burst(x:number,z:number,color:number,count=10,large=false,coin=false){const p=this.mapped({x,z},z===CONFIG.conveyor.z);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?6:2),vy:2+Math.random()*2,vz:(Math.random()-.5)*(large?6:2),color,size:coin?.11:large?.12:.075,coin});}}
   reset(){this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
@@ -130,12 +153,30 @@ export class SceneView {
     for(const entity of Object.values(state.entities)){
       let v=this.entities.get(entity.id);if(!v){const worker=entity.kind==='worker'?createWorker():undefined;const group=worker?.group??(entity.kind==='barrel'?createBarrel():entity.kind==='rewind'?createRewind():entity.kind==='slow'?createSlow():createBomb());const label=document.createElement('div');label.className=entity.kind==='worker'?'entity-label':'barrel-label';const hit=document.createElement('div');hit.className='entity-target';hit.dataset.entity=entity.id;hit.dataset.kind=entity.kind;if(entity.kind==='rewind'||entity.kind==='slow'){const slow=entity.kind==='slow';label.style.color=slow?'#33277e':'#074b5e';label.style.background=slow?'#d7d0ff':'#a7fff6';label.style.borderRadius='7px';label.style.padding='0 3px';label.setAttribute('aria-label',slow?'Pause snake bonus. Tap or drag onto the field to freeze the snake for five seconds.':'Rewind bonus. Tap or drag onto the field to use.');}this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);}
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
-      const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:.1,mapped.z);
+      const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
       else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=entity.kind==='rewind'?'⏪':entity.kind==='slow'?'⏸':'';
-      const h=this.project(loc,entity.kind==='worker'?.4:.27,entity.location.kind==='slot');v.hit.style.left=`${h.x}px`;v.hit.style.top=`${h.y}px`;const p=this.project(loc,entity.kind==='worker'?1.27:entity.kind==='barrel'?.80:.9,entity.location.kind==='slot');v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;
+      const h=this.project(loc,entity.kind==='worker'?.4:entity.location.kind==='storage'?.39:.27,entity.location.kind==='slot');v.hit.style.left=`${h.x}px`;v.hit.style.top=`${h.y}px`;const p=this.project(loc,entity.kind==='worker'?1.27:entity.kind==='barrel'?.80:entity.location.kind==='storage'?1.02:.9,entity.location.kind==='slot');v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;
     }
     for(const pad of state.pads){let v=this.pads.get(pad.id);if(!v){const mesh=new THREE.Mesh(new THREE.BoxGeometry(.95,.13,.88),new THREE.MeshLambertMaterial({color:0x41394f}));mesh.position.set(pad.x,.025,pad.z);this.scene.add(mesh);const label=document.createElement('div');label.dataset.pad=pad.id;this.labels.append(label);v={mesh,label};this.pads.set(pad.id,v);}const mapped=this.mapped(pad);v.mesh.position.set(mapped.x,.025,mapped.z);const m=v.mesh.material as THREE.MeshLambertMaterial;m.color.setHex(pad.unlocked?0x426e69:0x54415f);v.label.dataset.unlocked=String(pad.unlocked);v.label.dataset.entityId=pad.entityId??'';v.label.dataset.reserved=String(pad.reserved);v.label.className=`pad-label ${pad.unlocked?'open':state.coins>=pad.price?'affordable':''}`;v.label.textContent=pad.unlocked?(pad.entityId?'':'＋ WORK'): `${pad.price} ●`;v.label.hidden=pad.unlocked&&!!pad.entityId;const p=this.project(pad,.19);v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;}
+    for(const stand of state.storage){
+      let v=this.storage.get(stand.id);
+      if(!v){
+        const group=new THREE.Group(),material=new THREE.MeshLambertMaterial({color:0x736084,flatShading:true});
+        const base=new THREE.Mesh(new THREE.CylinderGeometry(.44,.49,.19,6),material);base.position.y=.09;group.add(base);
+        const inset=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.035,6),new THREE.MeshLambertMaterial({color:0x30364b}));inset.position.y=.20;group.add(inset);
+        this.scene.add(group);const label=document.createElement('div');label.dataset.storage=stand.id;this.labels.append(label);
+        v={group,material,label};this.storage.set(stand.id,v);
+      }
+      const point=this.mapped(stand);v.group.position.set(point.x,0,point.z);
+      const occupied=!!stand.entityId||stand.reserved;
+      v.material.color.setHex(stand.unlocked?(occupied?0x68a8b9:0x67b6a3):state.coins>=stand.price?0xc5a35c:0x736084);
+      v.label.className=`pad-label storage-label ${stand.unlocked?'open':state.coins>=stand.price?'affordable':''}`;
+      v.label.dataset.unlocked=String(stand.unlocked);v.label.dataset.entityId=stand.entityId??'';v.label.dataset.reserved=String(stand.reserved);
+      v.label.textContent=stand.unlocked?(occupied?'STORED':'＋ STORE'):`${stand.price} ●`;
+      v.label.setAttribute('aria-label',stand.unlocked?(occupied?'Occupied bonus storage':'Empty bonus storage'):`Buy bonus storage for ${stand.price} coins`);
+      const screen=this.project(stand,.04);v.label.style.left=`${screen.x}px`;v.label.style.top=`${screen.y+10}px`;
+    }
     for(const e of events){if(e.type==='coins')this.burst(e.x,e.z,0xffd26a,4,false,true);else if(e.type==='destroy')this.burst(e.x,e.z,0xb9e9df,5);else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);else if(e.type==='bomb')this.burst(e.x,e.z,0xffc05d,45,true);else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);}
     let count=0,coinCount=0;for(const e of this.effects){if(!e.active)continue;e.age+=dt;if(e.age>=e.life){e.active=false;continue;}e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=8*dt;this.dummy.position.set(e.x,e.y,e.z);this.dummy.scale.setScalar(e.size*(1-e.age/e.life));this.dummy.rotation.set(e.coin?Math.PI/2:e.age*5,e.age*6,e.age*3);this.dummy.updateMatrix();if(e.coin)this.coins.setMatrixAt(coinCount++,this.dummy.matrix);else{this.particles.setMatrixAt(count,this.dummy.matrix);this.particles.setColorAt(count++,this.color.setHex(e.color));}}this.coins.count=coinCount;this.coins.instanceMatrix.needsUpdate=true;this.particles.count=count;this.particles.instanceMatrix.needsUpdate=true;if(this.particles.instanceColor)this.particles.instanceColor.needsUpdate=true;
     this.renderer.render(this.scene,this.camera);

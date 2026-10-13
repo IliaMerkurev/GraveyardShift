@@ -27,9 +27,9 @@ export class PointerController {
     this.canvas.setPointerCapture(event.pointerId);
     const target=this.start.target;
     const entity=target?.kind==='entity'?this.game.state.entities[target.id]:undefined;
-    // Own a revealed belt item from first contact, including a hold before the
-    // movement threshold. Pad workers can wait for movement without expiry risk.
-    if(entity?.location.kind==='slot'&&entity.kind!=='barrel'&&this.game.beginDrag(entity.id)){
+    // Own belt items and stored bonuses from first contact, including a hold
+    // before movement or a release without a move sample.
+    if(entity&&(entity.location.kind==='slot'||entity.location.kind==='storage')&&entity.kind!=='barrel'&&this.game.beginDrag(entity.id)){
       this.draggedEntityId=entity.id;
       this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));
     }
@@ -50,6 +50,7 @@ export class PointerController {
       if(this.draggedEntityId!==null)this.game.cancelDrag();
       const target=this.start.target;
       if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='worker')this.feedback('Drag this worker onto a pad or matching level.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto the rock stream.');}
+      else if(target?.kind==='storage'){const stand=this.game.state.storage.find(p=>p.id===target.id);if(stand&&!stand.unlocked&&!this.game.buyStorage(stand.id))this.feedback(`Need ${Math.max(0,stand.price-this.game.state.coins)} more coins for storage.`);else if(stand?.unlocked)this.feedback('Store a bomb, rewind or pause here.');}
       else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id))this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}
     }
     this.finish();

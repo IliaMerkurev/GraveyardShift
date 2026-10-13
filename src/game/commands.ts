@@ -14,7 +14,7 @@ export interface CommandContext {
 }
 
 export function getPlace(state: GameState, ref: PlaceRef): Slot | Pad | undefined {
-  return ref.kind === 'slot' ? state.slots.find((slot) => slot.id === ref.id) : state.pads.find((pad) => pad.id === ref.id);
+  return (ref.kind === 'slot' ? state.slots : ref.kind === 'storage' ? state.storage : state.pads).find(place => place.id === ref.id);
 }
 
 export function getEntityPosition(state: GameState, entity: Entity): Point | null {
@@ -41,7 +41,7 @@ export function checkGoal(ctx: CommandContext): void {
 }
 
 /** Read occupied work pads at reveal time, never belt cargo or a held worker. */
-function barrelWorkerLevel(state: GameState, random: () => number): number {
+export function workerBarrelRange(state: GameState): { lowest: number; highest: number } {
   let maxLevel = 1;
   for (const pad of state.pads) {
     if (!pad.unlocked || pad.reserved || !pad.entityId) continue;
@@ -51,8 +51,27 @@ function barrelWorkerLevel(state: GameState, random: () => number): number {
         !Number.isSafeInteger(worker.level) || worker.level < 1) continue;
     maxLevel = Math.max(maxLevel, worker.level);
   }
-  const lowest = Math.max(1, maxLevel - 10);
-  const highest = Math.max(1, maxLevel - 1);
+  const addBoost = (level: number) => level > Number.MAX_SAFE_INTEGER - state.workerDropBoost
+    ? Number.MAX_SAFE_INTEGER : level + state.workerDropBoost;
+  return { lowest: addBoost(Math.max(1, maxLevel - 10)), highest: addBoost(Math.max(1, maxLevel - 1)) };
+}
+
+export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
+  const price = config.economy.workerUpgradeBaseCost * 2 ** state.workerDropBoost;
+  return Number.isSafeInteger(price) && price > 0 ? price : null;
+}
+
+export function buyWorkerUpgrade(ctx: CommandContext): boolean {
+  if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
+  const price = workerUpgradePrice(ctx.state, ctx.config);
+  if (price === null || !Number.isSafeInteger(ctx.state.workerDropBoost + 1) || ctx.state.coins < price) return false;
+  ctx.state.coins -= price;
+  ctx.state.workerDropBoost++;
+  return true;
+}
+
+function barrelWorkerLevel(state: GameState, random: () => number): number {
+  const { lowest, highest } = workerBarrelRange(state);
   const count = highest - lowest + 1;
   if (count === 1) return lowest;
   const roll = random();
@@ -109,10 +128,10 @@ function activateBonus(ctx: CommandContext, entity: Rewind | Slow, point: Point)
   ctx.emit({ type: 'rewind', ...point, entityId: entity.id, amount: shift });
 }
 
-function useSlotBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow'): boolean {
+function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow'): boolean {
   if (ctx.state.paused || ctx.state.gameOver) return false;
   const entity = ctx.state.entities[entityId];
-  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow') || entity.kind !== kind || entity.location.kind !== 'slot') return false;
+  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
   const slot = getPlace(ctx.state, entity.location);
   if (!slot || slot.reserved || slot.entityId !== entityId) return false;
   slot.entityId = null;
@@ -120,8 +139,8 @@ function useSlotBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 's
   return true;
 }
 
-export function useSlow(ctx: CommandContext, entityId: string): boolean { return useSlotBonus(ctx, entityId, 'slow'); }
-export function useRewind(ctx: CommandContext, entityId: string): boolean { return useSlotBonus(ctx, entityId, 'rewind'); }
+export function useSlow(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'slow'); }
+export function useRewind(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'rewind'); }
 
 /** Route-and-ground footprint in field coordinates, excluding worker/purchase pads.
  * The conveyor and UI are rejected separately by the pointer view. */
@@ -130,7 +149,7 @@ export function isBonusFieldPoint(point: Point, config: GameConfig): boolean {
   return Number.isFinite(point.x) && Number.isFinite(point.z) &&
     point.x >= path.left - path.bendRadius - .5 && point.x <= path.right + path.bendRadius + .5 &&
     point.z >= Math.min(...path.runs) - .5 && point.z <= Math.max(...path.runs) + .5 &&
-    !config.pads.some(pad => Math.abs(point.x - pad.x) <= .62 && Math.abs(point.z - pad.z) <= .57);
+    ![...config.pads, ...config.storage].some(pad => Math.abs(point.x - pad.x) <= .62 && Math.abs(point.z - pad.z) <= .57);
 }
 
 function canBuyPad(ctx: CommandContext, pad: Pad | undefined): pad is Pad {
@@ -151,6 +170,17 @@ export function buyPad(ctx: CommandContext, padId: string): boolean {
   purchasePad(ctx, pad);
   ctx.emit({ type: 'purchase', x: pad.x, z: pad.z, amount: pad.price });
   checkGoal(ctx);
+  return true;
+}
+
+/** Storage purchases never count as work-pad/tutorial progress. */
+export function buyStorage(ctx: CommandContext, standId: string): boolean {
+  if (ctx.state.paused || ctx.state.gameOver) return false;
+  const stand = ctx.state.storage.find(candidate => candidate.id === standId);
+  if (!canBuyPad(ctx, stand)) return false;
+  ctx.state.coins -= stand.price;
+  stand.unlocked = true;
+  ctx.emit({ type: 'purchase', x: stand.x, z: stand.z, amount: stand.price });
   return true;
 }
 
@@ -201,6 +231,10 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   const place = getPlace(ctx.state, target);
   if (!place) return false;
   if (place.reserved && !samePlace(target, drag.source)) return false;
+  if (target.kind === 'storage') {
+    if (entity.kind !== 'bomb' && entity.kind !== 'rewind' && entity.kind !== 'slow') return false;
+    return (place as Pad).unlocked ? place.entityId === null : canBuyPad(ctx, place as Pad);
+  }
   if (entity.kind === 'bomb') return target.kind === 'slot' && place.entityId === null;
   if (entity.kind !== 'worker') return false;
   // Highlight affordable empty locked pads as valid without spending until drop.
@@ -262,6 +296,12 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
     ctx.emit({ type: 'bomb', x: target.x, z: target.z, entityId: entity.id, amount: victims.length });
   } else {
     const destination = getPlace(ctx.state, target)!;
+    if (target.kind === 'storage' && !(destination as Pad).unlocked) {
+      // Validity and purchase are committed within this single drop command.
+      purchasedPad = destination as Pad;
+      ctx.state.coins -= purchasedPad.price;
+      purchasedPad.unlocked = true;
+    }
     if (target.kind === 'pad' && !(destination as Pad).unlocked) {
       // canDrop has validated the funds and empty destination in this command.
       // Commit purchase and placement together before publishing the event.

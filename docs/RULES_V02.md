@@ -7,6 +7,8 @@ These later instructions supersede the conflicting v0.1 infinite-flow, permanent
 
 ## Current playtest corrections
 
+[Bonus storage and additive worker-drop upgrades](STORAGE_UPGRADE_ITERATION.md) adds three permanent bonus slots per run and a coin-funded +1 drop-level button whose price doubles. It supplements the dynamic drop window below. Owner performs manual gameplay testing; only bundling/standalone packaging run for this iteration.
+
 [Progressive worker barrel levels](BARREL_LEVEL_ITERATION.md) samples from a sliding window of up to ten levels below the highest worker currently placed on a work pad, favoring the lower end. A maximum of 5 allows 1–4; a maximum of 13 allows 3–12. Empty pads or a maximum of 1–2 still yield level 1.
 
 [Worker attack-speed progression](ATTACK_SPEED_ITERATION.md) adds faster swings starting at level 3; other current rules remain unchanged.

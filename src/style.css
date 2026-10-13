@@ -9,3 +9,7 @@
 .slot-label{position:absolute;transform:translate(-50%,-50%);color:#b4dbd4;font-size:20px;font-weight:800;text-shadow:0 1px #1b3039;pointer-events:none}
 
 .overlay{overflow:auto}.card{max-height:calc(100dvh - 40px);overflow:auto;touch-action:pan-y}
+
+.storage-label,.storage-label.open{font-size:9px;padding:3px 5px;border:1px solid #8da7bb;border-radius:5px;letter-spacing:.2px}.storage-label.open{background:#263f50e8;color:#c9f3ef}
+
+.upgrade-button{pointer-events:auto;flex:none;min-height:44px;border:1px solid #ffe09a;border-radius:10px;background:#dbac57;color:#30273c;padding:5px 9px;white-space:pre-line;font-size:10px;line-height:1.5;font-weight:850}.upgrade-button:disabled{background:#383148;color:#aaa0b9;border-color:#756880;cursor:default}.footer{gap:8px}.footer .belt-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.footer .help-button{flex:none}
