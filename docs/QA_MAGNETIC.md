@@ -1,5 +1,9 @@
 # Magnetic-motion and difficulty production delta
 
+## Build distinction
+
+The owner subsequently requested half the acceleration. Current script expectations use the halved time-dependent gain with unchanged initial 0.34 speed. A browser run already started on the earlier 600,149-byte build (SHA256 `1bf4acb2a159caa0aa6b851f5d868b49f33e511e1cc08ddd1181e67513dc4399`) remains evidence for that prior build; do not restart it or relabel its results as this balance update. No additional browser run is requested by this source change.
+
 ## Scope and execution
 
 Run `scripts/production-magnetic-smoke.mjs` **once** on the authorized Dreambook executor after the changed single-file build is deployed to the existing Site. This is one bounded browser delta with two directly affected scenarios: isolated magnetic closure, then natural defeat while the ordinary starter miner keeps working. Do not rerun the previous six-feature smoke or broad regression suites.
@@ -46,9 +50,9 @@ Restart once more with the normal level-one starter miner left on its original p
 
 The changed forward difficulty is:
 
-`v(t) = 0.34 + 0.010t + 0.0015t²` path units/s, where `t` is active simulation time.
+`v(t) = 0.34 + 0.005t + 0.00075t²` path units/s, where `t` is active simulation time.
 
-Reference values are 1.14 at 20 seconds, 3.14 at 40 seconds and 6.34 at 60 seconds. They describe the configured curve, **not a claim that a browser run survives to those times**. There is no reachable old 0.85 gameplay cap; an extreme numerical safety bound remains an implementation detail covered by model tests.
+Reference values are 0.74 at 20 seconds, 1.74 at 40 seconds and 3.34 at 60 seconds. They describe the configured curve, **not a claim that a browser run survives to those times**. There is no reachable old 0.85 gameplay cap; an extreme numerical safety bound remains an implementation detail covered by model tests.
 
 Assertions require:
 
@@ -57,7 +61,7 @@ Assertions require:
 - The real defeat overlay appears naturally inside the observation window; a timeout cannot pass.
 - `data-forward-speed` follows the new curve throughout the recorded active time.
 - Same-head-ID, single-step physical forward displacement follows the curve, using at least 60 eligible frame pairs.
-- Mean actual speed during the final three active seconds exceeds three times the initial-period mean and exceeds 1.15 path units/s. The observed times, velocities and ratio are reported.
+- Mean actual speed during the final three active seconds exceeds twice the initial-period mean and exceeds 1.15 path units/s. The observed times, velocities and ratio are reported.
 - Physical/rendered separation stays valid through the naturally occurring mining gaps.
 - The public signed speed agrees with actual head motion, excluding the ended frame and changes of head identity.
 

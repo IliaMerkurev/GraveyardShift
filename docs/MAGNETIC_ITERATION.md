@@ -13,17 +13,17 @@ Owner feedback on 2026-10-13 supersedes the prior anchored rear, whole-chain gap
 
 ## Progressive pressure
 
-Forward speed is `0.34 + 0.010t + 0.0015t²` path units/second for active seconds `t`:
+Following the owner’s immediate playtest request to halve acceleration, forward speed is `0.34 + 0.005t + 0.00075t²` path units/second for active seconds `t`:
 
 - Start: 0.34
-- 10 seconds: 0.59
-- 20 seconds: 1.14 (old build: 0.68)
-- 40 seconds: 3.14 (old build capped at 0.85)
-- 60 seconds: 6.34
+- 10 seconds: 0.465
+- 20 seconds: 0.74
+- 40 seconds: 1.74
+- 60 seconds: 3.34
 
-It continues growing after these samples. A remote numerical safety guard of 1,000,000 units/s is not a playable balance cap. Time in global pause does not age pressure; slow/rewind do not reset it. The smaller early linear term retains starter mining, while late pressure rapidly overwhelms ordinary mining. This is short-playable tuning, not a claim that every strategy or earning pace is fully balanced.
+Initial speed remains 0.34; every time-dependent speed gain is exactly half the preceding magnetic build. No gap, pull, recoil, mining or economy tuning changed. It continues growing after these samples. A remote numerical safety guard of 1,000,000 units/s is not a playable balance cap. Time in global pause does not age pressure; slow/rewind do not reset it. The smaller early linear term retains starter mining, while late pressure rapidly overwhelms ordinary mining. This is short-playable tuning, not a claim that every strategy or earning pace is fully balanced.
 
-Focused deterministic measurements use actual fixed-step movement and real mining, without forced defeat or event injection:
+Historical measurements below belong to the preceding magnetic build (`0.34 + 0.010t + 0.0015t²`), not the halved-acceleration update. They use actual fixed-step movement and real mining, without forced defeat or event injection:
 
 - Untouched starter level-1 miner: natural defeat at 22.7167 active seconds, one mined stone at 17.4333 seconds. Its moving rear reaches contact in about 0.25 seconds, before magnetic pull is needed. Actual accumulated rear travel: 16.1698 path units.
 - All four pads staffed with level-3 miners: natural defeat at 29.4833 seconds despite 46 mined stones. Rear travel: 27.1948 units. Staffing is a unit-test fixture, not a production hook or economy change.
@@ -33,8 +33,8 @@ Physical rear progress is the important correction: frequent mining no longer fr
 
 ## Verification and publication
 
-Only the new magnetic unit suite, typecheck, standalone build, inline-JavaScript syntax and size checks run here. Obsolete anchored-rear/difficulty expectations were removed from the earlier motion test file; its independent rewind coverage remains, not rerun. The bounded public-input browser delta is `scripts/production-magnetic-smoke.mjs` with procedure in `QA_MAGNETIC.md`; production browser execution and visual judgment are separate from these unit results.
+Original magnetic verification ran the focused magnetic suite, typecheck, standalone build, inline-JavaScript syntax and size checks. The subsequent half-acceleration balance update reruns only the affected numeric speed test plus typecheck, standalone build, inline syntax and size checks; it does not repeat motion or browser suites. Obsolete anchored-rear/difficulty expectations were removed from the earlier motion test file; its independent rewind coverage remains, not rerun. The bounded public-input browser delta is `scripts/production-magnetic-smoke.mjs` with procedure in `QA_MAGNETIC.md`; production browser execution and visual judgment are separate from these unit results.
 
 Read-only DOM mirrors expose logical `distance`, constrained `renderDistance`, recoil `bounce`, actual projected centers, actual last-fixed-step head `data-speed` and nominal current `data-forward-speed`. No production debug controls are added. `data-motion` is an aggregate gap mode and can differ from one section's actual movement when multiple gaps exist; ID-correlated distances are authoritative.
 
-Local base is `d107891eaaf54112260bde16f0e1ed6d12955d65`; canonical publisher parent is `7a20d9d1887321d4475662a36a0d05a09506c628`, tree `c363b9296fa8ef96da47921dfb4de48fbf366cc1`. The publisher must apply the content delta to that canonical parent; no direct push or history rewriting is performed.
+For this balance update, local base is `e64dc626b7471b34e2778277c453db0a5022d9bb`; canonical publisher parent is `2bc934f8878a5b558f647eaa59d34e381060a5fe`, tree `1863d5125def4e5c029984b8f86335b5679b079a`. The publisher must apply the content delta to that canonical parent; no direct push or history rewriting is performed.

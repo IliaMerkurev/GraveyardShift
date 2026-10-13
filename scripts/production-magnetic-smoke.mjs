@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 const DEFAULT_URL = 'https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site';
 const BUDGET_MS = 105_000;
 const SPACING = 0.245;
-const expectedForward = t => 0.34 + 0.010 * t + 0.0015 * t * t;
+const expectedForward = t => 0.34 + 0.005 * t + 0.00075 * t * t;
 const HELP = `RockSnake magnetic-motion production delta (ONE run)
 node scripts/production-magnetic-smoke.mjs --playwright-module <existing module file or directory> --executable <installed Chrome or Edge> [--url <HTTP(S) URL>] [--output <directory>]
 
@@ -330,7 +330,7 @@ async function inspect(browser, options) {
         contactGap: pairGap(rows[miningContactIndex], miningRearId, miningFrontId),
         pullCoverage: miningPull.length ? 'Actual front retraction and rear advance sampled.' : 'No backward interval sampled; moving rear closed the small gap safely, including the permitted early-contact branch.' };
       assert(rows.every(r => r.minSeparation >= SPACING - 0.00001 && r.minRenderSeparation >= SPACING - 0.00001), 'Repeated ordinary mining caused physical/rendered overlap or compressed spacing');
-      assert(rows.every(r => Number.isFinite(r.forwardSpeed) && Math.abs(r.forwardSpeed - expectedForward(r.time)) < 0.003), 'Public forward-speed curve differs from 0.34 + 0.010t + 0.0015t²');
+      assert(rows.every(r => Number.isFinite(r.forwardSpeed) && Math.abs(r.forwardSpeed - expectedForward(r.time)) < 0.003), 'Public forward-speed curve differs from 0.34 + 0.005t + 0.00075t²');
       const forward = measuredPairs(rows).filter(p => Math.abs(p.dt - 1 / 60) < 0.0001 && p.a.motion === 'forward' && p.b.motion === 'forward' && !p.b.defeat);
       assert(forward.length >= 60, 'Insufficient naturally reached actual forward-motion samples');
       const errors = forward.map(p => Math.abs(p.headVelocity - expectedForward(p.b.time)));
@@ -338,7 +338,7 @@ async function inspect(browser, options) {
       const early = forward.filter(p => p.b.time < 3), late = forward.filter(p => p.b.time >= end.time - 3);
       assert(early.length >= 8 && late.length >= 8, 'Insufficient early/late actual-speed coverage');
       const earlySpeed = mean(early.map(p => p.headVelocity)), lateSpeed = mean(late.map(p => p.headVelocity));
-      assert(lateSpeed > earlySpeed * 3 && lateSpeed > 1.15, `Difficulty did not increase substantially in actual movement: ${earlySpeed} → ${lateSpeed}`);
+      assert(lateSpeed > earlySpeed * 2 && lateSpeed > expectedForward(end.time - 3) * 0.95, `Difficulty did not increase substantially in actual movement: ${earlySpeed} → ${lateSpeed}`);
       const signedSpeed = signedSpeedEvidence(rows, 'Ordinary-run head-speed evidence');
       return { starterId: setup.starterId, wallSeconds, activeSecondsAtDefeat: end.time, minedStoneCount: minedIds.size,
         minedStoneIds: [...minedIds], miningMotion, earnedCoins: end.coins - setup.row.coins, earlyActualSpeed: earlySpeed, lateActualSpeed: lateSpeed,

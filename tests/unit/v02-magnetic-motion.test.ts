@@ -50,7 +50,7 @@ describe('magnetic motion delta',()=>{
   });
   it('moving rear safely pushes front when it catches a small gap before pause ends',()=>{
     const g=quiet();g.state.time=40;const rear=g.state.stones[19]!,front=g.state.stones[21]!;damageStone(g,g.state.stones[20]!.id,999);
-    const r=rear.distance,f=front.distance;advance(g,.15);expect(rear.distance).toBeGreaterThan(r+.45);expect(front.distance).toBeGreaterThan(f);expect(gap(g)).toBe(false);integrity(g);
+    const r=rear.distance,f=front.distance;advance(g,.15);expect(rear.distance).toBeGreaterThan(r+forwardSpeed(40)*.14);expect(front.distance).toBeGreaterThan(f);expect(gap(g)).toBe(false);integrity(g);
   });
   it('tail supplies and finish remains terminal while another gap is still paused',()=>{
     const g=quiet();g.state.stones=g.state.stones.slice(0,3);const list=g.state.stones;list[0]!.distance=1;list[1]!.distance=1+CONFIG.stones.spacing;list[2]!.distance=getPathLength()-.0001;g.state.gapReadyAt[list[2]!.id]=1;
@@ -70,8 +70,9 @@ describe('magnetic motion delta',()=>{
 });
 describe('strong active-time pressure delta',()=>{
   it('measures actual 20/40/60 second travel and remains finite at extreme time',()=>{
-    for(const [t,speed] of [[20,1.14],[40,3.14],[60,6.34]]) expect(forwardSpeed(t!)).toBeCloseTo(speed!,8);
+    for(const [t,speed] of [[20,.74],[40,1.74],[60,3.34]]) expect(forwardSpeed(t!)).toBeCloseTo(speed!,8);
     for(const t of [20,40,60]){const g=quiet();g.state.stones=[g.state.stones[0]!];g.state.stones[0]!.distance=-10000;g.state.time=t;const h=head(g);g.tick(1/60);expect((head(g)-h)*60).toBeCloseTo(forwardSpeed(t+1/60),7);}
+    expect(forwardSpeed(0)).toBe(.34);for(const t of [10,20,40,60,120])expect(forwardSpeed(t)-.34).toBeCloseTo((.010*t+.0015*t*t)/2,9);
     expect(Number.isFinite(forwardSpeed(Number.MAX_VALUE))).toBe(true);expect(forwardSpeed(120)).toBeGreaterThan(forwardSpeed(60)*2);
   });
   it('ordinary starter miner and four fully staffed miners still reach natural finite defeat',()=>{
