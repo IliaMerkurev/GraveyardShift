@@ -17,7 +17,7 @@ The owner separately authorized checking existing Dreambook Git access for the i
 All numbers are assumptions in `src/game/config.ts`:
 
 - No base health, timed loss, permanent snake death or forced timer end. Rocks flow continuously, leave without reward and replenish only at the entrance.
-- Four alternating straight runs and exact arc-length semicircle bends. 156 initial rigid rocks, maximum 200; no mesh deformation. Three resource types, low-poly geometry variants.
+- Five alternating straight runs and exact arc-length semicircle bends. 156 initial rigid rocks, maximum 200; no mesh deformation. Three resource types, low-poly geometry variants.
 - Start at 0 coins with one level-1 worker. Locked pads cost 50, 150 and 300. Resource HP/rewards and level damage are tuning values.
 - Six stable conveyor carriers. They really move right-to-left, stop if an occupied carrier reaches the end, and pause/reserve the source during a drag. Uncollected workers/bombs are never silently discarded. Barrels also stop at the end rather than being deleted.
 - Starter barrel sequence guarantees workers, a 50-coin bonus and a bomb; later contents use a seeded RNG. No payment or debug button is needed for the first merge/purchase.
@@ -40,3 +40,5 @@ One pointer controller owns a single active pointer, pointer capture, CSS-pixel 
 Audio is omitted in v0.1; all feedback is visible. Therefore no audio permission/autoplay dependency exists. State is memory-only; no storage, backend or runtime requests are required.
 
 Build inlines JS/CSS into one HTML, omits development hooks and adds a restrictive content security policy denying network connections. This is a browser prototype, not a validated MRAID/ExitAPI integration or certified advertising asset. CTA shows a local message only.
+
+Portrait layout uses a taller five-run field after projection review found the first four-run fit too small. Landscape rotates only the mining field as a rigid layout and keeps a separate horizontal conveyor at the bottom; stones remain individual rigid meshes and their distance-based path is unchanged. This is responsive composition, not a new mechanic.

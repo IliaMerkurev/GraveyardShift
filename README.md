@@ -17,7 +17,7 @@ npm run check:budget
 npm run preview:playable     # http://127.0.0.1:4173
 ```
 
-The finished export is `dist/playable/index.html`, one self-contained HTML. The preview URL above is local to the execution machine, not a public user URL. The user subsequently approved public built-in hosting for personal gameplay review; the verified deployment URL will be recorded after publication. GitHub source remains private.
+The finished export is `dist/playable/index.html`, one self-contained HTML. The preview URL above is local to the execution machine, not a public user URL. The user subsequently approved public built-in hosting for personal gameplay review; hosted QA URL: https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site . The cloud browser opened it but lacks WebGL 2, so actual gameplay there remains unverified. GitHub source remains private.
 
 ## Play
 
@@ -33,6 +33,8 @@ Tap a barrel to reveal a worker, coins or a bomb. Drag matching worker levels to
 - `tests/unit`, `tests/e2e`: development-only verification
 - `docs/DECISIONS.md`, `docs/TEST_REPORT.md`: assumptions and actual results/limits
 
+Before running the browser suite on a supported computer, install the standard bundled Chromium with npx playwright install chromium. The harness works across operating systems without a hardcoded browser path. Browser tooling is development-only.
+
 Development-only read-only diagnostic hooks are available to browser tests. `?debug` displays rendering counters in development. Neither hook nor panel is exported in the standalone HTML. No state-mutating cheats are exposed.
 
 ## Git safety
@@ -47,4 +49,4 @@ The executable local guard rejects main/master destinations. Never use force-pus
 
 ## Current validation limits
 
-The development execution sandbox prevented Chromium IPC startup. The attempted supported escalation returned `TurnAborted`; it was not bypassed. Automated browser tests and physical-phone tests are not claimed as passed. Public hosted browser review is being coordinated separately. See the current test report.
+The development execution sandbox prevented Chromium IPC startup. The attempted supported escalation returned `TurnAborted`; it was not bypassed. The hosted cloud-browser check reaches the intended WebGL 2 unavailable message. Automated mouse/touch gameplay, final scene screenshots, rendered performance, five-minute soak, offline runtime and physical-phone tests are not claimed as passed. See the current test report.

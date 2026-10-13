@@ -9,6 +9,7 @@ export class PointerController {
   private start:{x:number;y:number;target:HitTarget|null}|null=null;
   private moved=false;
   private touch=false;
+  private lastPoint:{x:number;y:number}|null=null;
   constructor(private canvas:HTMLCanvasElement,private game:Game,private view:SceneView,private feedback:(text:string)=>void){
     canvas.addEventListener('pointerdown',this.down);
     canvas.addEventListener('pointermove',this.move);
@@ -20,12 +21,12 @@ export class PointerController {
   }
   private down=(event:PointerEvent)=>{
     if(this.activePointerId!==null||this.game.state.paused||event.button!==0)return;
-    event.preventDefault();this.activePointerId=event.pointerId;this.touch=event.pointerType==='touch';this.moved=false;
+    event.preventDefault();this.activePointerId=event.pointerId;this.touch=event.pointerType==='touch';this.moved=false;this.lastPoint={x:event.clientX,y:event.clientY};
     this.start={x:event.clientX,y:event.clientY,target:this.view.hit(event.clientX,event.clientY)};
     this.canvas.setPointerCapture(event.pointerId);
   };
   private move=(event:PointerEvent)=>{
-    if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
+    if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();this.lastPoint={x:event.clientX,y:event.clientY};
     if(!this.moved&&Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx){
       this.moved=true;const target=this.start.target;if(target?.kind==='entity')this.game.beginDrag(target.id);
     }
@@ -41,6 +42,7 @@ export class PointerController {
     this.finish();
   };
   private pointerCancel=(event:PointerEvent)=>{if(event.pointerId===this.activePointerId)this.cancel();};
-  private finish(){const id=this.activePointerId;this.activePointerId=null;this.start=null;this.moved=false;this.dragPosition=null;this.view.showDrop(null,false,CONFIG.bomb.radius);if(id!==null&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}
+  private finish(){const id=this.activePointerId;this.activePointerId=null;this.start=null;this.moved=false;this.dragPosition=null;this.lastPoint=null;this.view.showDrop(null,false,CONFIG.bomb.radius);if(id!==null&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}
+  refreshDrop(){if(this.game.state.drag&&this.lastPoint){const target=this.view.dropTarget(this.lastPoint.x,this.lastPoint.y);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}}
   cancel(){this.game.cancelDrag();this.finish();}
 }

@@ -41,7 +41,7 @@ export function createWorker(): WorkerVisual {
   const arm = new THREE.Group(); arm.position.set(.215,.61,.02); arm.add(new THREE.Mesh(toolGeometry,solid)); group.add(arm);
   return {group,helmet,arm,
     setLevel(level) { helmetMaterial.color.setHex(helmetColors[level-1] ?? helmetColors[0]); },
-    setAction(phase) { arm.rotation.x = phase > 0 ? -Math.sin(phase * Math.PI) * 2.2 : -.16; },
+    setAction(phase) { const hit=CONFIG.mining.impactPhase;arm.rotation.x=phase<=0?-.16:phase<hit*.58?-.16-2*(phase/(hit*.58)):phase<hit?-2.16+2.66*((phase-hit*.58)/(hit*.42)):.5-.66*((phase-hit)/(1-hit)); },
     dispose(){helmetMaterial.dispose();group.removeFromParent();}
   };
 }
@@ -61,7 +61,7 @@ export function createBomb(): THREE.Group {
   group.add(body,fuse);return group;
 }
 export function makeWallGeometry(): THREE.BufferGeometry {
-  return join([box(5.7,.32,.20,0xffffff,0,.16,-3.85),box(5.7,.32,.20,0xffffff,0,.16,-1.15),box(5.7,.32,.20,0xffffff,0,.16,1.55)]);
+  const pieces:THREE.BufferGeometry[]=[];for(const run of CONFIG.path.runs.slice(0,-1)){const z=run+CONFIG.path.bendRadius;let spans:[[number,number]]|[number,number][]=[[CONFIG.path.left+.15,CONFIG.path.right-.15]];for(const pad of CONFIG.pads.filter(p=>Math.abs(p.z-z)<.1)){spans=spans.flatMap(([a,b])=>{const result:[number,number][]=[];if(a<pad.x-.62)result.push([a,Math.min(b,pad.x-.62)]);if(b>pad.x+.62)result.push([Math.max(a,pad.x+.62),b]);return result;});}for(const[a,b]of spans)if(b-a>.05)pieces.push(box(b-a,.32,.20,0xffffff,(a+b)/2,.16,z));}return join(pieces);
 }
 export function makeBrickTexture(): THREE.CanvasTexture {
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d')!;

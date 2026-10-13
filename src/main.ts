@@ -21,7 +21,7 @@ try {
   let lastTime=performance.now(),frames=0,fps=0,fpsAt=lastTime;let diagnostics:HTMLElement|null=null;
   if(import.meta.env.DEV&&new URLSearchParams(location.search).has('debug')){diagnostics=document.createElement('div');diagnostics.className='diagnostics';shell.append(diagnostics);}
   bridge.ready();
-  const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);const events=game.drainEvents();
+  const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
     view.sync(game.state,game.state.paused?0:dt,input.dragPosition,events);hud.render(game.state);
     if(events.some(e=>e.type==='goal')){hud.goal();modalPaused=true;pause();bridge.end();}
     frames++;if(now-fpsAt>=1000){fps=frames*1000/(now-fpsAt);frames=0;fpsAt=now;}
@@ -29,7 +29,7 @@ try {
     requestAnimationFrame(frame);
   };requestAnimationFrame(frame);
   if(import.meta.env.DEV){
-    const api={snapshot:()=>structuredClone(game.state),metrics:()=>({...view.metrics(),fps}),screenFor:(id:string)=>{const entity=game.state.entities[id];const ref=entity?.location;const place=ref&&ref.kind!=='drag'?(ref.kind==='pad'?game.state.pads:game.state.slots).find(p=>p.id===ref.id):[...game.state.pads,...game.state.slots].find(p=>p.id===id);if(!place)return null;const p=view.project(place,entity?.kind==='worker'?.4:entity?.kind==='barrel'?.27:.1),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};},point:(x:number,z:number)=>{const p=view.project({x,z}),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};}};
+    const api={snapshot:()=>structuredClone(game.state),metrics:()=>({...view.metrics(),fps}),screenFor:(id:string)=>{const entity=game.state.entities[id];const ref=entity?.location;const place=ref&&ref.kind!=='drag'?(ref.kind==='pad'?game.state.pads:game.state.slots).find(p=>p.id===ref.id):[...game.state.pads,...game.state.slots].find(p=>p.id===id);if(!place)return null;const p=view.project(place,entity?.kind==='worker'?.4:entity?.kind==='barrel'?.27:.1,ref?.kind==='slot'||id.startsWith('slot-')),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};},point:(x:number,z:number)=>{const p=view.project({x,z}),r=view.canvas.getBoundingClientRect();return{x:p.x+r.left,y:p.y+r.top};}};
     Object.defineProperty(window,'__rocksnake',{value:Object.freeze(api),writable:false});
   }
 } catch(error){shell.innerHTML='';const message=document.createElement('div');message.className='fatal';message.setAttribute('role','alert');message.textContent=error instanceof Error?error.message:'This browser could not initialize the playable.';shell.append(message);}

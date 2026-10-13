@@ -81,7 +81,7 @@ test('complete real-pointer cycle: barrels, both merges, mining, purchase, movem
     expect(state.stats.bombsUsed).toBe(0);
     const beforeDestroyed = state.stats.destroyed;
     const beforeCoins = state.coins;
-    await input.drag(await screenFor(page, starters[3]!), await worldPoint(page, -1, 2.9));
+    await input.drag(await screenFor(page, starters[3]!), await worldPoint(page, -1, 2));
     state = await waitForState(page, state => state.stats.bombsUsed === 1, 'Bomb detonates on the live stone stream');
     expect(state.entities[starters[3]!]).toBeUndefined();
     expect(state.stats.destroyed).toBeGreaterThan(beforeDestroyed);

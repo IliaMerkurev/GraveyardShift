@@ -340,7 +340,7 @@ describe('conveyor capacity and drag interruptions', () => {
     const x = game.state.slots[1]!.x;
     advance(game, 0.2);
     expect(game.state.slots[1]!.x).toBeLessThan(x);
-    expect(game.state.slots[0]!.x).toBeGreaterThan(3);
+    expect(game.state.slots[0]!.x).toBeGreaterThan(CONFIG.conveyor.right - 0.1);
     expect(game.state.entities[game.state.slots[0]!.entityId!]!.kind).toBe('barrel');
     assertOwnership(game);
   });
@@ -518,8 +518,8 @@ describe('mining impact, rewards and bombs', () => {
     game.openBarrel('slot-3');
     const bombId = game.state.slots[3]!.entityId!;
     for (const target of [
-      { kind: 'track', x: 0, z: -3.85 }, { kind: 'track', x: 0, z: 100 },
-      { kind: 'track', x: Number.NaN, z: -5.2 }, { kind: 'pad', id: 'pad-0' },
+      { kind: 'track', x: 0, z: CONFIG.path.runs[0]! + CONFIG.path.bendRadius }, { kind: 'track', x: 0, z: 100 },
+      { kind: 'track', x: Number.NaN, z: CONFIG.path.runs[0]! }, { kind: 'pad', id: 'pad-0' },
     ] as const) {
       expect(game.beginDrag(bombId)).toBe(true);
       expect(game.canDrop(target)).toBe(false);
@@ -528,7 +528,7 @@ describe('mining impact, rewards and bombs', () => {
     }
     game.state.stones = [];
     game.beginDrag(bombId);
-    expect(game.drop({ kind: 'track', x: 0, z: -5.2 })).toBe(false);
+    expect(game.drop({ kind: 'track', x: 0, z: CONFIG.path.runs[0]! })).toBe(false);
     expect(game.state.coins).toBe(0);
     expect(game.state.stats.bombsUsed).toBe(0);
     assertOwnership(game);

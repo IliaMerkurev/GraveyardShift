@@ -1,14 +1,14 @@
 # Приёмка v0.1
 
-Implementation checkpoint: see `TEST_REPORT.md` for actual executed checks. Unchecked browser/publishing items are not claimed complete. Later owner approval replaces VM-browser delivery with an approved public built-in hosted game; GitHub remains private.
+Implementation handoff: see `TEST_REPORT.md` for 56 passing unit tests, the 587,682-byte syntax-checked export and actual blockers. Unchecked browser/publishing items are not claimed complete. Hosted Chromium reaches the WebGL2-unavailable fallback; actual playthrough and screenshots are not verified. Later owner approval replaces VM-browser delivery with an approved public built-in hosted game; GitHub remains private.
 
 Статус при подготовке пакета: игра не реализована; все пункты ниже — будущие проверки dots, не результаты тестирования.
 
 ## Git и передача
 - [ ] Подтверждён точный репозиторий `IliaMerkurev/RockSnakePlayableTest` и `isPrivate: true`.
 - [ ] Исходники и документация запушены в `prototype/0.1`; удалённый SHA проверен.
-- [ ] В main нет push/merge со стороны dots; auto-merge не включён.
-- [ ] При наличии main открыт draft PR. При отсутствии main это явно указано, main не создана.
+- [x] В main нет push/merge со стороны dots; auto-merge не включён.
+- [x] При наличии main открыт draft PR. При отсутствии main это явно указано, main не создана. (main отсутствовала; PR не создавался.)
 - [ ] Сервер на VM запущен; браузер с игрой открыт; фактический URL сообщён.
 - [ ] Preview-ссылка проверена именно в заявленном способе доступа, localhost не выдан за публичный адрес.
 
@@ -53,11 +53,11 @@ Implementation checkpoint: see `TEST_REPORT.md` for actual executed checks. Unch
 
 ## Экспорт
 - [ ] `npm ci`, typecheck, unit tests и E2E реально выполняются.
-- [ ] `build:playable` создаёт один `dist/playable/index.html`.
-- [ ] `check:budget` измеряет байты файла и отклоняет размер ≥5 000 000.
-- [ ] Вес прототипа приведён в отчёте; цель ≤2 000 000 байт не выдана за измерение.
+- [x] `build:playable` создаёт один `dist/playable/index.html`.
+- [x] `check:budget` измеряет байты файла и отклоняет размер ≥5 000 000.
+- [x] Вес прототипа приведён в отчёте; цель ≤2 000 000 байт не выдана за измерение.
 - [ ] После загрузки документа заблокированы все дальнейшие запросы; игра продолжает работать.
 - [ ] Нет CDN, соседних JS/CSS, remote images/fonts, source maps, HMR и исходного видео.
-- [ ] В production нет чит-команд/дев-панелей и настоящего redirect по CTA.
-- [ ] Звук не начинается до пользовательского действия; без звука игра полностью понятна.
-- [ ] Прототип не назван готовым рекламным креативом до интеграции выбранной сети.
+- [x] В production нет чит-команд/дев-панелей и настоящего redirect по CTA. (Статическая проверка.)
+- [x] Звук не начинается до пользовательского действия; без звука игра полностью понятна. (Звук не добавлен; вся обратная связь визуальная.)
+- [x] Прототип не назван готовым рекламным креативом до интеграции выбранной сети.

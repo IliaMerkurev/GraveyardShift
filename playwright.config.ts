@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-// Development-only browser tooling. Chromium uses software WebGL 2 in this VM;
+// Development-only browser tooling. Install bundled Chromium with npx playwright install chromium.
+// The supplied software-WebGL flags are for VM validation;
 // these tests make no claim about physical-phone GPU performance.
 export default defineConfig({
   testDir: './tests/e2e',
@@ -16,7 +17,6 @@ export default defineConfig({
     browserName: 'chromium',
     headless: true,
     launchOptions: {
-      executablePath: '/usr/bin/chromium',
       args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
     },
     actionTimeout: 10_000,
@@ -27,6 +27,7 @@ export default defineConfig({
     { name: 'touch-360x640', testIgnore: [/standalone\.spec\.ts/, /soak\.spec\.ts/], use: { viewport: { width: 360, height: 640 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } },
     { name: 'touch-390x844', testIgnore: [/standalone\.spec\.ts/, /soak\.spec\.ts/], use: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 } },
     { name: 'touch-768x1024', testIgnore: [/standalone\.spec\.ts/, /soak\.spec\.ts/], use: { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } },
+    { name: 'touch-landscape-640x360', testIgnore: [/standalone\.spec\.ts/, /soak\.spec\.ts/], use: { viewport: { width: 640, height: 360 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } },
     { name: 'mouse-1280x720', testIgnore: /standalone\.spec\.ts/, use: { viewport: { width: 1280, height: 720 }, hasTouch: false, deviceScaleFactor: 1 } },
     { name: 'standalone-touch', testMatch: /standalone\.spec\.ts/, use: { baseURL: 'http://127.0.0.1:4173', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } },
     { name: 'standalone-mouse', testMatch: /standalone\.spec\.ts/, use: { baseURL: 'http://127.0.0.1:4173', viewport: { width: 1280, height: 720 }, hasTouch: false, deviceScaleFactor: 1 } },
