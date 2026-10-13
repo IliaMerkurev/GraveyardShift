@@ -5,7 +5,7 @@ export interface GameConfig {
   economy: { initialCoins: number; barrelCoins: number };
   path: { left: number; right: number; runs: readonly number[]; bendRadius: number };
   stones: {
-    initialCount: number; maxCount: number; speed: number; spacing: number; startFraction: number; rewindFraction: number; rewindNearStart: number; acceleration: number; maxSpeed: number; gapDelay: number; retractSpeed: number; rewindDuration: number;
+    initialCount: number; maxCount: number; speed: number; spacing: number; startFraction: number; rewindFraction: number; rewindNearStart: number; acceleration: number; accelerationGrowth: number; maxSpeed: number; gapDelay: number; retractSpeed: number; attraction: number; bounceDuration: number; bounceDistance: number; rewindDuration: number;
     resources: readonly { color: number; hp: number; reward: number }[];
   };
   conveyor: {
@@ -28,8 +28,8 @@ export const CONFIG: GameConfig = {
   economy: { initialCoins: 0, barrelCoins: 50 },
   path: { left: -1.3, right: 1.3, runs: [-7, -4, -1, 2, 5], bendRadius: 1.5 },
   stones: {
-    initialCount: 65, maxCount: 200, speed: 0.34, spacing: 0.245, startFraction: 0.5, rewindFraction: 0.5, rewindNearStart: 0.8, acceleration: 0.017, maxSpeed: 0.85,
-    gapDelay: 0.35, retractSpeed: 1.2, rewindDuration: 1.2,
+    initialCount: 65, maxCount: 200, speed: 0.34, spacing: 0.245, startFraction: 0.5, rewindFraction: 0.5, rewindNearStart: 0.8, acceleration: 0.010, accelerationGrowth: 0.15, maxSpeed: 1_000_000,
+    gapDelay: 0.35, retractSpeed: 3, attraction: 5, bounceDuration: 0.24, bounceDistance: 0.1, rewindDuration: 1.2,
     resources: [
       { color: 0x76cf9b, hp: 3, reward: 5 },
       { color: 0x60b4e2, hp: 5, reward: 8 },

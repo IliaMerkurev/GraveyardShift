@@ -2,11 +2,15 @@
 
 This iteration supersedes conflicting instant-motion, held-expiry and empty-carrier rules in earlier reports. It does not change primitive art direction or introduce a new Site.
 
-## Visible difficulty
+## Superseded motion tuning
+
+The later [magnetic-motion correction](MAGNETIC_ITERATION.md) replaces the difficulty and gap-motion descriptions below. Conveyor ownership, purchase, rewind and empty-carrier corrections still apply.
+
+## Visible difficulty (historical)
 
 Forward speed is `min(0.85, 0.34 + 0.017 * activeSeconds)` path units/s. At 10 seconds it is 0.51 (1.5× starting speed), at 20 seconds 0.68 (2×), and at 30 seconds it caps at 0.85 (2.5×). The previous increment, 0.0028/s, took roughly two minutes to double and was too subtle for a short playable. These are tuning constants, not a scripted loss timer. Global pause stops active time; slow, closure and rewind do not reset difficulty. Actual forward progress is interrupted by destruction and bonuses.
 
-## Destruction, gap closure and rewind
+## Destruction, gap closure and rewind (historical gap tuning)
 
 - Removal and reward remain immediate and exactly once. Explosion particles identify the destroyed location; surviving rocks do not teleport.
 - An interior gap freezes chain advancement for 0.35 active seconds, within the requested 0.25–0.5 second range. The surviving rear section remains an anchor. After the delay, contiguous sections ahead of gaps slide backward at 1.2 path units/s, clamped to contact. Every section is rigid; no link overlaps or crosses another. Forward motion resumes only when every gap is connected.

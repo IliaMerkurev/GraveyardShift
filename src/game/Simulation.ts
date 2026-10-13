@@ -2,6 +2,7 @@ import { CONFIG, type GameConfig } from './config';
 import { createMiningState, type DropTarget, type Entity, type GameEvent, type GameState, type Stone, type Worker } from './GameState';
 import * as commands from './commands';
 import { miningDamage } from './progression';
+import { forwardSpeed, attractionSpeed } from './motion';
 import { getPathLength, samplePath } from './path';
 
 /** State and command facade. No rendering, DOM, timers, random globals or WebGL. */
@@ -29,6 +30,7 @@ export class Game {
         c.stones.spacing <= 0 || c.stones.startFraction <= 0 || c.stones.startFraction >= 1 ||
         c.slow.factor <= 0 || c.slow.factor > 1 || c.slow.duration <= 0 || c.slow.recovery <= 0 || c.slow.recovery > c.slow.duration ||
         c.stones.gapDelay < 0.25 || c.stones.gapDelay > 0.5 || c.stones.retractSpeed <= 0 || c.stones.rewindDuration <= 0 ||
+        c.stones.accelerationGrowth < 0 || c.stones.attraction < 0 || c.stones.bounceDuration <= 0 || c.stones.bounceDistance < 0 ||
         c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed || c.stones.rewindNearStart < 0 ||
         c.stones.rewindFraction < 0 || c.stones.rewindFraction >= 1 || c.stones.speed < 0 || c.stones.resources.length === 0 ||
         c.conveyor.count < 1 || c.conveyor.right <= c.conveyor.left || c.conveyor.speed < 0 ||
@@ -62,7 +64,7 @@ export class Game {
       })),
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
       stones: [], drag: null, events: [], paused: false, conveyorPaused: false, goalReached: false, gameOver: false, slowRemaining: 0,
-      gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
+      headSpeed: 0, gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
       tutorial: { opened: false, placed: false, merged: false, bought: false, bombed: false },
       stats: { opened: 0, merged: 0, purchased: 0, destroyed: 0, bombsUsed: 0, coinsEarned: 0 },
     };
@@ -161,7 +163,7 @@ export class Game {
 
   private tickStones(dt: number): void {
     const c = this.config.stones;
-    const speed = Math.min(c.maxSpeed, c.speed + c.acceleration * this.state.time);
+    const speed = forwardSpeed(this.state.time, c);
     // Restore continuously over the last recovery window, without resetting difficulty.
     const slow = this.config.slow;
     const blend = Math.min(1, this.state.slowRemaining / slow.recovery);
@@ -169,10 +171,13 @@ export class Game {
     const travel = speed * factor * dt;
     const end = getPathLength(this.config.path);
     const ordered = [...this.state.stones].sort((a, b) => a.distance - b.distance);
+    const previousHead = ordered.at(-1)?.distance ?? 0;
+    for (const stone of ordered) stone.bounceRemaining = Math.max(0, (stone.bounceRemaining ?? 0) - dt);
     if (this.state.rewindTarget !== null) {
       const head = ordered.at(-1)?.distance ?? this.state.rewindTarget;
       const shift = Math.min(Math.max(0, head - this.state.rewindTarget), this.state.rewindSpeed * dt);
-      for (const stone of ordered) stone.distance -= shift;
+      for (const stone of ordered) { stone.distance -= shift; stone.bounceRemaining = 0; }
+      this.state.headSpeed = -shift / dt;
       if (head - shift <= this.state.rewindTarget + 1e-9) {
         this.state.rewindTarget = null;
         this.state.rewindSpeed = 0;
@@ -181,32 +186,37 @@ export class Game {
       // Gap recovery and tail supply resume after the rewind has finished.
       return;
     }
-    const hasGap = ordered.some((stone, i) => i > 0 && stone.distance - ordered[i - 1]!.distance > c.spacing + 1e-9);
-    if (hasGap) {
-      // Each contiguous section remains rigid. Anchor the rearmost section;
-      // move later sections backward at bounded speed, never through contact.
-      let start = 0;
-      while (start < ordered.length) {
-        let stop = start + 1;
-        while (stop < ordered.length && ordered[stop]!.distance - ordered[stop - 1]!.distance <= c.spacing + 1e-9) stop++;
-        if (start > 0) {
-          const gap = Math.max(0, ordered[start]!.distance - ordered[start - 1]!.distance - c.spacing);
-          const readyAt = this.state.gapReadyAt[ordered[start]!.id] ?? 0;
-          const shift = this.state.time <= readyAt + 1e-9 ? 0 : Math.min(gap, c.retractSpeed * factor * dt);
-          for (let i = start; i < stop; i++) ordered[i]!.distance -= shift;
-        }
-        start = stop;
-      }
-      const open = ordered.filter((stone, i) => i > 0 && stone.distance - ordered[i - 1]!.distance > c.spacing + 1e-9);
-      const openIds = new Set(open.map(s => s.id));
-      for (const id of Object.keys(this.state.gapReadyAt)) if (!openIds.has(id)) delete this.state.gapReadyAt[id];
-      this.state.gapRecoveryRemaining = open.length ? Math.max(0, Math.min(...open.map(s => (this.state.gapReadyAt[s.id] ?? 0) - this.state.time))) : 0;
-      // Forward movement resumes on the next step, only after all gaps close.
-      return;
+    // Snapshot rigid sections BEFORE moving. Moving the rear must never hide a
+    // boundary or change which survivors belong to a paused/pulling section.
+    const sections: Stone[][] = [];
+    for (let i = 0; i < ordered.length; i++) {
+      if (i === 0 || ordered[i]!.distance - ordered[i - 1]!.distance > c.spacing + 1e-9) sections.push([]);
+      sections.at(-1)!.push(ordered[i]!);
     }
-    this.state.gapRecoveryRemaining = 0;
-    this.state.gapReadyAt = {};
-    for (const stone of this.state.stones) stone.distance += travel;
+    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+      const section = sections[sectionIndex]!;
+      let shift = travel;
+      if (sectionIndex > 0) {
+        const front = section[0]!;
+        const rear = sections[sectionIndex - 1]!.at(-1)!;
+        // rear already moved this tick. Swept contact prevents crossings, even
+        // when the moving rear reaches the front before its pause has elapsed.
+        const gap = front.distance - rear.distance - c.spacing;
+        const readyAt = this.state.gapReadyAt[front.id] ?? 0;
+        const pull = this.state.time <= readyAt + 1e-9 ? 0 : attractionSpeed(gap, c) * factor * dt;
+        shift = Math.max(-gap, -pull);
+        if (gap + shift <= 1e-9) {
+          for (const stone of section) stone.bounceRemaining = c.bounceDuration;
+          delete this.state.gapReadyAt[front.id];
+        }
+      }
+      for (const stone of section) stone.distance += shift;
+    }
+    const open = ordered.filter((stone, i) => i > 0 && stone.distance - ordered[i - 1]!.distance > c.spacing + 1e-9);
+    const openIds = new Set(open.map(s => s.id));
+    for (const id of Object.keys(this.state.gapReadyAt)) if (!openIds.has(id)) delete this.state.gapReadyAt[id];
+    this.state.gapRecoveryRemaining = open.length ? Math.max(0, Math.min(...open.map(s => (this.state.gapReadyAt[s.id] ?? 0) - this.state.time))) : 0;
+    this.state.headSpeed = ((ordered.at(-1)?.distance ?? previousHead) - previousHead) / dt;
     const head = this.state.stones.reduce((max, stone) => Math.max(max, stone.distance), -Infinity);
     if (head >= end) {
       // Clamp the complete chain by the final fractional step; no survivors disappear.

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GameState, DropTarget, GameEvent } from '../game/GameState';
 import { CONFIG } from '../game/config';
+import { forwardSpeed, recoilDistances } from '../game/motion';
 import { samplePath, PATH_LENGTH } from '../game/path';
 import { createWorker, createBarrel, createBomb, createRewind, createSlow, disposePrimitive, makeWallGeometry, makeBrickTexture, type WorkerVisual } from './PrimitiveFactory';
 import { viewConfig, type Point, type ScreenPoint } from './Layout';
@@ -85,11 +86,12 @@ export class SceneView {
     const hasGap=ordered.some((stone,i)=>i>0&&stone.distance-ordered[i-1].distance>CONFIG.stones.spacing+1e-9);
     const motion=state.rewindTarget!==null?'rewind':hasGap?(state.gapRecoveryRemaining>1e-9?'gap-pause':'gap-retract'):'forward';
     const slowFactor=1-(1-CONFIG.slow.factor)*Math.min(1,state.slowRemaining/CONFIG.slow.recovery);
-    const forwardSpeed=Math.min(CONFIG.stones.maxSpeed,CONFIG.stones.speed+CONFIG.stones.acceleration*state.time)*slowFactor;
-    const speed=state.paused||state.gameOver?0:motion==='rewind'?-state.rewindSpeed:motion==='gap-pause'?0:motion==='gap-retract'?-CONFIG.stones.retractSpeed*slowFactor:forwardSpeed;
-    this.canvas.dataset.time=String(state.time);this.canvas.dataset.motion=motion;this.canvas.dataset.speed=String(speed);
-    const stoneMarkers:{id:string;distance:number;x:number;y:number}[]=[];
-    const counts=[0,0,0];for(const stone of state.stones){const path=samplePath(stone.distance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27,p.z);this.dummy.rotation.set(.15*Math.sin(stone.distance),path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
+    const advancingSpeed=forwardSpeed(state.time)*slowFactor;
+    const speed=state.paused||state.gameOver?0:state.headSpeed;
+    this.canvas.dataset.forwardSpeed=String(advancingSpeed);this.canvas.dataset.time=String(state.time);this.canvas.dataset.motion=motion;this.canvas.dataset.speed=String(speed);
+    const recoils=recoilDistances(ordered,PATH_LENGTH);const rendered=new Map(ordered.map((s,i)=>[s.id,recoils[i]]));
+    const stoneMarkers:{id:string;distance:number;x:number;y:number;bounce:number;renderDistance:number}[]=[];
+    const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);this.dummy.rotation.set(.15*Math.sin(stone.distance),path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
     this.canvas.dataset.stones=JSON.stringify(stoneMarkers);
     for(let i=0;i<3;i++){this.stones[i].count=counts[i];this.stones[i].instanceMatrix.needsUpdate=true;if(this.stones[i].instanceColor)this.stones[i].instanceColor!.needsUpdate=true;}
     const finish=samplePath(PATH_LENGTH),finishScreen=this.project({x:finish.x+.6,z:finish.z},.25);this.finishLabel.style.left=`${finishScreen.x}px`;this.finishLabel.style.top=`${finishScreen.y}px`;

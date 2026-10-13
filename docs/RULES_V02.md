@@ -4,6 +4,8 @@ These later instructions supersede the conflicting v0.1 infinite-flow, permanent
 
 ## Current playtest corrections
 
+The latest [magnetic-motion correction](MAGNETIC_ITERATION.md) supersedes gap pauses, rear anchoring and acceleration caps in all earlier descriptions.
+
 The six later feedback corrections in [FEEDBACK_ITERATION.md](FEEDBACK_ITERATION.md) supersede the historical implementation below, particularly instant gap/rewind motion, slow acceleration, held-item expiry, and empty carrier visuals.
 
 ## Prior implementation (historical; see corrections above)
