@@ -2,7 +2,11 @@
 
 These later instructions supersede the conflicting v0.1 infinite-flow, permanent-gap, belt-stop and continuation rules. Primitive Three.js art, rigid individual stones, shared worker geometry, pointer/touch input and standalone export limits remain unchanged. Visual production comes later.
 
-## Implemented rules and explicit choices
+## Current playtest corrections
+
+The six later feedback corrections in [FEEDBACK_ITERATION.md](FEEDBACK_ITERATION.md) supersede the historical implementation below, particularly instant gap/rewind motion, slow acceleration, held-item expiry, and empty carrier visuals.
+
+## Prior implementation (historical; see corrections above)
 
 - Head starts at exactly 50% of the path with 65 contiguous links behind it. The final half is empty; the head progresses gradually. Tail supply enters only behind the chain at the track entrance. Reaching FINISH triggers one terminal game-over event, freezes gameplay, and presents Restart without a continuation/CTA/navigation. Level-3/pad achievement is now a non-pausing milestone toast.
 - Destroyed links shift every surviving link in front of them backward by one spacing. The rear stays fixed. Pickaxe and bomb use the same reward/removal gate. Bomb victim IDs are captured before any shift, avoiding damage to new stones pulled into the blast after removal. Removal is atomic; meshes remain rigid.

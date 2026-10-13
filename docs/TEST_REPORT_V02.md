@@ -1,5 +1,7 @@
 # prototype/0.2 final validation report — 2026-10-13
 
+Historical checkpoint: the later six corrections and their evidence are in [TEST_REPORT_FEEDBACK.md](TEST_REPORT_FEEDBACK.md). This report does not certify the updated build.
+
 The checkpoint sections below retain the evidence available at each step. The final production result at the end supersedes their earlier pending status.
 
 ## New/affected checks actually run

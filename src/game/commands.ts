@@ -85,21 +85,31 @@ export function useRewind(ctx: CommandContext, entityId: string): boolean {
   const midpoint = getPathLength(ctx.config.path) * ctx.config.stones.rewindFraction;
   const target = head < midpoint ? ctx.config.stones.rewindNearStart : midpoint;
   const shift = Math.max(0, head - target);
-  for (const stone of ctx.state.stones) stone.distance -= shift;
+  // Simulation owns the motion; token consumption never teleports the chain.
+  ctx.state.rewindTarget = shift > 0 ? target : null;
+  ctx.state.rewindSpeed = shift / ctx.config.stones.rewindDuration;
   delete ctx.state.entities[entityId];
   slot.entityId = null;
   ctx.emit({ type: 'rewind', x: slot.x, z: slot.z, entityId, amount: shift });
   return true;
 }
 
-export function buyPad(ctx: CommandContext, padId: string): boolean {
-  if (ctx.state.paused || ctx.state.gameOver) return false;
-  const pad = ctx.state.pads.find((candidate) => candidate.id === padId);
-  if (!pad || pad.unlocked || ctx.state.coins < pad.price) return false;
+function canBuyPad(ctx: CommandContext, pad: Pad | undefined): pad is Pad {
+  return !!pad && !pad.unlocked && !pad.entityId && !pad.reserved && ctx.state.coins >= pad.price;
+}
+
+function purchasePad(ctx: CommandContext, pad: Pad): void {
   ctx.state.coins -= pad.price;
   pad.unlocked = true;
   ctx.state.stats.purchased++;
   ctx.state.tutorial.bought = true;
+}
+
+export function buyPad(ctx: CommandContext, padId: string): boolean {
+  if (ctx.state.paused || ctx.state.gameOver) return false;
+  const pad = ctx.state.pads.find((candidate) => candidate.id === padId);
+  if (!canBuyPad(ctx, pad)) return false;
+  purchasePad(ctx, pad);
   ctx.emit({ type: 'purchase', x: pad.x, z: pad.z, amount: pad.price });
   checkGoal(ctx);
   return true;
@@ -148,10 +158,12 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
     });
   }
   const place = getPlace(ctx.state, target);
-  if (!place || (target.kind === 'pad' && !(place as Pad).unlocked)) return false;
+  if (!place) return false;
   if (place.reserved && !samePlace(target, drag.source)) return false;
   if (entity.kind === 'bomb') return target.kind === 'slot' && place.entityId === null;
   if (entity.kind !== 'worker') return false;
+  // Highlight affordable empty locked pads as valid without spending until drop.
+  if (target.kind === 'pad' && !(place as Pad).unlocked) return canBuyPad(ctx, place as Pad);
   if (!place.entityId) return true;
   const other = ctx.state.entities[place.entityId];
   return other?.kind === 'worker' && other.level === entity.level;
@@ -168,9 +180,16 @@ export function damageStone(ctx: CommandContext, stoneId: string, damage: number
   if (stone.hp > 0) return false;
   const point = samplePath(stone.distance, ctx.config.path);
   ctx.state.stones.splice(index, 1);
-  // Keep the rear fixed; the front moves backwards by one removed link.
-  for (const front of ctx.state.stones) {
-    if (front.distance > stone.distance) front.distance -= ctx.config.stones.spacing;
+  // Keep the explosion gap visible. Delay only this boundary: unrelated gaps
+  // keep closing even when miners destroy stones in staggered cycles.
+  const previousReadyAt = ctx.state.gapReadyAt[stone.id];
+  delete ctx.state.gapReadyAt[stone.id];
+  const front = ctx.state.stones.filter(s => s.distance > stone.distance).sort((a, b) => a.distance - b.distance)[0];
+  const hasRear = ctx.state.stones.some(s => s.distance < stone.distance);
+  if (front && hasRear) {
+    const readyAt = Math.min(previousReadyAt ?? Infinity, ctx.state.gapReadyAt[front.id] ?? Infinity, ctx.state.time + ctx.config.stones.gapDelay);
+    ctx.state.gapReadyAt[front.id] = readyAt;
+    ctx.state.gapRecoveryRemaining = Math.max(0, readyAt - ctx.state.time);
   }
   ctx.state.stats.destroyed++;
   reward(ctx, stone.reward, point);
@@ -184,6 +203,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   if (!canDrop(ctx, target) || !target) { cancelDrag(ctx); return false; }
   const entity = ctx.state.entities[drag.entityId]!;
   const source = getPlace(ctx.state, drag.source)!;
+  let purchasedPad: Pad | undefined;
   if (target.kind === 'track') {
     // Snapshot IDs before removals; an ID can pass through the reward gate only once.
     const victims = ctx.state.stones.filter((stone) => {
@@ -198,6 +218,12 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
     ctx.emit({ type: 'bomb', x: target.x, z: target.z, entityId: entity.id, amount: victims.length });
   } else {
     const destination = getPlace(ctx.state, target)!;
+    if (target.kind === 'pad' && !(destination as Pad).unlocked) {
+      // canDrop has validated the funds and empty destination in this command.
+      // Commit purchase and placement together before publishing the event.
+      purchasedPad = destination as Pad;
+      purchasePad(ctx, purchasedPad);
+    }
     const occupant = destination.entityId ? ctx.state.entities[destination.entityId] : undefined;
     if (occupant?.kind === 'worker' && entity.kind === 'worker') {
       occupant.level = nextWorkerLevel(occupant.level);
@@ -214,6 +240,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   }
   source.reserved = false;
   ctx.state.drag = null;
+  if (purchasedPad) ctx.emit({ type: 'purchase', x: purchasedPad.x, z: purchasedPad.z, amount: purchasedPad.price });
   checkGoal(ctx);
   return true;
 }

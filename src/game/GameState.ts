@@ -36,6 +36,10 @@ export interface GameState {
   goalReached: boolean;
   gameOver: boolean;
   slowRemaining: number;
+  gapRecoveryRemaining: number;
+  gapReadyAt: Record<string, number>;
+  rewindTarget: number | null;
+  rewindSpeed: number;
   tutorial: { opened: boolean; placed: boolean; merged: boolean; bought: boolean; bombed: boolean };
   stats: { opened: number; merged: number; purchased: number; destroyed: number; bombsUsed: number; coinsEarned: number };
 }

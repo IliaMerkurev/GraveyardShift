@@ -6,6 +6,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:v02": "vitest run tests/unit/v02-rules.test.ts tests/unit/v02-slow.test.ts tests/unit/v02-levels.test.ts tests/unit/v02-level-visual.test.ts tests/unit/input.test.ts tests/unit/visual.test.ts -t \"prototype 0.2|v0.2\"",
+    "test:feedback": "vitest run tests/unit/v02-feedback-motion.test.ts tests/unit/v02-feedback-drag.test.ts tests/unit/v02-feedback-barrels.test.ts tests/unit/input.test.ts",
     "test:e2e": "playwright test",
     "build:playable": "npm run typecheck && vite build && node scripts/build-single.mjs",
     "check:budget": "node scripts/check-budget.mjs",

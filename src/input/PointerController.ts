@@ -25,18 +25,28 @@ export class PointerController {
     event.preventDefault();this.activePointerId=event.pointerId;this.touch=event.pointerType==='touch';this.moved=false;this.lastPoint={x:event.clientX,y:event.clientY};
     this.start={x:event.clientX,y:event.clientY,target:this.view.hit(event.clientX,event.clientY)};
     this.canvas.setPointerCapture(event.pointerId);
+    const target=this.start.target;
+    const entity=target?.kind==='entity'?this.game.state.entities[target.id]:undefined;
+    // Own a revealed belt item from first contact, including a hold before the
+    // movement threshold. Pad workers can wait for movement without expiry risk.
+    if(entity?.location.kind==='slot'&&(entity.kind==='worker'||entity.kind==='bomb')&&this.game.beginDrag(entity.id)){
+      this.draggedEntityId=entity.id;
+      this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));
+    }
   };
   private move=(event:PointerEvent)=>{
     if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();this.lastPoint={x:event.clientX,y:event.clientY};
     if(!this.moved&&Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx){
-      this.moved=true;const target=this.start.target;if(target?.kind==='entity'&&this.game.beginDrag(target.id))this.draggedEntityId=target.id;
+      this.moved=true;const target=this.start.target;if(this.draggedEntityId===null&&target?.kind==='entity'&&this.game.beginDrag(target.id))this.draggedEntityId=target.id;
     }
     if(this.game.state.drag){this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));const target=this.view.dropTarget(event.clientX,event.clientY);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
   };
   private up=(event:PointerEvent)=>{
     if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
-    if(this.game.state.drag){const target=this.view.dropTarget(event.clientX,event.clientY);if(!this.game.drop(target))this.feedback('Not a match. Returned safely.');}
-    else if(!this.moved){const target=this.start.target;
+    if(this.draggedEntityId!==null&&this.moved){const target=this.view.dropTarget(event.clientX,event.clientY);if(!this.game.drop(target))this.feedback('Not a match. Returned safely.');}
+    else if(!this.moved){
+      if(this.draggedEntityId!==null)this.game.cancelDrag();
+      const target=this.start.target;
       if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='worker')this.feedback('Drag this worker onto a pad or matching level.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto the rock stream.');}
       else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id))this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}
     }
@@ -49,8 +59,8 @@ export class PointerController {
     if(this.game.state.gameOver||this.game.state.paused){this.cancel();return;}
     const target=this.start?.target;
     const missingTarget=target?.kind==='entity'&&!this.game.state.entities[target.id];
-    const expiredDrag=this.draggedEntityId!==null&&this.game.state.drag?.entityId!==this.draggedEntityId;
-    if(missingTarget||expiredDrag){this.finish();this.feedback('That item left the belt.');return;}
+    const endedDrag=this.draggedEntityId!==null&&this.game.state.drag?.entityId!==this.draggedEntityId;
+    if(missingTarget||endedDrag){this.finish();if(missingTarget)this.feedback('That item is no longer available.');return;}
     if(this.game.state.drag&&this.lastPoint){const target=this.view.dropTarget(this.lastPoint.x,this.lastPoint.y);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
   }
   cancel(){this.game.cancelDrag();this.finish();}

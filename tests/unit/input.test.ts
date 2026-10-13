@@ -183,32 +183,35 @@ describe('PointerController event contract (DOM-free unit tests)', () => {
 
 
 describe('v0.2 continuous belt, rewind and defeat pointer rules', () => {
-  it('keeps the belt moving during a captured drag and clears every stale input on source expiry', () => {
+  it('keeps a captured drag alive while its reserved source wraps, then merges once', () => {
     const s = setup();
     s.openWorker();
     s.startDrag();
     const oldX = s.game.state.slots[0]!.x;
     s.game.tick(1 / 60);
     expect(s.game.state.slots[0]!.x).toBeLessThan(oldX);
-    expect(s.game.state.drag?.entityId).toBe(s.firstId);
     s.game.state.slots[0]!.x = CONFIG.conveyor.left + .001;
     s.game.tick(1 / 60);
-    expect(s.game.state.entities[s.firstId]).toBeUndefined();
-    expect(s.game.state.drag).toBeNull();
     s.controller.refreshDrop();
+    expect(s.game.state.entities[s.firstId]?.location.kind).toBe('drag');
+    expect(s.game.state.drag?.entityId).toBe(s.firstId);
+    expect(s.game.state.slots[0]).toMatchObject({ reserved: true, entityId: null });
+    expect(s.controller.activePointerId).toBe(1);
+    expect(s.canvas.hasPointerCapture(1)).toBe(true);
+    expect(s.feedback).not.toHaveBeenCalled();
+    s.send('pointerup', { clientX: 180 });
+    expect(s.game.state.stats.merged).toBe(1);
+    expect(s.game.state.drag).toBeNull();
     expect(s.controller.activePointerId).toBeNull();
-    expect(s.controller.dragPosition).toBeNull();
     expect(s.canvas.captures.size).toBe(0);
     expect(s.showDrop).toHaveBeenLastCalledWith(null, false, CONFIG.bomb.radius);
-    expect(s.feedback).toHaveBeenCalledExactlyOnceWith('That item left the belt.');
     const snapshot = structuredClone(s.game.state);
-    s.send('pointermove', { clientX: 180 });
     s.send('pointerup', { clientX: 180 });
     s.send('pointercancel');
     expect(s.game.state).toEqual(snapshot);
   });
 
-  it('rechecks expiry at pointerup before any frame has refreshed the gesture', () => {
+  it('can drop after a source wrap before any frame refreshes the gesture', () => {
     const s = setup();
     s.openWorker();
     s.startDrag();
@@ -216,8 +219,8 @@ describe('v0.2 continuous belt, rewind and defeat pointer rules', () => {
     s.game.tick(1 / 60);
     const drop = vi.spyOn(s.game, 'drop');
     s.send('pointerup');
-    expect(drop).not.toHaveBeenCalled();
-    expect(s.game.state.stats.merged).toBe(0);
+    expect(drop).toHaveBeenCalledExactlyOnceWith({ kind: 'pad', id: 'pad-0' });
+    expect(s.game.state.stats.merged).toBe(1);
     expect(s.controller.activePointerId).toBeNull();
     expect(s.canvas.captures.size).toBe(0);
     expect(s.showDrop).toHaveBeenLastCalledWith(null, false, CONFIG.bomb.radius);

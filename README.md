@@ -21,7 +21,7 @@ The finished export is `dist/playable/index.html`, one self-contained HTML. The 
 
 ## Current iteration validation
 
-Run `npm run test:v02` for new/affected v0.2 rules only, plus typecheck/build/budget. At the owner’s request, do not repeat already-verified legacy suites. See [v0.2 rules](docs/RULES_V02.md) and [new-rule production QA](docs/QA_V02.md). For this build, 58 new focused cases and final type/build/budget checks passed. One bounded Dreambook production run passed 9/9 checks in about 69 seconds; screenshots were inspected. HEAD/FINISH overlap behind the defeat dialog is deferred to the visual phase. See [the final v0.2 report](docs/TEST_REPORT_V02.md) for exact evidence and limits. Historical results below belong to v0.1, not this build.
+For the latest six playtest corrections, run `npm run test:feedback`, typecheck/build/budget and the bounded [feedback production QA](docs/QA_FEEDBACK.md). Do not rerun already-verified broad legacy suites. Current evidence and limits are in [the feedback report](docs/TEST_REPORT_FEEDBACK.md); [prior v0.2 evidence](docs/TEST_REPORT_V02.md) describes the superseded checkpoint and is historical.
 
 ## Production QA without a fresh install
 
@@ -29,7 +29,7 @@ If an authorized computer already has Playwright and Chrome/Edge, the standalone
 
 ## Play
 
-The head begins halfway along the route and gradually accelerates toward FINISH. Reaching FINISH ends the run. Mining and bombs remove links and shift the front backward toward the tail. Tap a barrel to reveal a worker, coins, a bomb, cyan rewind token or purple slow token; tap the token to rewind the whole chain to the middle, or near the first miner if already earlier. Rewind preserves speed. Tap a purple clock token for a five-second snake-only slowdown; the belt and miners keep their normal pace. The belt keeps moving during drags: anything reaching its left exit is lost, including a currently dragged item whose belt source expires. Drag matching worker levels together on the belt or a pad, including beyond level 5. Higher levels increase mining damage while retaining the same worker geometry. Tap a priced pad when you can afford it, then drag a worker there to mine. Drag workers back to a free belt space or between pads. Drag a bomb onto the resource stream; its ring previews the blast. Invalid moves return to the moving source only while it still exists. Restart resets the run; Help explains the controls. The prototype milestone is a level-3 worker and one purchased pad; continuing is allowed.
+The head begins halfway along the route and gradually accelerates toward FINISH. Reaching FINISH ends the run. Mining and bombs explode links; after a 0.35-second delay, the front slides backward toward the rear until connected. Tap a barrel to reveal a worker, coins, a bomb, cyan rewind token or purple slow token; tap the token to animate the whole chain backward over 1.2 seconds to the middle, or near the first miner if already earlier. Rewind preserves speed. Tap a purple clock token for a five-second snake-only slowdown; the belt and miners keep their normal pace. The belt keeps moving during drags: untouched items reaching its left exit are lost, but a picked-up item belongs to the drag and stays safe across its source-carrier wraps. Drag matching worker levels together on the belt or a pad, including beyond level 5. Higher levels increase mining damage while retaining the same worker geometry. Drop a worker onto an affordable locked pad to buy and occupy it in one move; click purchase also works. Drag workers back to a free belt space or between pads. Drag a bomb onto the resource stream; its ring previews the blast. Invalid moves and cancellations return to the reserved moving source safely. Restart resets the run; Help explains the controls. The prototype milestone is a level-3 worker and one purchased pad; continuing is allowed.
 
 ## Structure
 
@@ -58,3 +58,7 @@ The executable local guard rejects main/master destinations. Never use force-pus
 ## Historical v0.1 validation limits
 
 56 unit tests and strict typecheck pass. Actual production QA passed 22 mouse checks across portrait/landscape and 9 emulated-touch/bomb checks in portrait, with no uncaught page errors. Two strict mouse console checks failed because hosting injects a Cloudflare script blocked by the export’s CSP; the CSP remains unchanged. Physical touch, full 40-case E2E, five-minute soak, blocked-network runtime and rendered performance are not tested. The cloud browser still lacks WebGL 2; laptop Edge supplied the successful runtime. See [the test report](docs/TEST_REPORT.md) for precise evidence and limits.
+
+### Latest playtest corrections
+
+See [feedback iteration rules](docs/FEEDBACK_ITERATION.md) and [focused feedback QA](docs/QA_FEEDBACK.md). Acceleration is now noticeable within 10–20 seconds; gap closure and rewind are animated; held items survive conveyor wraps; worker drops can buy locked pads; vacated containers are removed.
