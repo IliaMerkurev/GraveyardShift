@@ -124,7 +124,7 @@ export class Game {
   drainEvents(): GameEvent[] { return this.state.events.splice(0); }
 
   openBarrel(slotId: string): boolean {
-    const result = commands.openBarrel(this, slotId); this.updateConveyorPaused(); return result;
+    const result = commands.openBarrel(this, slotId, () => this.random()); this.updateConveyorPaused(); return result;
   }
   useSlow(entityId: string): boolean { return commands.useSlow(this, entityId); }
   useRewind(entityId: string): boolean { return commands.useRewind(this, entityId); }

@@ -40,14 +40,36 @@ export function checkGoal(ctx: CommandContext): void {
   }
 }
 
-export function openBarrel(ctx: CommandContext, slotId: string): boolean {
+/** Read occupied work pads at reveal time, never belt cargo or a held worker. */
+function barrelWorkerLevel(state: GameState, random: () => number): number {
+  let maxLevel = 1;
+  for (const pad of state.pads) {
+    if (!pad.unlocked || pad.reserved || !pad.entityId) continue;
+    const worker = state.entities[pad.entityId];
+    if (worker?.kind !== 'worker' || worker.id !== pad.entityId ||
+        worker.location.kind !== 'pad' || worker.location.id !== pad.id ||
+        !Number.isSafeInteger(worker.level) || worker.level < 1) continue;
+    maxLevel = Math.max(maxLevel, worker.level);
+  }
+  const lowest = Math.max(1, maxLevel - 10);
+  const highest = Math.max(1, maxLevel - 1);
+  const count = highest - lowest + 1;
+  if (count === 1) return lowest;
+  const roll = random();
+  // Squared uniform roll favors low levels without an exponentially rare top tier.
+  // The rolling window stays at most ten levels wide, even at safe-integer limits.
+  return Math.min(highest, lowest + Math.floor(count * roll * roll));
+}
+
+export function openBarrel(ctx: CommandContext, slotId: string, random: () => number): boolean {
   if (ctx.state.paused || ctx.state.gameOver) return false;
   const slot = ctx.state.slots.find((candidate) => candidate.id === slotId);
   if (!slot || slot.reserved || !slot.entityId) return false;
   const barrel = ctx.state.entities[slot.entityId];
   if (!barrel || barrel.kind !== 'barrel') return false;
   if (barrel.content === 'worker') {
-    ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level: 1, mining: createMiningState() };
+    const level = barrelWorkerLevel(ctx.state, random);
+    ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level, mining: createMiningState() };
   } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
   } else {
