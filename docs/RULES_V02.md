@@ -41,3 +41,7 @@ Typecheck, build, embedded JavaScript syntax and static budget validation still 
 ## Source control
 
 Canonical remote base: `67229de8d57221becf8c78f688a277e41c55c45f`, tree `8af9912667588731e936d24b0cd55dd9cdefccaa`. Local prior metadata is backed up as `backup/prototype-0.1-before-0.2`; local `prototype/0.2` has identical baseline content. The publisher must commit the supplied delta against the canonical parent through its authorized GitHub connector. No main push, merge, force-push, default-setting change or destructive reset is authorized here.
+
+## Permanent slowdown, worker disposal and forgiving pickup
+
+[Permanent slowdown, discard pit and pickup halos](SLOWDOWN_DISCARD_PICKUP_ITERATION.md) adds an amber permanent speed-reduction bonus alongside the existing purple five-second full pause, a worker-only disposal pit and larger pickup-only regions. Acceleration coefficients, magnetic motion and currently deployed worker upgrade cap remain unchanged. This iteration is source-reviewed and packaged only: no tests, typecheck, browser or device QA.

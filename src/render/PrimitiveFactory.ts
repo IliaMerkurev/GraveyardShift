@@ -84,6 +84,17 @@ export function createSlow(): THREE.Group {
   const hour=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.18),handMaterial.clone());hour.position.set(.075,.344,0);
   group.add(rim,face,minute,hour);return group;
 }
+/** Amber down-arrow token is distinct from cyan rewind and purple pause. */
+export function createBrake(): THREE.Group {
+  const group=new THREE.Group();
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.13,12),new THREE.MeshLambertMaterial({color:0x996321}));rim.position.y=.22;
+  const face=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.045,12),new THREE.MeshLambertMaterial({color:0xffc260}));face.position.y=.31;
+  const material=new THREE.MeshBasicMaterial({color:0x54330b});
+  const stem=new THREE.Mesh(new THREE.BoxGeometry(.055,.018,.18),material);stem.position.set(0,.344,-.025);
+  group.add(rim,face,stem);
+  for(const direction of [-1,1]){const tip=new THREE.Mesh(new THREE.BoxGeometry(.05,.018,.15),material.clone());tip.rotation.y=direction*Math.PI/4;tip.position.set(direction*.045,.344,.06);group.add(tip);}
+  return group;
+}
 export function makeWallGeometry(): THREE.BufferGeometry {
   const pieces:THREE.BufferGeometry[]=[];for(const run of CONFIG.path.runs.slice(0,-1)){const z=run+CONFIG.path.bendRadius;let spans:[[number,number]]|[number,number][]=[[CONFIG.path.left+.15,CONFIG.path.right-.15]];for(const pad of CONFIG.pads.filter(p=>Math.abs(p.z-z)<.1)){spans=spans.flatMap(([a,b])=>{const result:[number,number][]=[];if(a<pad.x-.62)result.push([a,Math.min(b,pad.x-.62)]);if(b>pad.x+.62)result.push([Math.max(a,pad.x+.62),b]);return result;});}for(const[a,b]of spans)if(b-a>.05)pieces.push(box(b-a,.32,.20,0xffffff,(a+b)/2,.16,z));}return join(pieces);
 }

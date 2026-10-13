@@ -6,6 +6,11 @@ export function forwardSpeed(time: number, c: GameConfig['stones'] = CONFIG.ston
   const t = Math.min(1_000_000, Math.max(0, Number.isFinite(time) ? time : 1_000_000));
   return Math.min(c.maxSpeed, c.speed + c.acceleration * t * (1 + c.accelerationGrowth * t));
 }
+/** A permanent subtraction, never a multiplier on future acceleration.
+ * Pause/rewind do not change this underlying forward speed. */
+export function effectiveForwardSpeed(time: number, reduction: number, config: GameConfig = CONFIG): number {
+  return Math.max(config.stones.speed * config.brake.minimumBaseFraction, forwardSpeed(time, config.stones) - reduction);
+}
 export function attractionSpeed(gap: number, c: GameConfig['stones'] = CONFIG.stones): number {
   return c.retractSpeed + c.attraction * Math.max(0, gap);
 }

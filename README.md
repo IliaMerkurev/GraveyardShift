@@ -64,3 +64,7 @@ The executable local guard rejects main/master destinations. Never use force-pus
 ### Latest playtest corrections
 
 See [feedback iteration rules](docs/FEEDBACK_ITERATION.md) and [focused feedback QA](docs/QA_FEEDBACK.md). Acceleration is now noticeable within 10–20 seconds; gap closure and rewind are animated; held items survive conveyor wraps; worker drops can buy locked pads; vacated containers are removed.
+
+### Latest: permanent slowdown, worker disposal, easier pickup
+
+Amber ↓20% bonuses permanently reduce the snake's current underlying forward speed while its existing acceleration continues. Purple pause bonuses remain separate. Drag unwanted workers of any level into the orange-rimmed DISCARD WORKERS pit; no coins are awarded. Pickup halos are more forgiving while drop targets remain deliberate. See [rules and source-review scope](docs/SLOWDOWN_DISCARD_PICKUP_ITERATION.md). Owner performs gameplay QA; this iteration only bundles and packages the standalone.

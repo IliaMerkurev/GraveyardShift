@@ -2,7 +2,7 @@ import { CONFIG, type GameConfig } from './config';
 import { createMiningState, type DropTarget, type Entity, type GameEvent, type GameState, type Stone, type Worker } from './GameState';
 import * as commands from './commands';
 import { miningDamage, miningPeriod } from './progression';
-import { forwardSpeed, attractionSpeed } from './motion';
+import { effectiveForwardSpeed, attractionSpeed } from './motion';
 import { getPathLength, samplePath } from './path';
 
 /** State and command facade. No rendering, DOM, timers, random globals or WebGL. */
@@ -29,6 +29,9 @@ export class Game {
         c.stones.maxCount > 200 || c.stones.initialCount < 0 || c.stones.initialCount > c.stones.maxCount ||
         c.stones.spacing <= 0 || c.stones.startFraction <= 0 || c.stones.startFraction >= 1 ||
         c.slow.duration <= 0 ||
+        !Number.isFinite(c.brake.reductionFraction) || c.brake.reductionFraction <= 0 || c.brake.reductionFraction >= 1 ||
+        !Number.isFinite(c.brake.minimumBaseFraction) || c.brake.minimumBaseFraction <= 0 || c.brake.minimumBaseFraction > 1 ||
+        !Number.isFinite(c.discard.x) || !Number.isFinite(c.discard.z) || !Number.isFinite(c.discard.radius) || c.discard.radius <= 0 ||
         c.stones.gapDelay < 0.25 || c.stones.gapDelay > 0.5 || c.stones.retractSpeed <= 0 || c.stones.rewindDuration <= 0 ||
         !Number.isFinite(c.stones.rewindBeforeFirstBend) || c.stones.rewindBeforeFirstBend < 0 ||
         c.stones.rewindBeforeFirstBend > c.path.right - c.path.left ||
@@ -70,7 +73,7 @@ export class Game {
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
       storage: c.storage.map((stand, i) => ({ ...stand, id: `storage-${i}`, unlocked: false, entityId: null, reserved: false })),
       stones: [], drag: null, events: [], paused: false, conveyorPaused: false, goalReached: false, gameOver: false, slowRemaining: 0,
-      headSpeed: 0, gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
+      headSpeed: 0, permanentSpeedReduction: 0, gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
       tutorial: { opened: false, placed: false, merged: false, bought: false, bombed: false },
       stats: { opened: 0, merged: 0, purchased: 0, destroyed: 0, bombsUsed: 0, coinsEarned: 0 },
     };
@@ -99,7 +102,8 @@ export class Game {
     const content = starter ?? (roll < this.config.conveyor.workerWeight ? 'worker' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight ? 'coins' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight ? 'bomb' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' : 'slow');
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.coinWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight ? 'brake' : 'slow');
     const entity: Entity = { id: this.entityId(), kind: 'barrel', content, location: { kind: 'slot', id: slot.id } };
     this.state.entities[entity.id] = entity;
     slot.entityId = entity.id;
@@ -127,6 +131,7 @@ export class Game {
   openBarrel(slotId: string): boolean {
     const result = commands.openBarrel(this, slotId, () => this.random()); this.updateConveyorPaused(); return result;
   }
+  useBrake(entityId: string): boolean { return commands.useBrake(this, entityId); }
   useSlow(entityId: string): boolean { return commands.useSlow(this, entityId); }
   useRewind(entityId: string): boolean { return commands.useRewind(this, entityId); }
   buyPad(padId: string): boolean { return commands.buyPad(this, padId); }
@@ -181,7 +186,7 @@ export class Game {
       if (dt <= 1e-9) return;
     }
     for (const stone of this.state.stones) delete stone.frozenRenderDistance;
-    const speed = forwardSpeed(this.state.time, c);
+    const speed = effectiveForwardSpeed(this.state.time, this.state.permanentSpeedReduction, this.config);
     const travel = speed * dt;
     const end = getPathLength(this.config.path);
     const ordered = [...this.state.stones].sort((a, b) => a.distance - b.distance);

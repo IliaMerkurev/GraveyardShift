@@ -23,3 +23,5 @@
 .upgrade-button:disabled{background:#e7c991;color:#51415c;border-color:#ffe1a6;box-shadow:0 3px 0 #735775;cursor:default}
 .upgrade-button[data-capped="true"]{background:#dbc9ec;border-color:#f5e6ff;color:#40314e}
 .footer .help-button{grid-column:2;grid-row:2;align-self:center}
+
+.discard-label{white-space:pre-line;text-align:center;font-size:8px;line-height:1.15;padding:2px 3px;background:#291c25;color:#ffc49a;border:1px solid #e08a59;pointer-events:none}.discard-label.active{background:#743c33;color:#fff1db;border-color:#ffb57e}

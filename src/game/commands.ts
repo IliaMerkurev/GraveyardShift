@@ -1,9 +1,9 @@
 import type { GameConfig } from './config';
 import { nextWorkerLevel } from './progression';
-import { recoilDistances } from './motion';
+import { recoilDistances, effectiveForwardSpeed } from './motion';
 import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
-  type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow,
+  type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow, type Brake,
 } from './GameState';
 import { distanceToPath, samplePath, getPathLength } from './path';
 
@@ -98,7 +98,7 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
   if (barrel.content === 'worker') {
     const level = barrelWorkerLevel(ctx.state, random);
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level, mining: createMiningState() };
-  } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow') {
+  } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
   } else {
     // Coins used to leave no visible cargo, making these barrels appear empty.
@@ -114,8 +114,16 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
 }
 
 /** Both gestures share one consumption/effect gate. Call only after ownership validation. */
-function activateBonus(ctx: CommandContext, entity: Rewind | Slow, point: Point): void {
+function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake, point: Point): void {
   delete ctx.state.entities[entity.id];
+  if (entity.kind === 'brake') {
+    const speed = effectiveForwardSpeed(ctx.state.time, ctx.state.permanentSpeedReduction, ctx.config);
+    const floor = ctx.config.stones.speed * ctx.config.brake.minimumBaseFraction;
+    const reduction = Math.min(speed * ctx.config.brake.reductionFraction, Math.max(0, speed - floor));
+    ctx.state.permanentSpeedReduction += reduction;
+    ctx.emit({ type: 'brake', ...point, entityId: entity.id, amount: reduction });
+    return;
+  }
   if (entity.kind === 'slow') {
     // Preserve impact poses too, even if mining removes a neighboring constraint.
     const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
@@ -137,10 +145,10 @@ function activateBonus(ctx: CommandContext, entity: Rewind | Slow, point: Point)
   ctx.emit({ type: 'rewind', ...point, entityId: entity.id, amount: shift });
 }
 
-function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow'): boolean {
+function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow' | 'brake'): boolean {
   if (ctx.state.paused || ctx.state.gameOver) return false;
   const entity = ctx.state.entities[entityId];
-  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
+  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
   const slot = getPlace(ctx.state, entity.location);
   if (!slot || slot.reserved || slot.entityId !== entityId) return false;
   slot.entityId = null;
@@ -148,6 +156,7 @@ function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 
   return true;
 }
 
+export function useBrake(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'brake'); }
 export function useSlow(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'slow'); }
 export function useRewind(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'rewind'); }
 
@@ -228,7 +237,8 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   const entity = ctx.state.entities[drag.entityId];
   const source = getPlace(ctx.state, drag.source);
   if (!entity || entity.location.kind !== 'drag' || !source?.reserved || source.entityId !== null) return false;
-  if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow') && isBonusFieldPoint(target, ctx.config);
+  if (target.kind === 'discard') return entity.kind === 'worker';
+  if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow' || entity.kind === 'brake') && isBonusFieldPoint(target, ctx.config);
   if (target.kind === 'track') {
     if (entity.kind !== 'bomb' || !Number.isFinite(target.x) || !Number.isFinite(target.z)) return false;
     if (distanceToPath(target, ctx.config.path) > ctx.config.bomb.trackTolerance) return false;
@@ -241,7 +251,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (!place) return false;
   if (place.reserved && !samePlace(target, drag.source)) return false;
   if (target.kind === 'storage') {
-    if (entity.kind !== 'bomb' && entity.kind !== 'rewind' && entity.kind !== 'slow') return false;
+    if (entity.kind !== 'bomb' && entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake') return false;
     return (place as Pad).unlocked ? place.entityId === null : canBuyPad(ctx, place as Pad);
   }
   if (entity.kind === 'bomb') return target.kind === 'slot' && place.entityId === null;
@@ -288,8 +298,14 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   const entity = ctx.state.entities[drag.entityId]!;
   const source = getPlace(ctx.state, drag.source)!;
   let purchasedPad: Pad | undefined;
-  if (target.kind === 'field') {
-    if (entity.kind !== 'rewind' && entity.kind !== 'slow') { cancelDrag(ctx); return false; }
+  if (target.kind === 'discard') {
+    // Only an owned drag can reach this branch. Never reward or merge a discard.
+    if (entity.kind !== 'worker') { cancelDrag(ctx); return false; }
+    entity.mining = createMiningState();
+    delete ctx.state.entities[entity.id];
+    ctx.emit({ type: 'discard', x: ctx.config.discard.x, z: ctx.config.discard.z, entityId: entity.id });
+  } else if (target.kind === 'field') {
+    if (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake') { cancelDrag(ctx); return false; }
     activateBonus(ctx, entity, { x: target.x, z: target.z });
   } else if (target.kind === 'track') {
     // Snapshot IDs before removals; an ID can pass through the reward gate only once.

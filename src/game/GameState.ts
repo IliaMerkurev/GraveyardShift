@@ -1,7 +1,7 @@
-export type ContentKind = 'worker' | 'coins' | 'bomb' | 'rewind' | 'slow';
+export type ContentKind = 'worker' | 'coins' | 'bomb' | 'rewind' | 'slow' | 'brake';
 export type PlaceRef = { kind: 'slot' | 'pad' | 'storage'; id: string };
 export type EntityLocation = PlaceRef | { kind: 'drag' };
-export type DropTarget = PlaceRef | { kind: 'track'; x: number; z: number } | { kind: 'field'; x: number; z: number } | null;
+export type DropTarget = PlaceRef | { kind: 'discard' } | { kind: 'track'; x: number; z: number } | { kind: 'field'; x: number; z: number } | null;
 export interface Point { x: number; z: number }
 export interface MiningState { phase: number; targetId: string | null; hit: boolean }
 interface EntityBase { id: string; location: EntityLocation }
@@ -10,7 +10,8 @@ export interface Worker extends EntityBase { kind: 'worker'; level: number; mini
 export interface Bomb extends EntityBase { kind: 'bomb' }
 export interface Rewind extends EntityBase { kind: 'rewind' }
 export interface Slow extends EntityBase { kind: 'slow' }
-export type Entity = Barrel | Worker | Bomb | Rewind | Slow;
+export interface Brake extends EntityBase { kind: 'brake' }
+export type Entity = Barrel | Worker | Bomb | Rewind | Slow | Brake;
 export interface Slot extends Point { id: string; entityId: string | null; reserved: boolean }
 export interface Pad extends Slot { price: number; unlocked: boolean }
 export interface Stone {
@@ -19,7 +20,7 @@ export interface Stone {
 }
 export interface DragState { entityId: string; source: PlaceRef }
 export interface GameEvent extends Point {
-  type: 'hit' | 'destroy' | 'coins' | 'merge' | 'bomb' | 'open' | 'purchase' | 'goal' | 'gameover' | 'rewind' | 'slow' | 'expired';
+  type: 'hit' | 'destroy' | 'coins' | 'merge' | 'bomb' | 'open' | 'purchase' | 'goal' | 'gameover' | 'rewind' | 'slow' | 'brake' | 'discard' | 'expired';
   entityId?: string; stoneId?: string; amount?: number; level?: number;
 }
 export interface GameState {
@@ -39,6 +40,7 @@ export interface GameState {
   gameOver: boolean;
   slowRemaining: number;
   headSpeed: number;
+  permanentSpeedReduction: number;
   gapRecoveryRemaining: number;
   gapReadyAt: Record<string, number>;
   rewindTarget: number | null;

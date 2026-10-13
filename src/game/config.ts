@@ -10,16 +10,18 @@ export interface GameConfig {
   };
   conveyor: {
     count: number; left: number; right: number; z: number; speed: number;
-    spawnInterval: number; starter: readonly ('worker' | 'coins' | 'bomb' | 'rewind' | 'slow')[];
-    workerWeight: number; coinWeight: number; bombWeight: number; rewindWeight: number;
+    spawnInterval: number; starter: readonly ('worker' | 'coins' | 'bomb' | 'rewind' | 'slow' | 'brake')[];
+    workerWeight: number; coinWeight: number; bombWeight: number; rewindWeight: number; brakeWeight: number;
   };
   pads: readonly { x: number; z: number; price: number }[];
   storage: readonly { x: number; z: number; price: number }[];
   mining: { radius: number; period: number; speedGrowth: number; minPeriod: number; impactPhase: number; damageByLevel: readonly number[]; damageGrowth: number };
   slow: { duration: number };
+  brake: { reductionFraction: number; minimumBaseFraction: number };
+  discard: { x: number; z: number; radius: number };
   bomb: { radius: number; trackTolerance: number };
   visual: { helmetColors: readonly number[]; stoneRadius: number; maxEffects: number; pixelRatio: number };
-  input: { dragThreshold: number; targetRadius: number; touchLift: number; hitRadiusPx: number; touchLiftPx: number };
+  input: { dragThreshold: number; targetRadius: number; touchLift: number; hitRadiusPx: number; pickupRadiusPx: number; touchLiftPx: number };
   camera: { fov: number; near: number; far: number; position: readonly [number, number, number]; target: readonly [number, number, number]; margin:number; frameWidth:number; frameDepth:number; landscapeWidth:number; landscapeDepth:number };
 }
 
@@ -43,8 +45,8 @@ export const CONFIG: GameConfig = {
     count: 6, left: -2.9, right: 2.9, z: 8, speed: 0.32,
     spawnInterval: 2.5,
     // Seven guaranteed workers in the starter sequence allow level three without RNG.
-    starter: ['worker', 'worker', 'coins', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker'],
-    workerWeight: 0.57, coinWeight: 0.13, bombWeight: 0.11, rewindWeight: 0.10,
+    starter: ['worker', 'worker', 'coins', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake'],
+    workerWeight: 0.57, coinWeight: 0.13, bombWeight: 0.11, rewindWeight: 0.10, brakeWeight: 0.045,
   },
   pads: [
     { x: -.75, z: -5.5, price: 0 },
@@ -59,8 +61,10 @@ export const CONFIG: GameConfig = {
   ],
   mining: { radius: 1.65, period: 1.2, speedGrowth: 1.2, minPeriod: 0.1, impactPhase: 0.52, damageByLevel: [2, 5, 11, 24, 50], damageGrowth: 2 },
   slow: { duration: 5 },
+  brake: { reductionFraction: 0.2, minimumBaseFraction: 0.1 },
+  discard: { x: 3.05, z: 6.6, radius: 0.42 },
   bomb: { radius: 1.55, trackTolerance: 0.62 },
   visual: { helmetColors: [0xffcf3f, 0x6dddea, 0xee86ba, 0xb59bff, 0xff9356], stoneRadius: 0.23, maxEffects: 120, pixelRatio: 1.5 },
-  input: { dragThreshold: 9, targetRadius: 0.57, touchLift: 0.85, hitRadiusPx:24, touchLiftPx:32 },
+  input: { dragThreshold: 9, targetRadius: 0.57, touchLift: 0.85, hitRadiusPx:24, pickupRadiusPx:34, touchLiftPx:32 },
   camera: { fov: 38, near: 0.1, far: 80, position: [0, 17, 12], target: [0, 0, -.25], margin:1.03, frameWidth:7.8, frameDepth:21.2, landscapeWidth:18, landscapeDepth:10.4 },
 };
