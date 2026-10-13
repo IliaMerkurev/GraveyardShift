@@ -21,7 +21,7 @@ The finished export is `dist/playable/index.html`, one self-contained HTML. The 
 
 ## Current iteration validation
 
-Run `npm run test:v02` for new/affected v0.2 rules only, plus typecheck/build/budget. At the owner’s request, do not repeat already-verified legacy suites. See [v0.2 rules](docs/RULES_V02.md) and [new-rule production QA](docs/QA_V02.md). Historical results below belong to v0.1, not this build.
+Run `npm run test:v02` for new/affected v0.2 rules only, plus typecheck/build/budget. At the owner’s request, do not repeat already-verified legacy suites. See [v0.2 rules](docs/RULES_V02.md) and [new-rule production QA](docs/QA_V02.md). For this build, 58 new focused cases and final type/build/budget checks passed. One bounded Dreambook production run passed 9/9 checks in about 69 seconds; screenshots were inspected. HEAD/FINISH overlap behind the defeat dialog is deferred to the visual phase. See [the final v0.2 report](docs/TEST_REPORT_V02.md) for exact evidence and limits. Historical results below belong to v0.1, not this build.
 
 ## Production QA without a fresh install
 

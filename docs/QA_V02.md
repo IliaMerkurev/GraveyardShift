@@ -39,7 +39,7 @@ Inspect the generated PNGs, not just their existence:
 2. `landscape-rewind-visible.png` and `landscape-rewind-used.png`: distinct cyan token/glyph and backward head movement.
 3. `landscape-slow-visible.png`, `landscape-slow-active.png`, `landscape-slow-expired.png`: distinct purple clock, readable countdown, and cleanup after the effect.
 4. `landscape-held-drag.png`, `landscape-expired-while-held.png`, `landscape-late-release.png`: no stale worker mesh, ghost, or drop ring after expiry.
-5. `landscape-game-over.png`: head at the finish, complete chain still rendered, and Restart-only defeat dialog.
+5. `landscape-game-over.png`: head at the finish and Restart-only defeat dialog; the overlay obscures part of the chain, so do not claim full geometry from this frame.
 6. `landscape-defeat-restart.png`: fresh midpoint start after Restart.
 
 The report deliberately uses `automated_pass_visual_review_required`, not a blanket visual pass. Screen-space marker movement does not prove arc-length values, continuous rigid geometry, backward gap closure after destruction, or WebGL mesh cleanup. Exact gap closure, both rewind branches (midpoint and near first miner), elapsed-time acceleration with its cap, and snake-only 0.5× slow for five seconds with timer refresh and smooth final 0.5-second recovery must be covered by the focused v0.2 simulation tests. No state-injected production proof is permitted.
@@ -49,3 +49,10 @@ High-level merges (5→6, 6→7, later levels), damage growth and numeric/color 
 ## Record actual results
 
 Deliver the report, inspected screenshots, deployed HTML hash/byte size, actual browser version, and focused simulator results. Distinguish failed, blocked, not run, automated pass, and visually reviewed. Authoring or syntax-checking the smoke script is not a browser test. No physical-device test, performance benchmark, five-minute soak, old broad regression, or end-to-end bomb targeting is claimed by this script.
+
+
+## Completed v0.2 result
+
+On 2026-10-13, one targeted Dreambook run completed in about 69 seconds: **9/9 passed**, no uncaught page errors. Continuous belt/expiry/refill, rewind, slow countdown and expiry, held-drag expiry with inert late release, and natural defeat/Restart all passed. No old suites or repeated browser run were executed. The post-result executor disconnect did not block this completed work.
+
+Screenshots were actually inspected. Initial half-route and Restart-only defeat are visually supported. HEAD/FINISH labels overlap behind the defeat dialog; defer that minor cosmetic issue to the next visual phase. The dialog occludes part of the chain, limiting full-geometry claims. The CSP/Cloudflare hosting limitation is unchanged. See TEST_REPORT_V02.md for measurements and remaining coverage limits. No game changes follow this result; wait for owner feedback.

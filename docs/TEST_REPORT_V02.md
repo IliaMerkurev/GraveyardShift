@@ -1,4 +1,6 @@
-# prototype/0.2 implementation checkpoint — 2026-10-13
+# prototype/0.2 final validation report — 2026-10-13
+
+The checkpoint sections below retain the evidence available at each step. The final production result at the end supersedes their earlier pending status.
 
 ## New/affected checks actually run
 
@@ -26,3 +28,21 @@ Canonical remote baseline and rule choices are documented in RULES_V02.md. Publi
 - Final strict typecheck/build/embedded JavaScript syntax/static budget passed on uncapped source. Frozen HTML: 595347 bytes, SHA256 `3827d4c1a6c327b91816db24d1c002e801f7fba86510b2369ed0c6d8c9d8aa4c`.
 - Independent read-only review found no concrete blocking defect; no browser or repeated tests were run by that review.
 - Core/slow source checkpoint was remotely verified separately at `7766c9dcc8361d7cb33b23c12f55eaa9fdeefa44`, tree `78868d4f23b067682a0ec348e9db2e65a0702855`. This second delta uses it as canonical parent. Its publication and final production UI QA remain parent-owned and unclaimed here.
+
+
+## Final production validation — 2026-10-13
+
+The parent supplied the completed targeted Dreambook QA result: **9/9 checks passed in one approximately 69-second run** against the final v0.2 build. The executor disconnected only after the completed result was read; this did not interrupt QA. No repeated run or old full regression suite was performed.
+
+- Full belt continued moving; exit items expired and carriers refilled.
+- Rewind was revealed and consumed through real input; the head moved backward.
+- Slow countdown visibly decreased from 4.9 to 4.5 seconds, expired naturally after approximately 5.09 seconds, and the belt continued moving.
+- Held belt-origin drag expired. Late release caused no revival, merge or reward; coins stayed 50→50.
+- Untouched play reached Game over at approximately 43 seconds. The dialog offered only Restart, head/coins stopped, and Restart restored a fresh run.
+- Uncaught page errors: none. The known host-injected Cloudflare script remains blocked by the unchanged CSP.
+
+The QA executor inspected all generated screenshots. The parent and implementation task separately viewed the portrait initial state and landscape defeat images: the initial head is around the route midpoint with clear route ahead, rigid separate stones and visible finish; the defeat dialog is readable and exposes one Restart action. Some chain geometry is obscured by that dialog, so that frame is **not** evidence of complete unobstructed chain geometry.
+
+Known cosmetic issue deferred to the later visual phase: HEAD overlaps FINISH behind the defeat overlay. No polishing or gameplay changes were made after this QA. Physical touch, a new touch run, performance/soak, naturally reached high-level browser merges and complete production bomb-geometry testing remain outside this bounded run; their existing/new logical evidence must not be misrepresented as production UI proof.
+
+Evidence: the parent-retained production report and initial/rewind/slow/defeat image attachments. Final app artifact remains 595347 bytes, SHA256 `3827d4c1a6c327b91816db24d1c002e801f7fba86510b2369ed0c6d8c9d8aa4c`. Source gameplay checkpoint remotely verified at `8d3e5fd642ce5637f6431f201105d1d078c064bf`, tree `33b09cf2950c3e15f3e638f061b305b8642372cc`. This final change is documentation only; no rebuild or gameplay rerun is needed. Stop prototype/0.2 here pending owner feedback; do not begin the visual phase automatically.
