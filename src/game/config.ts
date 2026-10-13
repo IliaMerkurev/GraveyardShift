@@ -5,7 +5,7 @@ export interface GameConfig {
   economy: { initialCoins: number; barrelCoins: number };
   path: { left: number; right: number; runs: readonly number[]; bendRadius: number };
   stones: {
-    initialCount: number; maxCount: number; speed: number; spacing: number; startFraction: number; acceleration: number; accelerationGrowth: number; maxSpeed: number; gapDelay: number; retractSpeed: number; attraction: number; bounceDuration: number; bounceDistance: number; rewindDuration: number;
+    initialCount: number; maxCount: number; speed: number; spacing: number; startFraction: number; acceleration: number; accelerationGrowth: number; maxSpeed: number; gapDelay: number; retractSpeed: number; attraction: number; bounceDuration: number; bounceDistance: number; rewindDuration: number; rewindBeforeFirstBend: number;
     resources: readonly { color: number; hp: number; reward: number }[];
   };
   conveyor: {
@@ -30,6 +30,8 @@ export const CONFIG: GameConfig = {
   stones: {
     initialCount: 65, maxCount: 200, speed: 0.34, spacing: 0.245, startFraction: 0.5, acceleration: 0.00125, accelerationGrowth: 0.15, maxSpeed: 1_000_000,
     gapDelay: 0.35, retractSpeed: 3, attraction: 5, bounceDuration: 0.24, bounceDistance: 0.1, rewindDuration: 1.2,
+    // Owner-marked point: 0.25 path units before the first bend (distance 2.35).
+    rewindBeforeFirstBend: 0.25,
     resources: [
       { color: 0x76cf9b, hp: 3, reward: 5 },
       { color: 0x60b4e2, hp: 5, reward: 8 },

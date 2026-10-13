@@ -30,6 +30,8 @@ export class Game {
         c.stones.spacing <= 0 || c.stones.startFraction <= 0 || c.stones.startFraction >= 1 ||
         c.slow.duration <= 0 ||
         c.stones.gapDelay < 0.25 || c.stones.gapDelay > 0.5 || c.stones.retractSpeed <= 0 || c.stones.rewindDuration <= 0 ||
+        !Number.isFinite(c.stones.rewindBeforeFirstBend) || c.stones.rewindBeforeFirstBend < 0 ||
+        c.stones.rewindBeforeFirstBend > c.path.right - c.path.left ||
         c.stones.accelerationGrowth < 0 || c.stones.attraction < 0 || c.stones.bounceDuration <= 0 || c.stones.bounceDistance < 0 ||
         c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed ||
         c.stones.speed < 0 || c.stones.resources.length === 0 ||

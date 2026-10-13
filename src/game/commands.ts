@@ -78,7 +78,8 @@ function activateBonus(ctx: CommandContext, entity: Rewind | Slow, point: Point)
     return;
   }
   const head = ctx.state.stones.reduce((max, stone) => Math.max(max, stone.distance), 0);
-  const target = 0;
+  // The screenshot mark is just before the first bend, on the first straight.
+  const target = ctx.config.path.right - ctx.config.path.left - ctx.config.stones.rewindBeforeFirstBend;
   const shift = Math.max(0, head - target);
   // Simulation owns the motion; token consumption never teleports the chain.
   ctx.state.rewindTarget = shift > 0 ? target : null;
