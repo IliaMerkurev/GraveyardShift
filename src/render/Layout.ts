@@ -10,10 +10,10 @@ export interface ScreenPoint {x:number;y:number}
 
 /** Scene placement is independent of game-state coordinates. Drag points always use field space. */
 export type ViewZone = 'field' | 'belt' | 'storage' | 'discard';
-export const LANDSCAPE_LAYOUT = { fieldOffsetX: -1.3, storageCenterX: 7.2, storageSpacing: 1.7, storageZ: 1.2, pitX: 7.2, pitZ: -1.5 } as const;
+export const LANDSCAPE_LAYOUT = { fieldOffsetX: 0, storageCenterX: -1.2, storageSpacing: 2.4, storageZ: 4.7, pitX: 4.2, pitZ: 4.7, beltZ: 6.65, cameraTargetZ: 2.2 } as const;
 export function mapPosition(point:Point,landscape:boolean,zone:ViewZone='field'):Point{
   if(!landscape)return point;
-  if(zone==='belt')return{x:point.x*2,z:3.65};
+  if(zone==='belt')return{x:point.x*2,z:LANDSCAPE_LAYOUT.beltZ};
   if(zone==='storage')return{x:LANDSCAPE_LAYOUT.storageCenterX+point.x/1.8*LANDSCAPE_LAYOUT.storageSpacing,z:LANDSCAPE_LAYOUT.storageZ};
   if(zone==='discard')return{x:LANDSCAPE_LAYOUT.pitX,z:LANDSCAPE_LAYOUT.pitZ};
   return{x:point.z+LANDSCAPE_LAYOUT.fieldOffsetX,z:-point.x};

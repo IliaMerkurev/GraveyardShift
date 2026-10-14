@@ -38,7 +38,7 @@ export class Hud {
       else if(this.onboarding===1&&t.opened&&performance.now()>this.toastUntil){this.onboarding=2;this.message('Drag workers to pads · merge matching levels',true);}
     }
     const slowing=state.slowRemaining>0&&!state.gameOver;
-    this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');
+    this.shell.dataset.slow=String(slowing);this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');
     this.status.hidden=!slowing;this.status.textContent=slowing?`⏸ SNAKE PAUSED · ${(Math.ceil(state.slowRemaining*10)/10).toFixed(1)}s`:'';
     if(performance.now()>this.toastUntil)this.toastElement.classList.remove('visible');
     const activeLabel=this.shell.querySelector('.pulse');activeLabel?.classList.remove('pulse');

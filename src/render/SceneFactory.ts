@@ -46,7 +46,7 @@ export class SceneView {
     const pit=new THREE.Group();this.pit=pit;pit.position.set(CONFIG.discard.x,0,CONFIG.discard.z);
     const hole=new THREE.Mesh(new THREE.CircleGeometry(CONFIG.discard.radius,24),new THREE.MeshBasicMaterial({color:0x1c1925,side:THREE.DoubleSide}));hole.rotation.x=-Math.PI/2;hole.position.y=.018;pit.add(hole);
     const rim=new THREE.Mesh(new THREE.RingGeometry(CONFIG.discard.radius,CONFIG.discard.radius+.09,24),new THREE.MeshBasicMaterial({color:0xe08a59,side:THREE.DoubleSide}));rim.rotation.x=-Math.PI/2;rim.position.y=.026;pit.add(rim);this.scene.add(pit);
-    this.storageTray=new THREE.Mesh(new THREE.BoxGeometry(4.7,.06,1.55),new THREE.MeshLambertMaterial({color:0x655d79}));this.storageTray.position.y=-.055;this.scene.add(this.storageTray);
+    this.storageTray=new THREE.Mesh(new THREE.BoxGeometry(6.1,.06,1.35),new THREE.MeshLambertMaterial({color:0x655d79}));this.storageTray.position.y=-.055;this.scene.add(this.storageTray);
     this.discardLabel=document.createElement('div');this.discardLabel.className='pad-label discard-label';this.discardLabel.dataset.marker='discard';this.discardLabel.textContent='🗑︎';this.discardLabel.title='Discard worker';this.discardLabel.setAttribute('aria-label','Discard pit: drag and release unwanted workers here. No coins returned.');this.labels.append(this.discardLabel);
     this.headLabel=document.createElement('div');this.headLabel.className='pad-label';this.headLabel.dataset.marker='head';this.headLabel.textContent='HEAD';this.headLabel.style.background='#3a344b';this.headLabel.style.fontSize='9px';this.labels.append(this.headLabel);
     const belt=new THREE.Mesh(new THREE.BoxGeometry(6.3,.16,1.1),new THREE.MeshLambertMaterial({color:0x324350}));belt.position.set(0,.03,0);this.belt.add(belt);
@@ -59,11 +59,12 @@ export class SceneView {
     this.targetRing=new THREE.Mesh(new THREE.RingGeometry(.56,.62,32),new THREE.MeshBasicMaterial({color:0x8effc5,transparent:true,opacity:.95,side:THREE.DoubleSide,depthTest:false}));this.targetRing.rotation.x=-Math.PI/2;this.targetRing.visible=false;this.targetRing.renderOrder=20;this.scene.add(this.targetRing);
     this.resize();
   }
-  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;const pitPosition=mapPosition(CONFIG.discard,this.landscape,'discard');this.pit.position.set(pitPosition.x,0,pitPosition.z);this.storageTray.visible=this.landscape;this.storageTray.position.set(LANDSCAPE_LAYOUT.storageCenterX,-.055,LANDSCAPE_LAYOUT.storageZ);this.belt.position.z=this.landscape?3.65:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.45:1,1,this.landscape?.59:.88);this.floor.position.z=this.landscape?0:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
+  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;const pitPosition=mapPosition(CONFIG.discard,this.landscape,'discard');this.pit.position.set(pitPosition.x,0,pitPosition.z);this.storageTray.visible=this.landscape;this.storageTray.position.set(LANDSCAPE_LAYOUT.storageCenterX,-.055,LANDSCAPE_LAYOUT.storageZ);this.belt.position.z=this.landscape?LANDSCAPE_LAYOUT.beltZ:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.18:1,1,this.landscape?.62:.88);this.floor.position.z=this.landscape?1.8:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
     const direction=new THREE.Vector3(...viewConfig.camera.direction).normalize();const vertical=this.landscape?CONFIG.camera.landscapeDepth:CONFIG.camera.frameDepth;const horizontal=this.landscape?CONFIG.camera.landscapeWidth:CONFIG.camera.frameWidth;const fov=THREE.MathUtils.degToRad(viewConfig.camera.fov);const distance=Math.max(vertical/2/Math.tan(fov/2),horizontal/2/Math.tan(fov/2)/this.camera.aspect)*viewConfig.camera.margin;
     if(this.landscape){
-      // Preserve the established landscape camera exactly.
-      this.camera.position.copy(direction.multiplyScalar(distance));this.camera.lookAt(0,0,-.1);
+      // Preserve zoom; aim farther down the new track → storage → conveyor stack.
+      const target=new THREE.Vector3(0,0,LANDSCAPE_LAYOUT.cameraTargetZ);
+      this.camera.position.copy(target).addScaledVector(direction,distance);this.camera.lookAt(target);
     }else{
       // Fit playable geometry, not the decorative floor, inside the reserved HUD rails.
       // Perspective constraints account for the nearer belt and the highest workers.
@@ -153,7 +154,7 @@ export class SceneView {
       const rect=this.canvas.getBoundingClientRect();
       for(const pad of this.state.pads){const screen=this.project(pad,.1);if(Math.hypot(clientX-rect.left-screen.x,clientY-rect.top-screen.y)<=viewConfig.hitRadiusPx)return{kind:'pad',id:pad.id};}
       const point=this.world(clientX,clientY);if(!point)return null;
-      const ground=this.mapped(point),beltZ=this.landscape?3.65:CONFIG.conveyor.z;
+      const ground=this.mapped(point),beltZ=this.landscape?LANDSCAPE_LAYOUT.beltZ:CONFIG.conveyor.z;
       if(Math.abs(ground.x)<=(this.landscape?6.5:3.25)&&Math.abs(ground.z-beltZ)<=.72)return null;
       return{kind:'field',...point};
     }

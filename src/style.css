@@ -54,3 +54,17 @@
 /* Icon-only discard marker; the orange-rimmed hole remains the exact drop target. */
 .discard-label{width:17px;height:18px;padding:0;border:0;border-radius:3px;font-size:16px;line-height:18px;background:transparent;box-shadow:none;color:#ffc49a}
 .storage-label:empty{display:none}
+
+/* Landscape follows the portrait stack: track, storage/pit row, then conveyor. */
+@media(min-aspect-ratio:1/1){
+  .game-shell{--upgrade-rail:calc(64px + env(safe-area-inset-bottom))}
+  .game-shell .footer{grid-template-rows:44px;gap:0 10px;padding:7px 12px calc(9px + env(safe-area-inset-bottom))}
+  .footer .upgrade-button,.footer .help-button{grid-row:1;height:44px}
+  .footer .upgrade-button{line-height:1.3}
+  .game-shell .topbar{top:8px}
+  .topbar .wallet{padding:5px 10px;font-size:20px}
+  .topbar .icon-button{height:40px;width:40px}
+  .game-shell .toast{top:8px;height:26px}
+  .game-shell .footer .belt-status{position:absolute;left:180px;right:180px;bottom:calc(100dvh - 34px);height:20px;line-height:20px}
+  .game-shell[data-slow="true"] .toast{display:none}
+}
