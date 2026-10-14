@@ -30,3 +30,9 @@ Landscape camera distance and FOV stay unchanged. Its target moves to z2.2 to fr
 Source/math review: at 844×390 (326px canvas), the front belt rail remains about 9px above the canvas bottom; at the 1180×720 shell (656px canvas), about 17px. Storage centers are roughly 80px apart in the smaller landscape. Prices remain below their stands, occupied bonuses have no redundant STORED caption, and the pit uses a small trash-can glyph. These are projection checks, not visual acceptance.
 
 Current QA: prior v18/v19 interaction checks passed pickup, merge targets/clear, storage buy-by-drag/extraction/cancellation, pit deletion, bomb targeting/shake, upgrade bounce/purchase/no repeated toast, and no JavaScript errors. Those versions were rejected visually. The current correction passes seven targeted mapping tests, including the lower belt's placement and bonus-drop exclusion, plus typecheck. Parent will publish first, then run only the new layout and affected storage/pit/conveyor/field input recheck. No current browser-layout pass is claimed yet.
+
+### v20 targeted browser completion — 2026-10-14
+
+After publication, the 844×390 and 1180×720 screenshots were reviewed directly. Both show the requested storage/pit row above the lowered conveyor, with no observed clutter or overlap and all bottom controls visible. The focused interaction check passed pickup from the relocated belt, storage purchase/placement for 50 coins, extraction, and deletion of a worker in the relocated pit. No JavaScript errors were reported; the test browser was closed. This was the bounded affected-layout/input recheck, not a full regression suite or physical-phone test. No further production changes were made.
+
+Evidence: report `libfile_b5faadca3a808191a137512e057105eb`; reviewed frames `libfile_14b765f607ac8191b15a3967ae27f6e9` and `libfile_9b06c4bc9b9c8191b0fc7f63dae72999`.
