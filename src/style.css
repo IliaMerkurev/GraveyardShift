@@ -68,3 +68,10 @@
   .game-shell .footer .belt-status{position:absolute;left:180px;right:180px;bottom:calc(100dvh - 34px);height:20px;line-height:20px}
   .game-shell[data-slow="true"] .toast{display:none}
 }
+
+/* Physical UI feedback stays inside its own control, never shifting hit geometry. */
+button:not(:disabled){transition:filter 90ms ease-out,box-shadow 90ms ease-out}
+button:not(:disabled):active{box-shadow:inset 0 3px 6px #08061880;filter:brightness(1.14)}
+.sound-button{font-size:20px;flex-shrink:0}.sound-button[data-muted="true"]{color:#c7b9cf;background:#211c30}
+@media(max-width:380px){.topbar{left:10px;right:10px;gap:5px}.wordmark{font-size:12px;letter-spacing:1px}.wordmark small{font-size:8px;letter-spacing:.7px}.wallet{min-width:67px;padding:8px;font-size:20px;gap:4px}}
+@media(prefers-reduced-motion:reduce){button:not(:disabled){transition:none}button:not(:disabled):active{transform:none;filter:brightness(1.2)}.pulse,.merge-target,.merge-target-label{animation:none!important}}

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TactileMotion, type ImpulseKind } from './TactileMotion';
 import type { GameState, DropTarget, GameEvent, Entity } from '../game/GameState';
 import { CONFIG } from '../game/config';
 import { effectiveForwardSpeed, recoilDistances } from '../game/motion';
@@ -27,6 +28,8 @@ export class SceneView {
   private storage=new Map<string,{group:THREE.Group;material:THREE.MeshLambertMaterial;label:HTMLDivElement}>();
   private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  private tactile=new TactileMotion();private pressed:HitTarget|null=null;
+  private ripples:{mesh:THREE.Mesh;age:number;life:number}[]=[];private rippleCursor=0;
   private cameraBase=new THREE.Vector3();private shakeRemaining=0;private reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   private ring:THREE.Mesh; private targetRing:THREE.Mesh;private treads:THREE.InstancedMesh;private state:GameState|null=null;private lastWidth=0;private lastHeight=0;
   private pit:THREE.Group;private storageTray:THREE.Mesh;
@@ -65,6 +68,8 @@ export class SceneView {
     for(let i=0;i<viewConfig.maxEffects;i++)this.effects.push({active:false,age:0,life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,color:0,size:0,coin:false});
     this.ring=new THREE.Mesh(new THREE.RingGeometry(.98,1,64),new THREE.MeshBasicMaterial({color:0x8effc5,transparent:true,opacity:.8,side:THREE.DoubleSide,depthTest:false}));this.ring.rotation.x=-Math.PI/2;this.ring.visible=false;this.ring.renderOrder=20;this.scene.add(this.ring);
     this.targetRing=new THREE.Mesh(new THREE.RingGeometry(.56,.62,32),new THREE.MeshBasicMaterial({color:0x8effc5,transparent:true,opacity:.95,side:THREE.DoubleSide,depthTest:false}));this.targetRing.rotation.x=-Math.PI/2;this.targetRing.visible=false;this.targetRing.renderOrder=20;this.scene.add(this.targetRing);
+    const rippleGeometry=new THREE.RingGeometry(.42,.47,32);
+    for(let i=0;i<10;i++){const mesh=new THREE.Mesh(rippleGeometry,new THREE.MeshBasicMaterial({color:0x9effd4,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));mesh.rotation.x=-Math.PI/2;mesh.visible=false;this.scene.add(mesh);this.ripples.push({mesh,age:0,life:.4});}
     this.resize();
   }
   resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;const pitPosition=mapPosition(CONFIG.discard,this.landscape,'discard');this.pit.position.set(pitPosition.x,0,pitPosition.z);this.storageTray.visible=this.landscape;this.storageTray.position.set(LANDSCAPE_LAYOUT.storageCenterX,-.055,LANDSCAPE_LAYOUT.storageZ);this.belt.position.z=this.landscape?LANDSCAPE_LAYOUT.beltZ:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.18:1,1,this.landscape?.62:.88);this.floor.position.z=this.landscape?1.8:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
@@ -176,7 +181,11 @@ export class SceneView {
     else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
   }
-  burst(x:number,z:number,color:number,count=10,large=false,coin=false){const zone:ViewZone=x===CONFIG.discard.x&&z===CONFIG.discard.z?'discard':CONFIG.storage.some(stand=>stand.x===x&&stand.z===z)?'storage':z===CONFIG.conveyor.z?'belt':'field';const p=this.mapped({x,z},false,zone);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?6:2),vy:2+Math.random()*2,vz:(Math.random()-.5)*(large?6:2),color,size:coin?.11:large?.12:.075,coin});}}
+  press(target:HitTarget|null){this.pressed=target;if(target)this.tactile.trigger(target.id,'press');}
+  release(){this.pressed=null;}
+  impulse(id:string,kind:ImpulseKind){this.tactile.trigger(id,kind);}
+  private ripple(point:Point,color:number,life=.4){const r=this.ripples[this.rippleCursor++%this.ripples.length],p=this.mapped(point);r.age=0;r.life=life;r.mesh.position.set(p.x,.055,p.z);r.mesh.visible=true;(r.mesh.material as THREE.MeshBasicMaterial).color.setHex(color);}
+  burst(x:number,z:number,color:number,count=10,large=false,coin=false){if(this.reducedMotion.matches)return;const zone:ViewZone=x===CONFIG.discard.x&&z===CONFIG.discard.z?'discard':CONFIG.storage.some(stand=>stand.x===x&&stand.z===z)?'storage':z===CONFIG.conveyor.z?'belt':'field';const p=this.mapped({x,z},false,zone);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?3:1.5),vy:this.reducedMotion.matches?.5:1.4+Math.random()*1.4,vz:(Math.random()-.5)*(large?3:1.5),color,size:coin?.11:large?.12:.075,coin});}}
   private updateCameraShake(state:GameState,dt:number,events:GameEvent[]){
     // Always rebuild from the settled pose, so repeated bombs cannot accumulate drift.
     this.camera.position.copy(this.cameraBase);
@@ -212,8 +221,16 @@ export class SceneView {
     }
     return targets;
   }
-  reset(){this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
-  sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.updateCameraShake(state,dt,events);for(const[id,time]of this.flashes){if(time<=dt)this.flashes.delete(id);else this.flashes.set(id,time-dt);}for(const e of events)if(e.type==='hit'&&e.stoneId)this.flashes.set(e.stoneId,.16);
+  reset(){this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
+  sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.tactile.tick(dt);
+    for(const e of events){
+      if((e.type==='open'||e.type==='merge')&&e.entityId)this.tactile.trigger(e.entityId,e.type);
+      if(e.type==='hit'&&e.entityId)this.tactile.trigger(e.entityId,'hit');
+      if(e.type==='purchase'){const place=[...state.pads,...state.storage].find(p=>p.x===e.x&&p.z===e.z);if(place)this.tactile.trigger(place.id,'purchase');}
+      const colors:Partial<Record<GameEvent['type'],number>>={merge:0x8effc5,purchase:0xffd26a,bomb:0xffc05d,rewind:0x74f8f0,slow:0xaaa1ff,brake:0xffc260,halfSpeed:0x83ec94,tailBlast:0xff667b};
+      if(colors[e.type])this.ripple(e,colors[e.type]!,e.type==='merge'?.5:.4);
+    }
+    this.updateCameraShake(state,dt,events);for(const[id,time]of this.flashes){if(time<=dt)this.flashes.delete(id);else this.flashes.set(id,time-dt);}for(const e of events)if(e.type==='hit'&&e.stoneId)this.flashes.set(e.stoneId,.16);
     // Read-only render mirrors support browser verification without a game-control hook.
     const ordered=[...state.stones].sort((a,b)=>a.distance-b.distance);
     const hasGap=ordered.some((stone,i)=>i>0&&stone.distance-ordered[i-1].distance>CONFIG.stones.spacing+1e-9);
@@ -224,7 +241,7 @@ export class SceneView {
     this.canvas.dataset.speedReduction=String(state.permanentSpeedReduction);this.canvas.dataset.forwardSpeed=String(advancingSpeed);this.canvas.dataset.time=String(state.time);this.canvas.dataset.motion=motion;this.canvas.dataset.speed=String(speed);
     const recoils=recoilDistances(ordered,PATH_LENGTH);const rendered=new Map(ordered.map((s,i)=>[s.id,s.frozenRenderDistance??s.waitingRenderDistance??recoils[i]]));
     const stoneMarkers:{id:string;distance:number;x:number;y:number;bounce:number;renderDistance:number}[]=[];
-    const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);this.dummy.rotation.set(.15*Math.sin(stone.distance),path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
+    const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);const impact=this.reducedMotion.matches||state.slowRemaining>0?0:(this.flashes.get(stone.id)??0)/.16;this.dummy.position.y+=Math.sin(impact*Math.PI)*.035;this.dummy.rotation.set(.15*Math.sin(stone.distance)+Math.sin(impact*Math.PI*2)*.13,path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
     this.canvas.dataset.stones=JSON.stringify(stoneMarkers);
     for(let i=0;i<3;i++){this.stones[i].count=counts[i];this.stones[i].instanceMatrix.needsUpdate=true;if(this.stones[i].instanceColor)this.stones[i].instanceColor!.needsUpdate=true;}
     const discardScreen=this.project(CONFIG.discard,.04,false,'discard');
@@ -267,9 +284,14 @@ export class SceneView {
       const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
       else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=bonus?.label??'';
+      const pose=this.tactile.pose(entity.id,this.reducedMotion.matches),held=entity.location.kind==='drag',pressed=this.pressed?.id===entity.id&&!held;
+      const holdScale=held?1.09:1;v.group.scale.set(pose.x*holdScale,pose.y*holdScale*(pressed&&!this.reducedMotion.matches?.94:1),pose.x*holdScale);
+      v.group.position.y+=pose.lift;v.group.rotation.z=pose.tilt;
+      if(v.worker&&this.tactile.kind(entity.id)==='merge'&&!this.reducedMotion.matches)v.worker.arm.rotation.x-=pose.lift*5;
+      v.hit.dataset.feedback=this.tactile.kind(entity.id)??(held?'held':'');
       const h=this.project(loc,entity.kind==='worker'?.4:entity.location.kind==='storage'?.39:.27,entity.location.kind==='slot');v.hit.style.left=`${h.x}px`;v.hit.style.top=`${h.y}px`;const p=this.project(loc,entity.kind==='worker'?1.27:entity.kind==='barrel'?.80:entity.location.kind==='storage'?1.02:.9,entity.location.kind==='slot');v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;
     }
-    for(const pad of state.pads){let v=this.pads.get(pad.id);if(!v){const mesh=new THREE.Mesh(new THREE.BoxGeometry(.95,.13,.88),new THREE.MeshLambertMaterial({color:0x41394f}));mesh.position.set(pad.x,.025,pad.z);this.scene.add(mesh);const label=document.createElement('div');label.dataset.pad=pad.id;this.labels.append(label);v={mesh,label};this.pads.set(pad.id,v);}const mapped=this.mapped(pad);v.mesh.position.set(mapped.x,.025,mapped.z);const m=v.mesh.material as THREE.MeshLambertMaterial;m.color.setHex(pad.unlocked?0x426e69:0x54415f);v.label.dataset.unlocked=String(pad.unlocked);v.label.dataset.entityId=pad.entityId??'';v.label.dataset.reserved=String(pad.reserved);v.label.className=`pad-label ${pad.unlocked?'open':state.coins>=pad.price?'affordable':''}`;v.label.textContent=pad.unlocked?(pad.entityId?'':'＋ WORK'): `${pad.price} ●`;v.label.hidden=pad.unlocked&&!!pad.entityId;const p=this.project(pad,.19);v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;}
+    for(const pad of state.pads){let v=this.pads.get(pad.id);if(!v){const mesh=new THREE.Mesh(new THREE.BoxGeometry(.95,.13,.88),new THREE.MeshLambertMaterial({color:0x41394f}));mesh.position.set(pad.x,.025,pad.z);this.scene.add(mesh);const label=document.createElement('div');label.dataset.pad=pad.id;this.labels.append(label);v={mesh,label};this.pads.set(pad.id,v);}const mapped=this.mapped(pad);v.mesh.position.set(mapped.x,.025,mapped.z);const pose=this.tactile.pose(pad.id,this.reducedMotion.matches);v.mesh.scale.set(pose.x,pose.y,pose.x);const m=v.mesh.material as THREE.MeshLambertMaterial;m.color.setHex(pad.unlocked?0x426e69:0x54415f);v.label.dataset.unlocked=String(pad.unlocked);v.label.dataset.entityId=pad.entityId??'';v.label.dataset.reserved=String(pad.reserved);v.label.className=`pad-label ${pad.unlocked?'open':state.coins>=pad.price?'affordable':''}`;v.label.textContent=pad.unlocked?(pad.entityId?'':'＋ WORK'): `${pad.price} ●`;v.label.hidden=pad.unlocked&&!!pad.entityId;const p=this.project(pad,.19);v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;}
     for(const stand of state.storage){
       let v=this.storage.get(stand.id);
       if(!v){
@@ -280,6 +302,7 @@ export class SceneView {
         v={group,material,label};this.storage.set(stand.id,v);
       }
       const point=this.mapped(stand);v.group.position.set(point.x,0,point.z);
+      const pose=this.tactile.pose(stand.id,this.reducedMotion.matches);v.group.scale.set(pose.x,pose.y,pose.x);
       const occupied=!!stand.entityId||stand.reserved;
       v.material.color.setHex(stand.unlocked?(occupied?0x68a8b9:0x67b6a3):state.coins>=stand.price?0xc5a35c:0x736084);
       v.label.className=`pad-label storage-label ${stand.unlocked?'open':state.coins>=stand.price?'affordable':''}`;
@@ -290,7 +313,9 @@ export class SceneView {
     }
     const tailExplosion=events.some(event=>event.type==='tailBlast');
     for(const e of events){if(e.type==='coins')this.burst(e.x,e.z,0xffd26a,4,false,true);else if(e.type==='destroy')this.burst(e.x,e.z,tailExplosion?0xff667b:0xb9e9df,tailExplosion?8:5,tailExplosion);else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);else if(e.type==='bomb')this.burst(e.x,e.z,0xffc05d,45,true);else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);else if(e.type==='brake')this.burst(e.x,e.z,0xffc260,18,true);else if(e.type==='halfSpeed')this.burst(e.x,e.z,0x83ec94,24,true);else if(e.type==='tailBlast')this.burst(e.x,e.z,0xff667b,45,true);else if(e.type==='discard')this.burst(e.x,e.z,0x996b68,5);}
+    if(this.reducedMotion.matches)for(const e of this.effects)e.active=false;
     let count=0,coinCount=0;for(const e of this.effects){if(!e.active)continue;e.age+=dt;if(e.age>=e.life){e.active=false;continue;}e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=8*dt;this.dummy.position.set(e.x,e.y,e.z);this.dummy.scale.setScalar(e.size*(1-e.age/e.life));this.dummy.rotation.set(e.coin?Math.PI/2:e.age*5,e.age*6,e.age*3);this.dummy.updateMatrix();if(e.coin)this.coins.setMatrixAt(coinCount++,this.dummy.matrix);else{this.particles.setMatrixAt(count,this.dummy.matrix);this.particles.setColorAt(count++,this.color.setHex(e.color));}}this.coins.count=coinCount;this.coins.instanceMatrix.needsUpdate=true;this.particles.count=count;this.particles.instanceMatrix.needsUpdate=true;if(this.particles.instanceColor)this.particles.instanceColor.needsUpdate=true;
+    for(const r of this.ripples){if(!r.mesh.visible)continue;r.age+=dt;const t=Math.min(1,r.age/r.life);r.mesh.visible=t<1;r.mesh.scale.setScalar(this.reducedMotion.matches?1:1+t*1.3);(r.mesh.material as THREE.MeshBasicMaterial).opacity=(1-t)*.65;}
     this.renderer.render(this.scene,this.camera);
   }
   metrics(){return{calls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,effects:this.particles.count+this.coins.count};}

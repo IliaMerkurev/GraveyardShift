@@ -30,17 +30,17 @@ function setup() {
   const world = vi.fn((x: number, y: number) => ({ x, z: y }));
   const showDrop = vi.fn();
   const view = {
-    hit: vi.fn(() => hit), world, dropTarget: vi.fn(() => drop), showDrop,
+    press:vi.fn(),release:vi.fn(),impulse:vi.fn(),clearMergeTargets:vi.fn(),hit: vi.fn(() => hit), world, dropTarget: vi.fn(() => drop), showDrop,
   } as unknown as SceneView;
-  const feedback = vi.fn();
-  const controller = new PointerController(canvas as unknown as HTMLCanvasElement, game, view, feedback);
+  const feedback = vi.fn(),tactile=vi.fn();
+  const controller = new PointerController(canvas as unknown as HTMLCanvasElement, game, view, feedback,tactile);
   const send = (type: string, properties: Partial<PointerEvent> = {}) => canvas.dispatchEvent(pointer(type, properties));
   const openWorker = () => { game.openBarrel('slot-0'); };
   const startDrag = (properties: Partial<PointerEvent> = {}) => {
     send('pointerdown', properties);
     send('pointermove', { clientX: 120, ...properties });
   };
-  return { game, canvas, firstId, world, showDrop, feedback, controller, send, openWorker, startDrag,
+  return { game, canvas, firstId, view,tactile,world, showDrop, feedback, controller, send, openWorker, startDrag,
     setHit(value: HitTarget | null) { hit = value; }, setDrop(value: DropTarget) { drop = value; } };
 }
 
@@ -348,5 +348,15 @@ describe('v0.2 slow-token pointer rules', () => {
     expect(s.game.state.entities[s.firstId]).toBeUndefined();
     expect(s.controller.activePointerId).toBeNull();
     expect(s.canvas.captures.size).toBe(0);
+  });
+});
+
+
+describe('tactile input feedback',()=>{
+  it('responds on contact without executing tap early, and releases on cancel',()=>{
+    const s=setup();s.send('pointerdown');expect(s.view.press).toHaveBeenCalledWith({kind:'entity',id:s.firstId});expect(s.tactile).toHaveBeenCalledWith('pickup');expect(s.game.state.stats.opened).toBe(0);s.send('pointercancel');expect(s.view.release).toHaveBeenCalledOnce();expect(s.game.state.stats.opened).toBe(0);expect(s.controller.activePointerId).toBeNull();
+  });
+  it('invalid drop produces one safe return impulse without losing the item',()=>{
+    const s=setup();s.openWorker();s.setDrop(null);s.startDrag();s.send('pointerup',{clientX:120});s.send('pointerup',{clientX:120});expect(s.view.impulse).toHaveBeenCalledWith(s.firstId,'return');expect(s.tactile.mock.calls.filter(c=>c[0]==='reject')).toHaveLength(1);expect(s.game.state.entities[s.firstId].location).toEqual({kind:'slot',id:'slot-0'});
   });
 });
