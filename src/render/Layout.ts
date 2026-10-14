@@ -7,3 +7,20 @@ export const viewConfig = {
 } as const;
 export interface Point {x:number;z:number}
 export interface ScreenPoint {x:number;y:number}
+
+/** Scene placement is independent of game-state coordinates. Drag points always use field space. */
+export type ViewZone = 'field' | 'belt' | 'storage' | 'discard';
+export const LANDSCAPE_LAYOUT = { fieldOffsetX: -1.3, storageCenterX: 7.2, storageSpacing: 1.7, storageZ: 1.2, pitX: 7.2, pitZ: -1.5 } as const;
+export function mapPosition(point:Point,landscape:boolean,zone:ViewZone='field'):Point{
+  if(!landscape)return point;
+  if(zone==='belt')return{x:point.x*2,z:3.65};
+  if(zone==='storage')return{x:LANDSCAPE_LAYOUT.storageCenterX+point.x/1.8*LANDSCAPE_LAYOUT.storageSpacing,z:LANDSCAPE_LAYOUT.storageZ};
+  if(zone==='discard')return{x:LANDSCAPE_LAYOUT.pitX,z:LANDSCAPE_LAYOUT.pitZ};
+  return{x:point.z+LANDSCAPE_LAYOUT.fieldOffsetX,z:-point.x};
+}
+export function unmapFieldPosition(point:Point,landscape:boolean):Point{
+  return landscape?{x:-point.z,z:point.x-LANDSCAPE_LAYOUT.fieldOffsetX}:point;
+}
+export function placeZone(point:Point & {id?:string}):ViewZone{
+  return 'id' in point&&typeof point.id==='string'&&point.id.startsWith('storage-')?'storage':'field';
+}

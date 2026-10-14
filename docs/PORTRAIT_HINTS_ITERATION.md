@@ -20,3 +20,11 @@ Reviewed 844×390, 390×844 and 320×568 captures. The landscape guidance strip 
 - Portrait discard wording is anchored to the right of its pit with a canvas-edge clamp, separating it from the storage prices.
 - Removed the decorative HEAD badge from view; the snake itself and FINISH remain visible. Numeric worker levels, pad/storage prices and pause timer are unchanged.
 - No camera, motion, economy or input change in this correction. Parent owns the single targeted layout recheck.
+
+## Storage-zone composition correction
+
+The owner rejected v18's crowded vertical storage/FINISH/discard column despite its non-overlap checks. Landscape now has a separate tinted side bay with three horizontal pockets. The pit sits above the bay with a small trash-can glyph, accessible label and tooltip. Storage prices sit below their stands; occupied stands no longer add a redundant STORED caption over their bonus. Portrait keeps its horizontal row and uses the minimal pit icon.
+
+The landscape camera zoom is unchanged. Only the mining field shifts 1.3 world units left to separate it from the bay. View-space mapping and its inverse are shared by field meshes, rocks/workers, input rays, bomb targets and effects. Storage uses explicit stable-ID mapping; naked drag/raycast points never inherit pocket placement. Storage halos choose the nearest candidate. Pit deletion still requires release inside the exact visible hole. Game-state positions and economic rules are unchanged.
+
+Current QA: v18 interaction evidence passed 29px pickup, two merge partners highlighted/cleared, storage buy-by-drag/extraction/touch cancellation, pit deletion, bomb shake (3.82px with return), upgrade bounce/purchase/no repeated toast and no JavaScript errors. These are prior-version results, not acceptance of the rejected composition. This correction adds six passing targeted mapping tests (row separation, inverse ray, relocated storage/pit hits and drops, occupied pickup); typecheck passes. The new layout's targeted browser screenshots and storage/pit/bomb interaction recheck remain pending with the parent.

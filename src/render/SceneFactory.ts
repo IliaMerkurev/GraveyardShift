@@ -4,7 +4,7 @@ import { CONFIG } from '../game/config';
 import { effectiveForwardSpeed, recoilDistances } from '../game/motion';
 import { samplePath, PATH_LENGTH } from '../game/path';
 import { createWorker, createBarrel, createBomb, createRewind, createSlow, createBrake, disposePrimitive, makeWallGeometry, makeBrickTexture, type WorkerVisual } from './PrimitiveFactory';
-import { viewConfig, type Point, type ScreenPoint } from './Layout';
+import { viewConfig, mapPosition, unmapFieldPosition, placeZone, LANDSCAPE_LAYOUT, type ViewZone, type Point, type ScreenPoint } from './Layout';
 
 export type HitTarget = {kind:'entity'|'pad'|'slot'|'storage';id:string};
 type EntityView = {kind:string;group:THREE.Group; worker?:WorkerVisual;label:HTMLDivElement;hit:HTMLDivElement};
@@ -21,6 +21,7 @@ export class SceneView {
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   private cameraBase=new THREE.Vector3();private shakeRemaining=0;private reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   private ring:THREE.Mesh; private targetRing:THREE.Mesh;private treads:THREE.InstancedMesh;private state:GameState|null=null;private lastWidth=0;private lastHeight=0;
+  private pit:THREE.Group;private storageTray:THREE.Mesh;
   private trackPoints:Point[]=[];private landscape=false;private field=new THREE.Group();private floor:THREE.Mesh;private belt=new THREE.Group();
   constructor(readonly shell:HTMLElement,private canDrop:(target:DropTarget)=>boolean=()=>false){
     this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap or drag cyan rewind, purple pause, or amber permanent slowdown bonuses onto the field. Drag unwanted workers into the discard pit.');this.canvas.dataset.testid='game-canvas';
@@ -41,11 +42,12 @@ export class SceneView {
     const finish=samplePath(PATH_LENGTH);
     for(let i=0;i<4;i++){const tile=new THREE.Mesh(new THREE.BoxGeometry(.16,.035,.21),new THREE.MeshBasicMaterial({color:i%2?0xff7f83:0xffe4ce}));tile.position.set(finish.x,.045,finish.z+(i-1.5)*.21);this.field.add(tile);}
     this.finishLabel=document.createElement('div');this.finishLabel.className='pad-label';this.finishLabel.dataset.marker='finish';this.finishLabel.textContent='FINISH';this.finishLabel.style.background='#963c51';this.finishLabel.style.fontSize='10px';this.labels.append(this.finishLabel);
-    // Deliberate, worker-only sink beside storage, clear of the belt. It rotates with the field.
-    const pit=new THREE.Group();pit.position.set(CONFIG.discard.x,0,CONFIG.discard.z);
+    // Storage and its worker-only discard pit have their own view-space bay.
+    const pit=new THREE.Group();this.pit=pit;pit.position.set(CONFIG.discard.x,0,CONFIG.discard.z);
     const hole=new THREE.Mesh(new THREE.CircleGeometry(CONFIG.discard.radius,24),new THREE.MeshBasicMaterial({color:0x1c1925,side:THREE.DoubleSide}));hole.rotation.x=-Math.PI/2;hole.position.y=.018;pit.add(hole);
-    const rim=new THREE.Mesh(new THREE.RingGeometry(CONFIG.discard.radius,CONFIG.discard.radius+.09,24),new THREE.MeshBasicMaterial({color:0xe08a59,side:THREE.DoubleSide}));rim.rotation.x=-Math.PI/2;rim.position.y=.026;pit.add(rim);this.field.add(pit);
-    this.discardLabel=document.createElement('div');this.discardLabel.className='pad-label discard-label';this.discardLabel.dataset.marker='discard';this.discardLabel.textContent='DISCARD\nWORKERS';this.discardLabel.setAttribute('aria-label','Discard pit: drag and release unwanted workers here. No coins returned.');this.labels.append(this.discardLabel);
+    const rim=new THREE.Mesh(new THREE.RingGeometry(CONFIG.discard.radius,CONFIG.discard.radius+.09,24),new THREE.MeshBasicMaterial({color:0xe08a59,side:THREE.DoubleSide}));rim.rotation.x=-Math.PI/2;rim.position.y=.026;pit.add(rim);this.scene.add(pit);
+    this.storageTray=new THREE.Mesh(new THREE.BoxGeometry(4.7,.06,1.55),new THREE.MeshLambertMaterial({color:0x655d79}));this.storageTray.position.y=-.055;this.scene.add(this.storageTray);
+    this.discardLabel=document.createElement('div');this.discardLabel.className='pad-label discard-label';this.discardLabel.dataset.marker='discard';this.discardLabel.textContent='🗑︎';this.discardLabel.title='Discard worker';this.discardLabel.setAttribute('aria-label','Discard pit: drag and release unwanted workers here. No coins returned.');this.labels.append(this.discardLabel);
     this.headLabel=document.createElement('div');this.headLabel.className='pad-label';this.headLabel.dataset.marker='head';this.headLabel.textContent='HEAD';this.headLabel.style.background='#3a344b';this.headLabel.style.fontSize='9px';this.labels.append(this.headLabel);
     const belt=new THREE.Mesh(new THREE.BoxGeometry(6.3,.16,1.1),new THREE.MeshLambertMaterial({color:0x324350}));belt.position.set(0,.03,0);this.belt.add(belt);
     for(const z of [-.6,.6]){const rail=new THREE.Mesh(new THREE.BoxGeometry(6.5,.17,.16),new THREE.MeshLambertMaterial({color:0x679dc6}));rail.position.set(0,.10,z);this.belt.add(rail);}
@@ -57,7 +59,7 @@ export class SceneView {
     this.targetRing=new THREE.Mesh(new THREE.RingGeometry(.56,.62,32),new THREE.MeshBasicMaterial({color:0x8effc5,transparent:true,opacity:.95,side:THREE.DoubleSide,depthTest:false}));this.targetRing.rotation.x=-Math.PI/2;this.targetRing.visible=false;this.targetRing.renderOrder=20;this.scene.add(this.targetRing);
     this.resize();
   }
-  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.belt.position.z=this.landscape?3.65:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.45:1,1,this.landscape?.59:.88);this.floor.position.z=this.landscape?0:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
+  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;const pitPosition=mapPosition(CONFIG.discard,this.landscape,'discard');this.pit.position.set(pitPosition.x,0,pitPosition.z);this.storageTray.visible=this.landscape;this.storageTray.position.set(LANDSCAPE_LAYOUT.storageCenterX,-.055,LANDSCAPE_LAYOUT.storageZ);this.belt.position.z=this.landscape?3.65:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.45:1,1,this.landscape?.59:.88);this.floor.position.z=this.landscape?0:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
     const direction=new THREE.Vector3(...viewConfig.camera.direction).normalize();const vertical=this.landscape?CONFIG.camera.landscapeDepth:CONFIG.camera.frameDepth;const horizontal=this.landscape?CONFIG.camera.landscapeWidth:CONFIG.camera.frameWidth;const fov=THREE.MathUtils.degToRad(viewConfig.camera.fov);const distance=Math.max(vertical/2/Math.tan(fov/2),horizontal/2/Math.tan(fov/2)/this.camera.aspect)*viewConfig.camera.margin;
     if(this.landscape){
       // Preserve the established landscape camera exactly.
@@ -79,9 +81,10 @@ export class SceneView {
     }
     this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();this.cameraBase.copy(this.camera.position);
   }
-  private mapped(point:Point,belt=false):Point{return this.landscape?(belt?{x:point.x*2,z:3.65}:{x:point.z,z:-point.x}):point;}
-  project(point:Point,y=0,belt=false):ScreenPoint{const p=this.mapped(point,belt);const v=new THREE.Vector3(p.x,y,p.z).project(this.camera);return{x:(v.x+1)*this.lastWidth/2,y:(1-v.y)*this.lastHeight/2};}
-  world(clientX:number,clientY:number):Point|null{const rect=this.canvas.getBoundingClientRect();this.raycaster.setFromCamera(new THREE.Vector2((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1),this.camera);const v=new THREE.Vector3();return this.raycaster.ray.intersectPlane(this.plane,v)?(this.landscape?{x:-v.z,z:v.x}:{x:v.x,z:v.z}):null;}
+  private mapped(point:Point,belt=false,zone?:ViewZone):Point{return mapPosition(point,this.landscape,zone??(belt?'belt':placeZone(point)));}
+  project(point:Point,y=0,belt=false,zone?:ViewZone):ScreenPoint{const p=this.mapped(point,belt,zone);const v=new THREE.Vector3(p.x,y,p.z).project(this.camera);return{x:(v.x+1)*this.lastWidth/2,y:(1-v.y)*this.lastHeight/2};}
+  world(clientX:number,clientY:number):Point|null{const rect=this.canvas.getBoundingClientRect();this.raycaster.setFromCamera(new THREE.Vector2((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1),this.camera);const v=new THREE.Vector3();return this.raycaster.ray.intersectPlane(this.plane,v)?unmapFieldPosition({x:v.x,z:v.z},this.landscape):null;}
+  private insidePit(point:Point):boolean{const ground=this.mapped(point,false,'field'),pit=this.mapped(CONFIG.discard,false,'discard');return Math.hypot(ground.x-pit.x,ground.z-pit.z)<=CONFIG.discard.radius;}
   private location(entityId:string):Point|null{const e=this.state?.entities[entityId];if(!e||!this.state||e.location.kind==='drag')return null;const ref=e.location;return(ref.kind==='pad'?this.state.pads:ref.kind==='storage'?this.state.storage:this.state.slots).find(p=>p.id===ref.id)??null;}
   private overUI(clientX:number,clientY:number):boolean{
     return [...this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')].some(ui=>{const r=ui.getBoundingClientRect();return clientX>=r.left&&clientX<=r.right&&clientY>=r.top&&clientY<=r.bottom;});
@@ -108,7 +111,7 @@ export class SceneView {
     const nearest=(items:{target:HitTarget,d:number}[])=>items.sort((a,b)=>a.d-b.d)[0]?.target??null;
     // The pit has no click action, and its interior must never grab nearby cargo.
     const point=this.world(clientX,clientY);
-    if(point&&Math.hypot(point.x-CONFIG.discard.x,point.z-CONFIG.discard.z)<=CONFIG.discard.radius)return null;
+    if(point&&this.insidePit(point))return null;
     if(core.length)return nearest(core);
     if(halo.length)return nearest(halo);
     const slots:{target:HitTarget,d:number}[]=[];
@@ -127,14 +130,19 @@ export class SceneView {
     const groundPoint=this.world(clientX,clientY);
     // No enlarged halo here: deletion requires release inside the visible hole.
     // Invalid items still resolve to the pit, preventing accidental bonus use.
-    if(groundPoint&&Math.hypot(groundPoint.x-CONFIG.discard.x,groundPoint.z-CONFIG.discard.z)<=CONFIG.discard.radius)return{kind:'discard'};
+    if(groundPoint&&this.insidePit(groundPoint))return{kind:'discard'};
+    // Choose the nearest stand, never the first array entry inside overlapping touch halos.
+    const storageCandidates:{id:string;distance:number}[]=[];
+    const ground=groundPoint?this.mapped(groundPoint,false,'field'):null;
     for(const stand of this.state.storage){
-      const screen=this.project(stand,.1);
-      const occupied=this.project(stand,.39);
-      if(Math.hypot(clientX-bounds.left-screen.x,clientY-bounds.top-screen.y)<=viewConfig.hitRadiusPx||
-         (stand.entityId&&Math.hypot(clientX-bounds.left-occupied.x,clientY-bounds.top-occupied.y)<=viewConfig.hitRadiusPx)||
-         (groundPoint&&Math.abs(groundPoint.x-stand.x)<=.48&&Math.abs(groundPoint.z-stand.z)<=.4))return{kind:'storage',id:stand.id};
+      const screen=this.project(stand,.1),occupied=this.project(stand,.39),position=this.mapped(stand);
+      const distance=Math.hypot(clientX-bounds.left-screen.x,clientY-bounds.top-screen.y);
+      const occupiedDistance=stand.entityId?Math.hypot(clientX-bounds.left-occupied.x,clientY-bounds.top-occupied.y):Infinity;
+      if(distance<=viewConfig.hitRadiusPx||occupiedDistance<=viewConfig.hitRadiusPx||
+         (ground&&Math.abs(ground.x-position.x)<=.48&&Math.abs(ground.z-position.z)<=.4))storageCandidates.push({id:stand.id,distance:Math.min(distance,occupiedDistance)});
     }
+    const closestStorage=storageCandidates.sort((a,b)=>a.distance-b.distance)[0];
+    if(closestStorage)return{kind:'storage',id:closestStorage.id};
     if(entity?.kind==='rewind'||entity?.kind==='slow'||entity?.kind==='brake'){
       // Pointer capture still delivers releases over HTML controls. Those are
       // never part of the playfield, even if ground lies behind them.
@@ -156,10 +164,10 @@ export class SceneView {
   }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
     const color=valid?0x8effb7:0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);this.ring.scale.setScalar(target.kind==='field'?.55:bombRadius);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
-    else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard);this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
+    else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
   }
-  burst(x:number,z:number,color:number,count=10,large=false,coin=false){const p=this.mapped({x,z},z===CONFIG.conveyor.z);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?6:2),vy:2+Math.random()*2,vz:(Math.random()-.5)*(large?6:2),color,size:coin?.11:large?.12:.075,coin});}}
+  burst(x:number,z:number,color:number,count=10,large=false,coin=false){const zone:ViewZone=x===CONFIG.discard.x&&z===CONFIG.discard.z?'discard':CONFIG.storage.some(stand=>stand.x===x&&stand.z===z)?'storage':z===CONFIG.conveyor.z?'belt':'field';const p=this.mapped({x,z},false,zone);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?6:2),vy:2+Math.random()*2,vz:(Math.random()-.5)*(large?6:2),color,size:coin?.11:large?.12:.075,coin});}}
   private updateCameraShake(state:GameState,dt:number,events:GameEvent[]){
     // Always rebuild from the settled pose, so repeated bombs cannot accumulate drift.
     this.camera.position.copy(this.cameraBase);
@@ -210,9 +218,8 @@ export class SceneView {
     const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);this.dummy.rotation.set(.15*Math.sin(stone.distance),path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
     this.canvas.dataset.stones=JSON.stringify(stoneMarkers);
     for(let i=0;i<3;i++){this.stones[i].count=counts[i];this.stones[i].instanceMatrix.needsUpdate=true;if(this.stones[i].instanceColor)this.stones[i].instanceColor!.needsUpdate=true;}
-    const discardScreen=this.project(CONFIG.discard,.04);// Put portrait wording beside the pit rather than across the adjacent storage price.
-    const discardX=this.landscape?discardScreen.x:Math.min(this.lastWidth-this.discardLabel.offsetWidth-4,discardScreen.x+8);
-    this.discardLabel.style.transform=this.landscape?'translate(-50%,-50%)':'translate(0,-50%)';this.discardLabel.style.left=`${discardX}px`;this.discardLabel.style.top=`${discardScreen.y}px`;this.discardLabel.classList.toggle('active',state.drag!==null&&state.entities[state.drag.entityId]?.kind==='worker');
+    const discardScreen=this.project(CONFIG.discard,.04,false,'discard');
+    this.discardLabel.style.transform='translate(-50%,-50%)';this.discardLabel.style.left=`${discardScreen.x}px`;this.discardLabel.style.top=`${discardScreen.y}px`;this.discardLabel.classList.toggle('active',state.drag!==null&&state.entities[state.drag.entityId]?.kind==='worker');
     const finish=samplePath(PATH_LENGTH),finishScreen=this.project({x:finish.x+.6,z:finish.z},.25);this.finishLabel.style.left=`${finishScreen.x}px`;this.finishLabel.style.top=`${finishScreen.y}px`;
     const head=state.stones.reduce<(typeof state.stones)[number]|null>((a,b)=>!a||b.distance>a.distance?b:a,null);this.headLabel.dataset.distance=head?String(head.distance):'';this.headLabel.hidden=true;if(head&&head.distance>=0){const screen=this.project(samplePath(head.distance),.95);this.headLabel.style.left=`${screen.x}px`;this.headLabel.style.top=`${screen.y}px`;}
     if(!state.paused&&!state.gameOver)this.beltPhase+=dt*CONFIG.conveyor.speed;for(let i=0;i<28;i++){const x=-3.15+((i*.225-this.beltPhase%6.3+6.3)%6.3),p=this.mapped({x,z:CONFIG.conveyor.z},true);this.dummy.position.set(p.x,.132,p.z);this.dummy.rotation.set(0,0,0);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();this.treads.setMatrixAt(i,this.dummy.matrix);}this.treads.instanceMatrix.needsUpdate=true;
@@ -259,9 +266,9 @@ export class SceneView {
       v.material.color.setHex(stand.unlocked?(occupied?0x68a8b9:0x67b6a3):state.coins>=stand.price?0xc5a35c:0x736084);
       v.label.className=`pad-label storage-label ${stand.unlocked?'open':state.coins>=stand.price?'affordable':''}`;
       v.label.dataset.unlocked=String(stand.unlocked);v.label.dataset.entityId=stand.entityId??'';v.label.dataset.reserved=String(stand.reserved);
-      v.label.textContent=stand.unlocked?(occupied?'STORED':'＋ STORE'):`${stand.price} ●`;
+      v.label.textContent=stand.unlocked?(occupied?'':'＋'):`${stand.price} ●`;
       v.label.setAttribute('aria-label',stand.unlocked?(occupied?'Occupied bonus storage':'Empty bonus storage'):`Buy bonus storage for ${stand.price} coins`);
-      const screen=this.project(stand,.04);v.label.style.left=`${screen.x}px`;v.label.style.top=`${screen.y+10}px`;
+      const screen=this.project(stand,.04);v.label.style.left=`${screen.x}px`;v.label.style.top=`${screen.y+17}px`;
     }
     for(const e of events){if(e.type==='coins')this.burst(e.x,e.z,0xffd26a,4,false,true);else if(e.type==='destroy')this.burst(e.x,e.z,0xb9e9df,5);else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);else if(e.type==='bomb')this.burst(e.x,e.z,0xffc05d,45,true);else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);else if(e.type==='brake')this.burst(e.x,e.z,0xffc260,18,true);else if(e.type==='discard')this.burst(e.x,e.z,0x996b68,5);}
     let count=0,coinCount=0;for(const e of this.effects){if(!e.active)continue;e.age+=dt;if(e.age>=e.life){e.active=false;continue;}e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=8*dt;this.dummy.position.set(e.x,e.y,e.z);this.dummy.scale.setScalar(e.size*(1-e.age/e.life));this.dummy.rotation.set(e.coin?Math.PI/2:e.age*5,e.age*6,e.age*3);this.dummy.updateMatrix();if(e.coin)this.coins.setMatrixAt(coinCount++,this.dummy.matrix);else{this.particles.setMatrixAt(count,this.dummy.matrix);this.particles.setColorAt(count++,this.color.setHex(e.color));}}this.coins.count=coinCount;this.coins.instanceMatrix.needsUpdate=true;this.particles.count=count;this.particles.instanceMatrix.needsUpdate=true;if(this.particles.instanceColor)this.particles.instanceColor.needsUpdate=true;

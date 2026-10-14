@@ -50,3 +50,7 @@
 }
 /* Very narrow landscape has no safe text gap between its header controls. */
 @media(min-aspect-ratio:1/1) and (max-width:600px){.game-shell .toast{display:none}}
+
+/* Icon-only discard marker; the orange-rimmed hole remains the exact drop target. */
+.discard-label{width:17px;height:18px;padding:0;border:0;border-radius:3px;font-size:16px;line-height:18px;background:transparent;box-shadow:none;color:#ffc49a}
+.storage-label:empty{display:none}
