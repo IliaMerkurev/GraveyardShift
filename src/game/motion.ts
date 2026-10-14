@@ -8,8 +8,8 @@ export function forwardSpeed(time: number, c: GameConfig['stones'] = CONFIG.ston
 }
 /** A permanent subtraction, never a multiplier on future acceleration.
  * Callers use the shared difficulty clock: pause freezes it; rewind does not reset it. */
-export function effectiveForwardSpeed(time: number, reduction: number, config: GameConfig = CONFIG): number {
-  return Math.max(config.stones.speed * config.brake.minimumBaseFraction, forwardSpeed(time, config.stones) - reduction);
+export function effectiveForwardSpeed(time: number, reduction: number, config: GameConfig = CONFIG, minimumSpeed = config.stones.speed * config.brake.minimumBaseFraction): number {
+  return Math.max(minimumSpeed, forwardSpeed(time, config.stones) - reduction);
 }
 export function attractionSpeed(gap: number, c: GameConfig['stones'] = CONFIG.stones): number {
   return c.retractSpeed + c.attraction * Math.max(0, gap);

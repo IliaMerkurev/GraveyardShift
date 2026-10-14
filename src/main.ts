@@ -25,6 +25,8 @@ try {
     view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);
     if(events.some(e=>e.type==='goal'))hud.goal();
     const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
+    if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');
+    const tailBlast=events.find(e=>e.type==='tailBlast');if(tailBlast)hud.guidance(tailBlast.amount?(game.state.tailWaitingIds.length>0?'Tail half blasted · front waits for new rocks':'Tail half blasted · new rocks are coming'):'No rocks to blast','tailBlast');
     if(events.some(e=>e.type==='discard'))hud.guidance('Worker discarded · no coins','discard');
     const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until pause ends':'Rewound to the first bend'):'Already before the rewind point','rewind');
     if(events.some(e=>e.type==='gameover')){input.cancel();hud.defeat();modalPaused=true;bridge.end();}

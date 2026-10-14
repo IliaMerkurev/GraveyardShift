@@ -87,11 +87,11 @@ describe('current new gameplay features only', () => {
     const g = game(), id = worker(g).id; const coins = g.state.coins; g.beginDrag(id); expect(g.drop({ kind: 'discard' })).toBe(true); expect(g.state.entities[id]).toBeUndefined(); expect(g.state.pads[0]).toMatchObject({ reserved: false, entityId: null }); expect(g.state.coins).toBe(coins); expect(g.state.stats.merged).toBe(0); expect(g.drop({ kind: 'discard' })).toBe(false);
     const bonus = item(g, 'brake'); g.beginDrag(bonus); expect(g.drop({ kind: 'discard' })).toBe(false); expect(g.state.entities[bonus]).toBeDefined(); ownership(g);
   });
-  it('50/15/35 odds have exact boundaries and the remainder is split equally across three bonuses, with no coin content', () => {
+  it('50/50 odds split the bonus half equally across six bonuses, with no coin content', () => {
     const c = structuredClone(CONFIG); c.conveyor.starter = []; const g = new Game(c);
-    expect(c.conveyor.workerWeight).toBe(.5); expect(c.conveyor.bombWeight).toBe(.15); expect(c.conveyor.rewindWeight).toBeCloseTo(.35 / 3); expect(c.conveyor.brakeWeight).toBeCloseTo(.35 / 3);
+    expect(c.conveyor.workerWeight).toBe(.5); expect(c.conveyor.bombWeight).toBeCloseTo(.5 / 6); expect(c.conveyor.rewindWeight).toBeCloseTo(.5 / 6); expect(c.conveyor.brakeWeight).toBeCloseTo(.5 / 6); expect(c.conveyor.halfSpeedWeight).toBeCloseTo(.5 / 6); expect(c.conveyor.tailBlastWeight).toBeCloseTo(.5 / 6);
     const harness = g as unknown as { random: () => number; spawnBarrel: (id: string) => void }; const slot = g.state.slots[0]!;
-    for (const [roll, kind] of [[0, 'worker'], [.499999, 'worker'], [.5, 'bomb'], [.649999, 'bomb'], [.65, 'rewind'], [.766667, 'brake'], [.883334, 'slow'], [.999999, 'slow']] as const) {
+    for (const [roll, kind] of [[0, 'worker'], [.499999, 'worker'], [.5, 'bomb'], [.583333, 'bomb'], [.583334, 'rewind'], [.666667, 'brake'], [.750001, 'halfSpeed'], [.833334, 'tailBlast'], [.916667, 'slow'], [.999999, 'slow']] as const) {
       delete g.state.entities[slot.entityId!]; slot.entityId = null; harness.random = () => roll; harness.spawnBarrel(slot.id); expect(g.state.entities[slot.entityId!]).toMatchObject({ kind: 'barrel', content: kind });
     }
     expect(g.state.coins).toBe(c.economy.initialCoins);

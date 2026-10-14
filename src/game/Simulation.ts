@@ -73,7 +73,7 @@ export class Game {
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
       storage: c.storage.map((stand, i) => ({ ...stand, id: `storage-${i}`, unlocked: false, entityId: null, reserved: false })),
       stones: [], drag: null, events: [], paused: false, conveyorPaused: false, goalReached: false, gameOver: false, slowRemaining: 0,
-      headSpeed: 0, permanentSpeedReduction: 0, gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
+      headSpeed: 0, permanentSpeedReduction: 0, minimumForwardSpeed: c.stones.speed * c.brake.minimumBaseFraction, tailWaitingIds: [], gapRecoveryRemaining: 0, gapReadyAt: {}, rewindTarget: null, rewindSpeed: 0,
       tutorial: { opened: false, placed: false, merged: false, bought: false, bombed: false },
       stats: { opened: 0, merged: 0, purchased: 0, destroyed: 0, bombsUsed: 0, coinsEarned: 0 },
     };
@@ -102,7 +102,9 @@ export class Game {
     const content = starter ?? (roll < this.config.conveyor.workerWeight ? 'worker' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight ? 'bomb' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' :
-      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight ? 'brake' : 'slow');
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight ? 'brake' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight + this.config.conveyor.halfSpeedWeight ? 'halfSpeed' :
+      roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight + this.config.conveyor.halfSpeedWeight + this.config.conveyor.tailBlastWeight ? 'tailBlast' : 'slow');
     const entity: Entity = { id: this.entityId(), kind: 'barrel', content, location: { kind: 'slot', id: slot.id } };
     this.state.entities[entity.id] = entity;
     slot.entityId = entity.id;
@@ -130,6 +132,8 @@ export class Game {
   openBarrel(slotId: string): boolean {
     const result = commands.openBarrel(this, slotId, () => this.random()); this.updateConveyorPaused(); return result;
   }
+  useHalfSpeed(entityId: string): boolean { return commands.useHalfSpeed(this, entityId); }
+  useTailBlast(entityId: string): boolean { return commands.useTailBlast(this, entityId); }
   useBrake(entityId: string): boolean { return commands.useBrake(this, entityId); }
   useSlow(entityId: string): boolean { return commands.useSlow(this, entityId); }
   useRewind(entityId: string): boolean { return commands.useRewind(this, entityId); }
@@ -188,7 +192,7 @@ export class Game {
       if (dt <= 1e-9) return;
     }
     for (const stone of this.state.stones) delete stone.frozenRenderDistance;
-    const speed = effectiveForwardSpeed(this.state.difficultyTime, this.state.permanentSpeedReduction, this.config);
+    const speed = effectiveForwardSpeed(this.state.difficultyTime, this.state.permanentSpeedReduction, this.config, this.state.minimumForwardSpeed);
     const travel = speed * dt;
     const end = getPathLength(this.config.path);
     const ordered = [...this.state.stones].sort((a, b) => a.distance - b.distance);
@@ -205,6 +209,45 @@ export class Game {
       }
       // Keep the entire surviving chain/IDs intact while it travels backward.
       // Gap recovery and tail supply resume after the rewind has finished.
+      return;
+    }
+    const held = new Set(this.state.tailWaitingIds);
+    const survivingHeld = ordered.filter(stone => held.has(stone.id));
+    this.state.tailWaitingIds = survivingHeld.map(stone => stone.id);
+    if (survivingHeld.length) {
+      const waitingTail = survivingHeld[0]!;
+      const rear = ordered.filter(stone => !held.has(stone.id));
+      const rearHead = rear.at(-1);
+      const rearTravel = rearHead ? Math.min(travel, Math.max(0, waitingTail.distance - c.spacing - rearHead.distance)) : 0;
+      const rearSections: Stone[][] = [];
+      for (const [i, stone] of rear.entries()) {
+        if (i === 0 || stone.distance - rear[i - 1]!.distance > c.spacing + 1e-9) rearSections.push([]);
+        rearSections.at(-1)!.push(stone);
+      }
+      for (const [i, section] of rearSections.entries()) {
+        let shift = rearTravel;
+        if (i > 0) {
+          const front = section[0]!;
+          const gap = front.distance - rearSections[i - 1]!.at(-1)!.distance - c.spacing;
+          const readyAt = this.state.gapReadyAt[front.id] ?? 0;
+          shift = Math.max(-gap, this.state.time <= readyAt + 1e-9 ? 0 : -attractionSpeed(gap, c) * dt);
+          if (gap + shift <= 1e-9) delete this.state.gapReadyAt[front.id];
+        }
+        shift = Math.min(shift, Math.max(0, waitingTail.distance - c.spacing - section.at(-1)!.distance));
+        for (const stone of section) stone.distance += shift;
+      }
+      this.state.headSpeed = 0;
+      if (rearHead && waitingTail.distance - rearHead.distance <= c.spacing + 1e-9) {
+        this.state.tailWaitingIds = [];
+        for (const stone of survivingHeld) { delete stone.waitingRenderDistance; stone.bounceRemaining = 0; }
+      }
+      // Seed only at the entrance. Never refill the blasted half immediately.
+      let tail = rear[0]?.distance;
+      if (tail === undefined) this.spawnStone(Math.min(0, waitingTail.distance - c.spacing));
+      else while (tail >= c.spacing && this.state.stones.length < c.maxCount) {
+        tail -= c.spacing;
+        this.spawnStone(tail);
+      }
       return;
     }
     // Snapshot rigid sections BEFORE moving. Moving the rear must never hide a

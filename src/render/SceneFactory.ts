@@ -1,15 +1,23 @@
 import * as THREE from 'three';
-import type { GameState, DropTarget, GameEvent } from '../game/GameState';
+import type { GameState, DropTarget, GameEvent, Entity } from '../game/GameState';
 import { CONFIG } from '../game/config';
 import { effectiveForwardSpeed, recoilDistances } from '../game/motion';
 import { samplePath, PATH_LENGTH } from '../game/path';
-import { createWorker, createBarrel, createBomb, createRewind, createSlow, createBrake, disposePrimitive, makeWallGeometry, makeBrickTexture, type WorkerVisual } from './PrimitiveFactory';
+import { createWorker, createBarrel, createBomb, createRewind, createSlow, createBrake, createHalfSpeed, createTailBlast, disposePrimitive, makeWallGeometry, makeBrickTexture, type WorkerVisual } from './PrimitiveFactory';
 import { viewConfig, mapPosition, unmapFieldPosition, placeZone, LANDSCAPE_LAYOUT, type ViewZone, type Point, type ScreenPoint } from './Layout';
 
 export type HitTarget = {kind:'entity'|'pad'|'slot'|'storage';id:string};
 type EntityView = {kind:string;group:THREE.Group; worker?:WorkerVisual;label:HTMLDivElement;hit:HTMLDivElement};
 type Effect = {active:boolean;age:number;life:number;x:number;y:number;z:number;vx:number;vy:number;vz:number;color:number;size:number;coin:boolean};
 const resourceColors=CONFIG.stones.resources.map(r=>r.color);
+const fieldBonusVisuals:Partial<Record<Entity['kind'],{create:()=>THREE.Group;label:string;color:string;background:string;description:string}>>={
+  rewind:{create:createRewind,label:'⏪',color:'#074b5e',background:'#a7fff6',description:'Rewind bonus. Tap or drag onto the field to use.'},
+  slow:{create:createSlow,label:'⏸',color:'#33277e',background:'#d7d0ff',description:'Pause snake bonus. Tap or drag onto the field to freeze the snake for five seconds.'},
+  brake:{create:createBrake,label:'↓ 20%',color:'#54330b',background:'#ffcf7e',description:'Permanent slowdown: tap or drag onto the field. Current forward speed drops 20 percent, with a minimum speed. Acceleration continues.'},
+  halfSpeed:{create:createHalfSpeed,label:'↓ 50%',color:'#164d2a',background:'#9df4aa',description:'Half-speed bonus. Tap or drag onto the field to permanently halve the current forward speed, even below the usual minimum. Future acceleration is unchanged.'},
+  tailBlast:{create:createTailBlast,label:'✹ ½',color:'#681e30',background:'#ff9ba5',description:'Tail-half blast. Tap or drag onto the field to destroy half the rocks, rounded up, starting at the tail. The surviving front waits for new rocks to catch up.'},
+};
+
 export class SceneView {
   readonly renderer:THREE.WebGLRenderer; readonly scene=new THREE.Scene();
   readonly camera=new THREE.PerspectiveCamera(viewConfig.camera.fov,1,.1,100);
@@ -24,7 +32,7 @@ export class SceneView {
   private pit:THREE.Group;private storageTray:THREE.Mesh;
   private trackPoints:Point[]=[];private landscape=false;private field=new THREE.Group();private floor:THREE.Mesh;private belt=new THREE.Group();
   constructor(readonly shell:HTMLElement,private canDrop:(target:DropTarget)=>boolean=()=>false){
-    this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap or drag cyan rewind, purple pause, or amber permanent slowdown bonuses onto the field. Drag unwanted workers into the discard pit.');this.canvas.dataset.testid='game-canvas';
+    this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap or drag cyan rewind, purple pause, amber 20% slowdown, green 50% slowdown, or red tail-half blast bonuses onto the field. Drag unwanted workers into the discard pit.');this.canvas.dataset.testid='game-canvas';
     const context=this.canvas.getContext('webgl2',{antialias:true,alpha:false});
     if(!context) throw new Error('WebGL 2 is unavailable. Please open this prototype in a recent browser with graphics acceleration enabled.');
     this.renderer=new THREE.WebGLRenderer({canvas:this.canvas,context,antialias:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,viewConfig.dprLimit));
@@ -144,7 +152,7 @@ export class SceneView {
     }
     const closestStorage=storageCandidates.sort((a,b)=>a.distance-b.distance)[0];
     if(closestStorage)return{kind:'storage',id:closestStorage.id};
-    if(entity?.kind==='rewind'||entity?.kind==='slow'||entity?.kind==='brake'){
+    if(entity&&fieldBonusVisuals[entity.kind]){
       // Pointer capture still delivers releases over HTML controls. Those are
       // never part of the playfield, even if ground lies behind them.
       for(const ui of this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')){
@@ -174,7 +182,7 @@ export class SceneView {
     this.camera.position.copy(this.cameraBase);
     if(state.paused||state.gameOver||this.reducedMotion.matches){this.shakeRemaining=0;}
     else{
-      if(events.some(event=>event.type==='bomb'))this.shakeRemaining=.28;
+      if(events.some(event=>event.type==='bomb'||event.type==='tailBlast'))this.shakeRemaining=.28;
       if(this.shakeRemaining>0){
         this.shakeRemaining=Math.max(0,this.shakeRemaining-dt);
         const elapsed=.28-this.shakeRemaining,strength=.13*(this.shakeRemaining/.28)**2;
@@ -209,12 +217,12 @@ export class SceneView {
     // Read-only render mirrors support browser verification without a game-control hook.
     const ordered=[...state.stones].sort((a,b)=>a.distance-b.distance);
     const hasGap=ordered.some((stone,i)=>i>0&&stone.distance-ordered[i-1].distance>CONFIG.stones.spacing+1e-9);
-    const motion=state.slowRemaining>0?'frozen':state.rewindTarget!==null?'rewind':hasGap?(state.gapRecoveryRemaining>1e-9?'gap-pause':'gap-retract'):'forward';
+    const motion=state.slowRemaining>0?'frozen':state.rewindTarget!==null?'rewind':state.tailWaitingIds.length>0?'tail-wait':hasGap?(state.gapRecoveryRemaining>1e-9?'gap-pause':'gap-retract'):'forward';
     const slowFactor=state.slowRemaining>0?0:1;
-    const advancingSpeed=effectiveForwardSpeed(state.difficultyTime,state.permanentSpeedReduction)*slowFactor;
+    const advancingSpeed=effectiveForwardSpeed(state.difficultyTime,state.permanentSpeedReduction,CONFIG,state.minimumForwardSpeed)*slowFactor;
     const speed=state.paused||state.gameOver||state.slowRemaining>0?0:state.headSpeed;
     this.canvas.dataset.speedReduction=String(state.permanentSpeedReduction);this.canvas.dataset.forwardSpeed=String(advancingSpeed);this.canvas.dataset.time=String(state.time);this.canvas.dataset.motion=motion;this.canvas.dataset.speed=String(speed);
-    const recoils=recoilDistances(ordered,PATH_LENGTH);const rendered=new Map(ordered.map((s,i)=>[s.id,s.frozenRenderDistance??recoils[i]]));
+    const recoils=recoilDistances(ordered,PATH_LENGTH);const rendered=new Map(ordered.map((s,i)=>[s.id,s.frozenRenderDistance??s.waitingRenderDistance??recoils[i]]));
     const stoneMarkers:{id:string;distance:number;x:number;y:number;bounce:number;renderDistance:number}[]=[];
     const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);this.dummy.rotation.set(.15*Math.sin(stone.distance),path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
     this.canvas.dataset.stones=JSON.stringify(stoneMarkers);
@@ -242,14 +250,23 @@ export class SceneView {
     for(const [id,view]of this.entities)if(!state.entities[id]||state.entities[id].kind!==view.kind){if(view.worker)view.worker.dispose();else disposePrimitive(view.group);view.label.remove();view.hit.remove();this.entities.delete(id);}
     const mergeTargets=this.mergeTargets(state);
     for(const entity of Object.values(state.entities)){
-      let v=this.entities.get(entity.id);if(!v){const worker=entity.kind==='worker'?createWorker():undefined;const group=worker?.group??(entity.kind==='barrel'?createBarrel():entity.kind==='rewind'?createRewind():entity.kind==='slow'?createSlow():entity.kind==='brake'?createBrake():createBomb());const label=document.createElement('div');label.className=entity.kind==='worker'?'entity-label':'barrel-label';const hit=document.createElement('div');hit.className='entity-target';hit.dataset.entity=entity.id;hit.dataset.kind=entity.kind;if(entity.kind==='rewind'||entity.kind==='slow'||entity.kind==='brake'){const slow=entity.kind==='slow',brake=entity.kind==='brake';label.style.color=brake?'#54330b':slow?'#33277e':'#074b5e';label.style.background=brake?'#ffcf7e':slow?'#d7d0ff':'#a7fff6';label.style.borderRadius='7px';label.style.padding='0 3px';label.setAttribute('aria-label',brake?'Permanent slowdown: tap or drag onto the field. Current forward speed drops 20 percent, with a minimum speed. Acceleration continues.':slow?'Pause snake bonus. Tap or drag onto the field to freeze the snake for five seconds.':'Rewind bonus. Tap or drag onto the field to use.');}this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);}
+      const bonus=fieldBonusVisuals[entity.kind];
+      let v=this.entities.get(entity.id);
+      if(!v){
+        const worker=entity.kind==='worker'?createWorker():undefined;
+        const group=worker?.group??bonus?.create()??(entity.kind==='barrel'?createBarrel():createBomb());
+        const label=document.createElement('div');label.className=entity.kind==='worker'?'entity-label':'barrel-label';
+        const hit=document.createElement('div');hit.className='entity-target';hit.dataset.entity=entity.id;hit.dataset.kind=entity.kind;
+        if(bonus){label.style.color=bonus.color;label.style.background=bonus.background;label.style.borderRadius='7px';label.style.padding='0 3px';label.setAttribute('aria-label',bonus.description);label.title=bonus.description;hit.setAttribute('aria-label',bonus.description);}
+        this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);
+      }
       const mergeTarget=mergeTargets.has(entity.id);
       v.hit.classList.toggle('merge-target',mergeTarget);v.label.classList.toggle('merge-target-label',mergeTarget);
       if(mergeTarget)v.hit.dataset.mergeTarget='true';else delete v.hit.dataset.mergeTarget;
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
       const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
-      else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=entity.kind==='rewind'?'⏪':entity.kind==='slow'?'⏸':entity.kind==='brake'?'↓ 20%':'';
+      else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=bonus?.label??'';
       const h=this.project(loc,entity.kind==='worker'?.4:entity.location.kind==='storage'?.39:.27,entity.location.kind==='slot');v.hit.style.left=`${h.x}px`;v.hit.style.top=`${h.y}px`;const p=this.project(loc,entity.kind==='worker'?1.27:entity.kind==='barrel'?.80:entity.location.kind==='storage'?1.02:.9,entity.location.kind==='slot');v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;
     }
     for(const pad of state.pads){let v=this.pads.get(pad.id);if(!v){const mesh=new THREE.Mesh(new THREE.BoxGeometry(.95,.13,.88),new THREE.MeshLambertMaterial({color:0x41394f}));mesh.position.set(pad.x,.025,pad.z);this.scene.add(mesh);const label=document.createElement('div');label.dataset.pad=pad.id;this.labels.append(label);v={mesh,label};this.pads.set(pad.id,v);}const mapped=this.mapped(pad);v.mesh.position.set(mapped.x,.025,mapped.z);const m=v.mesh.material as THREE.MeshLambertMaterial;m.color.setHex(pad.unlocked?0x426e69:0x54415f);v.label.dataset.unlocked=String(pad.unlocked);v.label.dataset.entityId=pad.entityId??'';v.label.dataset.reserved=String(pad.reserved);v.label.className=`pad-label ${pad.unlocked?'open':state.coins>=pad.price?'affordable':''}`;v.label.textContent=pad.unlocked?(pad.entityId?'':'＋ WORK'): `${pad.price} ●`;v.label.hidden=pad.unlocked&&!!pad.entityId;const p=this.project(pad,.19);v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;}
@@ -271,7 +288,8 @@ export class SceneView {
       v.label.setAttribute('aria-label',stand.unlocked?(occupied?'Occupied bonus storage':'Empty bonus storage'):`Buy bonus storage for ${stand.price} coins`);
       const screen=this.project(stand,.04);v.label.style.left=`${screen.x}px`;v.label.style.top=`${screen.y+17}px`;
     }
-    for(const e of events){if(e.type==='coins')this.burst(e.x,e.z,0xffd26a,4,false,true);else if(e.type==='destroy')this.burst(e.x,e.z,0xb9e9df,5);else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);else if(e.type==='bomb')this.burst(e.x,e.z,0xffc05d,45,true);else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);else if(e.type==='brake')this.burst(e.x,e.z,0xffc260,18,true);else if(e.type==='discard')this.burst(e.x,e.z,0x996b68,5);}
+    const tailExplosion=events.some(event=>event.type==='tailBlast');
+    for(const e of events){if(e.type==='coins')this.burst(e.x,e.z,0xffd26a,4,false,true);else if(e.type==='destroy')this.burst(e.x,e.z,tailExplosion?0xff667b:0xb9e9df,tailExplosion?8:5,tailExplosion);else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);else if(e.type==='bomb')this.burst(e.x,e.z,0xffc05d,45,true);else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);else if(e.type==='brake')this.burst(e.x,e.z,0xffc260,18,true);else if(e.type==='halfSpeed')this.burst(e.x,e.z,0x83ec94,24,true);else if(e.type==='tailBlast')this.burst(e.x,e.z,0xff667b,45,true);else if(e.type==='discard')this.burst(e.x,e.z,0x996b68,5);}
     let count=0,coinCount=0;for(const e of this.effects){if(!e.active)continue;e.age+=dt;if(e.age>=e.life){e.active=false;continue;}e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=8*dt;this.dummy.position.set(e.x,e.y,e.z);this.dummy.scale.setScalar(e.size*(1-e.age/e.life));this.dummy.rotation.set(e.coin?Math.PI/2:e.age*5,e.age*6,e.age*3);this.dummy.updateMatrix();if(e.coin)this.coins.setMatrixAt(coinCount++,this.dummy.matrix);else{this.particles.setMatrixAt(count,this.dummy.matrix);this.particles.setColorAt(count++,this.color.setHex(e.color));}}this.coins.count=coinCount;this.coins.instanceMatrix.needsUpdate=true;this.particles.count=count;this.particles.instanceMatrix.needsUpdate=true;if(this.particles.instanceColor)this.particles.instanceColor.needsUpdate=true;
     this.renderer.render(this.scene,this.camera);
   }

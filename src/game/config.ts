@@ -10,8 +10,8 @@ export interface GameConfig {
   };
   conveyor: {
     count: number; left: number; right: number; z: number; speed: number;
-    spawnInterval: number; starter: readonly ('worker' | 'bomb' | 'rewind' | 'slow' | 'brake')[];
-    workerWeight: number; bombWeight: number; rewindWeight: number; brakeWeight: number;
+    spawnInterval: number; starter: readonly ('worker' | 'bomb' | 'rewind' | 'slow' | 'brake' | 'halfSpeed' | 'tailBlast')[];
+    workerWeight: number; bombWeight: number; rewindWeight: number; brakeWeight: number; halfSpeedWeight: number; tailBlastWeight: number;
   };
   pads: readonly { x: number; z: number; price: number }[];
   storage: readonly { x: number; z: number; price: number }[];
@@ -45,9 +45,9 @@ export const CONFIG: GameConfig = {
     count: 6, left: -2.9, right: 2.9, z: 8, speed: 0.32,
     spawnInterval: 2.5,
     // Seven guaranteed workers in the starter sequence allow level three without RNG.
-    starter: ['worker', 'worker', 'rewind', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake'],
-    // Pause uses the remaining probability: the same 35% / 3 as rewind and brake.
-    workerWeight: 0.50, bombWeight: 0.15, rewindWeight: 0.35 / 3, brakeWeight: 0.35 / 3,
+    starter: ['worker', 'worker', 'rewind', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake', 'halfSpeed', 'tailBlast'],
+    // Six bonuses share half the pool equally; pause uses the remaining sixth.
+    workerWeight: 0.50, bombWeight: 0.5 / 6, rewindWeight: 0.5 / 6, brakeWeight: 0.5 / 6, halfSpeedWeight: 0.5 / 6, tailBlastWeight: 0.5 / 6,
   },
   pads: [
     { x: -.75, z: -5.5, price: 0 },

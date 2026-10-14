@@ -95,6 +95,30 @@ export function createBrake(): THREE.Group {
   for(const direction of [-1,1]){const tip=new THREE.Mesh(new THREE.BoxGeometry(.05,.018,.15),material.clone());tip.rotation.y=direction*Math.PI/4;tip.position.set(direction*.045,.344,.06);group.add(tip);}
   return group;
 }
+/** Green half-speed token has a split face and a solid down arrow. */
+export function createHalfSpeed(): THREE.Group {
+  const group=new THREE.Group();
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.13,12),new THREE.MeshLambertMaterial({color:0x257945}));rim.position.y=.22;
+  const face=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.045,12),new THREE.MeshLambertMaterial({color:0x83ec94}));face.position.y=.31;
+  const half=new THREE.Mesh(new THREE.CircleGeometry(.25,12,0,Math.PI),new THREE.MeshBasicMaterial({color:0x43b968,side:THREE.DoubleSide}));half.rotation.x=-Math.PI/2;half.position.y=.337;
+  const stem=new THREE.Mesh(new THREE.BoxGeometry(.055,.018,.20),new THREE.MeshBasicMaterial({color:0x164d2a}));stem.position.set(0,.351,-.03);
+  group.add(rim,face,half,stem);
+  for(const direction of [-1,1]){const tip=new THREE.Mesh(new THREE.BoxGeometry(.05,.018,.15),new THREE.MeshBasicMaterial({color:0x164d2a}));tip.rotation.y=direction*Math.PI/4;tip.position.set(direction*.045,.351,.065);group.add(tip);}
+  return group;
+}
+/** Red tail-blast token depicts a surviving front and a burst at the tail. */
+export function createTailBlast(): THREE.Group {
+  const group=new THREE.Group();
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.13,12),new THREE.MeshLambertMaterial({color:0x922f42}));rim.position.y=.22;
+  const face=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.045,12),new THREE.MeshLambertMaterial({color:0xff7d87}));face.position.y=.31;
+  group.add(rim,face);
+  for(const x of [-.16,-.045]){const rock=new THREE.Mesh(new THREE.IcosahedronGeometry(.06,0),new THREE.MeshLambertMaterial({color:0x682b3c}));rock.position.set(x,.365,0);group.add(rock);}
+  const shape=new THREE.Shape();
+  for(let i=0;i<16;i++){const angle=i*Math.PI/8,radius=i%2?.065:.14,x=Math.cos(angle)*radius,z=Math.sin(angle)*radius;if(i===0)shape.moveTo(x,z);else shape.lineTo(x,z);}
+  shape.closePath();
+  const blast=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color:0xfff0b0,side:THREE.DoubleSide}));blast.rotation.x=-Math.PI/2;blast.position.set(.115,.38,0);group.add(blast);
+  return group;
+}
 export function makeWallGeometry(): THREE.BufferGeometry {
   const pieces:THREE.BufferGeometry[]=[];for(const run of CONFIG.path.runs.slice(0,-1)){const z=run+CONFIG.path.bendRadius;let spans:[[number,number]]|[number,number][]=[[CONFIG.path.left+.15,CONFIG.path.right-.15]];for(const pad of CONFIG.pads.filter(p=>Math.abs(p.z-z)<.1)){spans=spans.flatMap(([a,b])=>{const result:[number,number][]=[];if(a<pad.x-.62)result.push([a,Math.min(b,pad.x-.62)]);if(b>pad.x+.62)result.push([Math.max(a,pad.x+.62),b]);return result;});}for(const[a,b]of spans)if(b-a>.05)pieces.push(box(b-a,.32,.20,0xffffff,(a+b)/2,.16,z));}return join(pieces);
 }
