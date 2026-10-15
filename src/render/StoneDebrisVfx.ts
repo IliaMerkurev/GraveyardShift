@@ -19,7 +19,13 @@ function shardGeometry(){
   const g=new THREE.IcosahedronGeometry(.225,0),p=g.getAttribute('position');
   for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),warp=1+.17*Math.sin(x*23+y*17+z*31);p.setXYZ(i,x*warp,y*warp*.85,z*warp);}
   g.computeVertexNormals();const colors=new Float32Array(p.count*3),color=new THREE.Color();
-  for(let i=0;i<p.count;i+=3){color.setHex(DUNGEON_PALETTE.stoneLight).multiplyScalar(.78+((i*17)%11)/25);for(let j=0;j<3;j++)color.toArray(colors,(i+j)*3);}
+  // Fresh interior cuts are warmer/lighter than the weathered outer rind. Keep
+  // the shared ore texture and fully light-reactive material, with no emission.
+  const fracture=new THREE.Color(0xb9afa2);
+  for(let i=0;i<p.count;i+=3){
+    color.setHex(DUNGEON_PALETTE.stoneLight).lerp(fracture,i%9===0?.18:.76).multiplyScalar(.86+((i*17)%11)/35);
+    for(let j=0;j<3;j++)color.toArray(colors,(i+j)*3);
+  }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));atlasUV(g,3);return g;
 }
 /** Cosmetic only: one fixed pool / draw call, with no scene or gameplay collision objects. */
@@ -36,7 +42,7 @@ export class StoneDebrisVfx{
     if(this.disposed)return;
     const count=Math.max(0,Math.min(blast?12:16,Math.floor(budget))),phase=Math.random()*Math.PI*2;
     for(let i=0;i<count;i++){
-      const p=this.chunks[this.cursor++%this.chunks.length],angle=phase+i*2.399963,size=i<4?.40+Math.random()*.12:i<9?.24+Math.random()*.1:.12+Math.random()*.1;
+      const p=this.chunks[this.cursor++%this.chunks.length],angle=phase+i*2.399963,size=(i<4?.40+Math.random()*.12:i<9?.24+Math.random()*.1:.12+Math.random()*.1)*(blast?1:1.15);
       const speed=(.45+Math.random()*.7)*(blast?1.45:1),offset=.035+Math.random()*.12;
       Object.assign(p,{active:true,age:0,life:1.05+Math.random()*.4,x:x+Math.cos(angle)*offset,y:.19+Math.random()*.19,z:z+Math.sin(angle)*offset,
         vx:Math.cos(angle)*speed,vy:.95+Math.random()*1.35,vz:Math.sin(angle)*speed,
