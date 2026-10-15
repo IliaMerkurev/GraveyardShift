@@ -139,8 +139,13 @@ export class ParticleVfx{
       // never restore the old floor-wide or foreground cloud curtain.
       for(let i=0;i<40;i++){
         const side=i%2?1:-1,phase=i*2.399;
-        const z=-7.4+Math.floor(i/2)*.8+Math.sin(phase)*.06;
-        this.normal.add(camera,side*(4.2+Math.sin(this.time*.07+phase)*.06),.4,z+Math.cos(this.time*.06+phase)*.05,3.3,.65,Math.sin(phase)*.035,.28,5,0xb9bdb2);
+        // Independent deterministic variation breaks the two ruler-straight bands,
+        // while the bounded spacing still overlaps even the smallest clouds.
+        const sample=(salt:number)=>{const n=Math.sin(i*127.1+salt*311.7)*43758.5453;return n-Math.floor(n);};
+        const size=2.9+sample(1)*.8,width=1.7+sample(2)*.45;
+        const z=-7.4+Math.floor(i/2)*.8+(sample(3)-.5)*.4;
+        const x=side*(4.35+(sample(4)-.5)*.32+Math.sin(this.time*.07+phase)*.06);
+        this.normal.add(camera,x,.26+sample(5)*.28,z+Math.cos(this.time*.06+phase)*.05,size,width/size,(sample(6)-.5)*.16,.16+sample(7)*.07,5,0xb9bdb2);
       }
       for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*3.4,.2,-7.5,1,1.7,0,.12,5,0xc4c5bc);
     }
