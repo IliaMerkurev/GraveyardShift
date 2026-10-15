@@ -1,7 +1,8 @@
 {
   "format": "glTF 2.0",
   "runtime": "Procedural TypeScript; GLB is DCC interchange only, not shipped",
-  "glbBytes": 497384,
+  "textureStatus": "Node GLB contains geometry, UVs, vertex colours and PBR materials; browser-painted atlas is not embedded. See browser export utility for matching textured export.",
+  "glbBytes": 804916,
   "models": [
     {
       "name": "wall-stone",
@@ -25,7 +26,7 @@
     },
     {
       "name": "iron-crown-fire-brazier",
-      "triangles": 212
+      "triangles": 302
     },
     {
       "name": "caged-amber-lantern",
@@ -37,7 +38,7 @@
     },
     {
       "name": "green-veined-ore",
-      "triangles": 248
+      "triangles": 344
     },
     {
       "name": "jade-worker-pad",
@@ -46,6 +47,10 @@
     {
       "name": "octagonal-storage-plinth",
       "triangles": 96
+    },
+    {
+      "name": "brass-treasure-and-candles",
+      "triangles": 1302
     },
     {
       "name": "iron-timber-conveyor-chassis",

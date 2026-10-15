@@ -1,29 +1,43 @@
-# Graveyard mine: low-poly location kit
+# Graveyard mine: authored low-poly location kit, second art pass
 
-Original geometry authored for RockSnakePlayableTest against the supplied graveyard mining reference. No skeleton/character assets are included. Existing workers remain placeholders for the separately planned Tripo characters.
+Original geometry and painted surfaces authored for RockSnakePlayableTest against the supplied graveyard mining reference. No skeletons or character assets are included. Existing workers remain placeholders for the separately planned Tripo characters.
 
-## Editable source and DCC interchange
+## Canonical editable sources
 
-- `src/render/dungeon/DungeonKit.ts` is the canonical parametric modelling source. It contains reusable, named builders rather than an opaque baked scene.
-- `art/dungeon/dungeon-model-kit.glb` is a glTF 2.0 model sheet containing 13 separately named assemblies. Import directly into Blender with File → Import → glTF 2.0. Individual merged assemblies can be separated by loose parts in Edit Mode if needed. Vertex colours carry the material palette.
-- Regenerate using `node --experimental-strip-types scripts/export-dungeon-kit.mjs` after `npm ci` (Node 24).
-- `model-manifest.json` reports actual exported model counts and triangle counts.
-- The GLB is an editable interchange deliverable, not downloaded or embedded by the playable. The playable compiles only the procedural source. No texture images, fonts, new dependencies, or runtime network requests.
+- `src/render/dungeon/DungeonKit.ts`: parametric geometry, placement and material palette.
+- `src/render/dungeon/DungeonAtlas.ts`: deterministic 1024 × 1024 painted surface atlas (stone, timber, iron, ore), face UV projection, contact-shadow and amber-light textures. These are generated once in memory; there are no downloaded textures or runtime network requests.
+- Geometry is separately named and uses Y-up coordinates. Models can be edited at source or imported into Blender with File → Import → glTF 2.0. Vertex colours carry base paint; atlas UVs add wear and grain.
 
-## Modelling decisions
+## Deliverables and exact texture-export distinction
 
-Clipped octagonal stone silhouettes and raised bevels create readable seams. Floor tiles omit hidden vertical and bottom faces. Walls use staggered courses, receding green niches, segmented pointed arches, buttress blocks, and metal grilles. Shallow perimeter props leave the gameplay area and front edge unobscured. Warm wood, bronze rails, amber lanterns and flame meshes contrast with charcoal stone and restrained green mineral seams. The mine cart contains faceted crystals. Barrels use individual curved stave surfaces, separate lid grooves, raised hoops and rivets; crates use side planks, iron corners and diagonal braces.
+1. `dungeon-model-kit.glb` is the directly generated Node interchange kit: geometry, UVs, vertex colours and PBR materials. It contains fourteen named assemblies and is **not texture-embedded**, because the Node generator intentionally does not emulate browser Canvas. This limitation is also recorded in `model-manifest.json`.
+2. `export-textured-kit.html` is a self-contained, offline developer utility containing the actual canonical painter and model builders. Open it in a browser and choose “Download textured GLB” to generate the matching atlas-embedded model kit, or “Download painted atlas PNG” for the exact editable bitmap. It sends no data anywhere. The textured GLB uses the same base colour map as the playable; glTF does not encode Three.js bumpMap directly, so the runtime micro-bump is not represented as a separate glTF normal map.
+3. Regenerate Node GLB: `node --experimental-strip-types scripts/export-dungeon-kit.mjs`.
+4. Rebuild standalone textured exporter: `node scripts/build-dungeon-export-utility.mjs`.
+5. Audit the new kit: `node --experimental-strip-types scripts/audit-dungeon-kit.mjs`.
 
-No shadows or lights are embedded in the kit. Integration owns the lighting; at most one shadowcaster is recommended. Emissive colour comes from the shared unlit material, with no bloom/postprocessing requirement.
+All commands use the repository's installed development dependencies (Node 24); no additional packages or Blender installation are needed. Export HTML and GLB are developer deliverables, **not embedded in or downloaded by the playable**. Do not add their sizes to the playable's HTML runtime budget.
 
-## Runtime conventions
+## Second-pass modelling and surface decisions
 
-Y-up. Origin of props is floor-contact; ore is centred on its existing instancing pivot. Barrel bounds match the old approximately 0.65-unit cargo. Ore base radius is 0.225 with deterministic 13% deformation (maximum 0.25425), preserving the prior path spacing and silhouette budget. Worker pad 0.94 × 0.13 × 0.87; storage top approximately 0.23. Gothic arches face +Z; rotate the assembly for finish alignment. Track planks top out at Y=0.024 and rails at approximately 0.075.
+- Staggered, differently sized flagstone courses with genuinely perturbed chipped silhouettes, bevels, recessed seams, mottled paint, surface scratches and fissures. Hidden floor side/bottom faces are removed.
+- Staggered masonry, deep green crypt recess gradients with layered architectural silhouettes, pointed segmented arches, higher cornices, substantial buttress blocks and bronze grilles.
+- Separate dark iron cages, multiple amber/gold flame tongues, warm radial reflected-light decals, low lanterns and contact-shadow decals.
+- Broad worn timber track planks, thicker bronze rails, sleepers and a reusable animated wooden conveyor tread geometry.
+- Individually curved barrel staves, inset grooved lid, raised metal hoops and rivets; plank crates, diagonal bracing and iron corners.
+- Emerald mine cart and deliberate brass coin chest/candle setpieces. Low broken masonry stays at the perimeter.
+- Charcoal ore facets with two thin geological fissures following real facet intersections, rather than highlighting every mesh edge.
 
-Rooms are batched to exactly two draw calls: one vertex-colour opaque mesh, one unlit accent mesh. Current portrait room: 20,034 triangles; landscape room: 28,722 triangles. These exclude path, dynamic entities and effects. Only the active room should be visible. Do not scale one room nonuniformly to change aspect ratio: build separate portrait and landscape rooms to preserve stone dimensions.
+## Runtime and budget conventions
 
-`dungeonMaterial` and `dungeonGlowMaterial` are shared. Do not dispose them when removing individual props. Each builder allocates its own geometry; dispose those geometry objects on teardown. No factory mutates game state, hit targets, coordinates, timing or camera layout.
+`dungeonMaterial` is shared MeshStandardMaterial with vertex colours, atlas colour map, micro-bump and high roughness. `dungeonGlowMaterial` is shared unlit colour. Do not dispose these shared materials when removing an individual prop. Factory geometry is owned by its returned object and may be disposed on teardown.
 
-## Ownership
+Room batching uses **four draw calls**, not the initial pass's two: opaque geometry, emissive geometry, contact shadows, amber reflected light. Current portrait room: **25,032 triangles**. Landscape room: **34,560 triangles**. Only one room should be visible. These totals exclude dynamic entities, track and effects; integration owns the final rendered scene and standalone HTML budget.
 
-All geometry in this directory is newly authored for this task; no third-party model or image assets were imported. The supplied reference guided visual direction only.
+Ore base radius 0.225 with deterministic 13% deformation (maximum 0.25425 from its pivot), preserving the original path spacing. Barrel bounds approximately 0.65 units. Worker pad 0.94 × 0.13 × 0.87. Storage top approximately Y=0.23. Track plank top Y=0.024; thicker rails sit above it. Arches face +Z. Room bounds and all gameplay coordinates are supplied by the renderer; no factory mutates state, economy, timing, input or camera.
+
+## Validation and ownership
+
+`geometry-audit.json` records finite geometry, matching vertex-colour and UV counts, upward floor winding, ore radius, four-call room batching, bounded room triangles and degenerate track input checks. TypeScript typecheck also passed. Actual browser visual acceptance belongs to the integrated game, rather than this geometry-only audit.
+
+All geometry and procedural paint are newly authored for this task. No third-party models, downloaded image textures or character assets were imported.

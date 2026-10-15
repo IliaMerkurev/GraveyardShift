@@ -3,6 +3,7 @@
  * Static parts are baked to one opaque mesh and one emissive mesh per assembly.
  */
 import * as THREE from 'three';
+import { createDungeonAtlas, atlasUV, createContactTexture, createAmberSpillTexture } from './DungeonAtlas.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const DUNGEON_PALETTE = {
@@ -12,7 +13,10 @@ export const DUNGEON_PALETTE = {
   flame:0xff9a23, flameCore:0xffe6a4,
 } as const;
 const P=DUNGEON_PALETTE;
-export const dungeonMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
+const surfaceAtlas=createDungeonAtlas();
+export const dungeonMaterial=new THREE.MeshStandardMaterial({vertexColors:true,map:surfaceAtlas,bumpMap:surfaceAtlas,bumpScale:.023,roughness:.92,metalness:.08});
+const spillMaterial=new THREE.MeshBasicMaterial({map:createAmberSpillTexture(),transparent:true,depthWrite:false,opacity:.56,blending:THREE.AdditiveBlending});
+const contactMaterial=new THREE.MeshBasicMaterial({map:createContactTexture(),transparent:true,depthWrite:false,opacity:.72,color:0x0a1114});
 export const dungeonGlowMaterial=new THREE.MeshBasicMaterial({vertexColors:true});
 const seeded=(n:number)=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);};
 function tint(hex:number,factor:number){return new THREE.Color(hex).multiplyScalar(factor);}
@@ -20,11 +24,14 @@ function paint(g:THREE.BufferGeometry,c:number|THREE.Color):THREE.BufferGeometry
   const color=typeof c==='number'?new THREE.Color(c):c;
   const data=new Float32Array(g.getAttribute('position').count*3);
   for(let i=0;i<data.length;i+=3)color.toArray(data,i);
-  g.setAttribute('color',new THREE.BufferAttribute(data,3));return g;
+  g.setAttribute('color',new THREE.BufferAttribute(data,3));
+  const hex=typeof c==='number'?c:c.getHex();
+  const tile=[P.wood,P.woodLight].includes(hex as typeof P.wood)?1:[P.iron,P.ironEdge,P.bronze,P.bronzeLight].includes(hex as typeof P.iron)?2:0;
+  atlasUV(g,tile);return g;
 }
 function merge(parts:THREE.BufferGeometry[]):THREE.BufferGeometry {
   if(!parts.length)return new THREE.BufferGeometry();
-  const normalized=parts.map(g=>{const n=g.index?g.toNonIndexed():g; n.deleteAttribute('uv');return n;});
+  const normalized=parts.map(g=>{const n=g.index?g.toNonIndexed():g;if(!n.getAttribute('uv'))atlasUV(n,0);return n;});
   const result=mergeGeometries(normalized,false);
   if(!result)throw new Error('Dungeon geometry attributes do not match');
   for(const g of new Set([...parts,...normalized]))g.dispose();
@@ -47,7 +54,7 @@ export function createBeveledStoneGeometry(w:number,h:number,d:number,color:numb
     add([0,h/2,0],rings[2][k],rings[2][j],1);
     add([0,-h/2,0],rings[0][j],rings[0][k],.65);
   }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();return g;
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();atlasUV(g,0);return g;
 }
 /** Floor-only bevelled tile: hidden bottom and vertical faces are intentionally culled. */
 export function createFlagstoneGeometry(w:number,d:number,color:number=P.stone):THREE.BufferGeometry {
@@ -56,7 +63,7 @@ export function createFlagstoneGeometry(w:number,d:number,color:number=P.stone):
   for(let i=0;i<pos.count;i+=3)if(normal.getY(i)>.01)for(let j=0;j<3;j++){
     p.push(pos.getX(i+j),pos.getY(i+j),pos.getZ(i+j));n.push(normal.getX(i+j),normal.getY(i+j),normal.getZ(i+j));c.push(colorAttr.getX(i+j),colorAttr.getY(i+j),colorAttr.getZ(i+j));
   }
-  const result=new THREE.BufferGeometry();result.setAttribute('position',new THREE.Float32BufferAttribute(p,3));result.setAttribute('normal',new THREE.Float32BufferAttribute(n,3));result.setAttribute('color',new THREE.Float32BufferAttribute(c,3));source.dispose();return result;
+  const result=new THREE.BufferGeometry();result.setAttribute('position',new THREE.Float32BufferAttribute(p,3));result.setAttribute('normal',new THREE.Float32BufferAttribute(n,3));result.setAttribute('color',new THREE.Float32BufferAttribute(c,3));source.dispose();atlasUV(result,0);return result;
 }
 const stone=(w:number,h:number,d:number,c:number,x=0,y=0,z=0,b=.04)=>createBeveledStoneGeometry(w,h,d,c,b).translate(x,y,z);
 
@@ -69,7 +76,7 @@ export function createGothicArch(width=1.35,height=1.9):THREE.Group {
     p.push(stone(thick*1.25,.11,depth*1.12,P.stoneLight,side*(width/2+thick/2),spring,0));
     for(let i=0;i<6;i++){
       const t0=i/6,t1=(i+1)/6, xm=(1-(t0+t1)/2)*width/2;
-      const y0=spring+Math.sin(t0*Math.PI/2)*(height-spring),y1=spring+Math.sin(t1*Math.PI/2)*(height-spring);
+      const y0=spring+Math.sin(t0*Math.PI*.38)/Math.sin(Math.PI*.38)*(height-spring),y1=spring+Math.sin(t1*Math.PI*.38)/Math.sin(Math.PI*.38)*(height-spring);
       const a=new THREE.Vector3(side*(1-t0)*width/2,y0,0),b=new THREE.Vector3(side*(1-t1)*width/2,y1,0);
       const g=stone(thick,a.distanceTo(b)+.025,depth,i%2?P.stone:P.stoneLight);
       g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize()));g.translate(side*xm,(y0+y1)/2,0);p.push(g);
@@ -108,6 +115,11 @@ export function createBrazier(height=1):THREE.Group {
   p.push(stone(.47,.20,.47,P.stone,0,.1),cyl(.10,.15,height*.55,8,P.iron,0,height*.34),cyl(.26,.09,height*.22,10,P.bronze,0,height*.69));
   for(let i=0;i<6;i++){const a=i*Math.PI/3;p.push(beam(new THREE.Vector3(Math.sin(a)*.11,height*.6,Math.cos(a)*.11),new THREE.Vector3(Math.sin(a)*.29,height*.87,Math.cos(a)*.29),.035,.035,P.iron));}
   e.push(paint(new THREE.ConeGeometry(.15,height*.46,5),P.flame).translate(0,height*.98,0),paint(new THREE.ConeGeometry(.085,height*.31,5),P.flameCore).translate(.025,height*.94,.035));
+  for(let i=0;i<5;i++){
+    const a=i*2.4,r=.05+i*.015,h=height*(.25+seeded(i+42)*.27);
+    const tongue=paint(new THREE.ConeGeometry(.055,h,5),i%2?0xffc04e:0xff761b);tongue.rotateZ((i-2)*.16).translate(Math.cos(a)*r,height*.9+h*.3,Math.sin(a)*r);e.push(tongue);
+  }
+  p.push(cyl(.245,.245,.035,10,P.iron,0,height*.79));
   const g=assembly(p,e);g.name='iron-crown-fire-brazier';return g;
 }
 export function createLantern():THREE.Group {
@@ -131,21 +143,44 @@ export function createCrystalCart():THREE.Group {
   }
   p.push(beam(new THREE.Vector3(.4,.32,0),new THREE.Vector3(.95,.17,0),.055,.055,P.wood));const g=assembly(p,e);g.name='emerald-mine-cart';return g;
 }
+/** Brass-trimmed treasure chest with open lid and physically stacked coins. */
+export function createTreasureChest():THREE.Group {
+  const p:THREE.BufferGeometry[]=[],e:THREE.BufferGeometry[]=[];
+  p.push(box(.70,.32,.48,P.wood,0,.22),box(.60,.04,.39,P.iron,0,.40));
+  for(const x of [-.27,.27])p.push(box(.055,.36,.51,P.bronze,x,.22));
+  const lid=stone(.72,.09,.51,P.woodLight,0,0,0,.018);atlasUV(lid,1);lid.rotateX(-.7).translate(0,.59,-.13);p.push(lid);
+  p.push(box(.10,.16,.045,P.bronzeLight,0,.30,.27));
+  for(let i=0;i<18;i++){
+    const x=(seeded(i+81)-.5)*.52,z=(seeded(i+11)-.5)*.32;
+    p.push(cyl(.052,.052,.016,10,0xd6a340,x,.43+seeded(i+9)*.07,z));
+  }
+  for(let i=0;i<9;i++)p.push(cyl(.06,.06,.02,10,0xc99432,.2+seeded(i+4)*.40,.022+i%3*.02,.35+seeded(i+17)*.2));
+  for(let i=0;i<3;i++){
+    const x=.47+i*.09,h=.18+i*.055;p.push(cyl(.027,.033,h,7,0xdbc391,x,h/2,.03));e.push(paint(new THREE.ConeGeometry(.019,.085,5),P.flameCore).translate(x,h+.035,.03));
+  }
+  const g=assembly(p,e);g.name='brass-treasure-and-candles';return g;
+}
 /** The stone remains centred, matching the game's instanced rigid-body transforms. */
 export function createOreGeometry(variant=0):THREE.BufferGeometry {
   const g=new THREE.IcosahedronGeometry(.225,1),a=g.getAttribute('position');
   for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i);const noise=1+.13*Math.sin(x*23+y*17+z*31+variant*2);a.setXYZ(i,x*noise,y*noise*.93,z*noise);}
   g.computeVertexNormals();const colors=new Float32Array(a.count*3);
   for(let i=0;i<a.count;i+=3){const f=.72+seeded(i+variant*17)*.48,c=tint(P.stoneLight,f);for(let j=0;j<3;j++)c.toArray(colors,(i+j)*3);}
-  g.setAttribute('color',new THREE.BufferAttribute(colors,3));return g;
+  g.setAttribute('color',new THREE.BufferAttribute(colors,3));atlasUV(g,3);return g;
 }
 /** Fine jagged mineral seams follow selected actual edges, never float above the ore. */
 export function createOreCrackGeometry(variant=0):THREE.BufferGeometry {
   const body=createOreGeometry(variant),a=body.getAttribute('position'),parts:THREE.BufferGeometry[]=[];
-  for(let i=0;i<a.count;i+=3){if(seeded(i+variant*37)>.19)continue;
-    const v=new THREE.Vector3().fromBufferAttribute(a,i),w=new THREE.Vector3().fromBufferAttribute(a,i+1);
-    v.multiplyScalar(1.008);w.multiplyScalar(1.008);
-    const g=new THREE.CylinderGeometry(.006,.009,v.distanceTo(w),3);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),w.clone().sub(v).normalize()));g.translate(...v.add(w).multiplyScalar(.5).toArray());parts.push(paint(g,P.emerald));
+  // Two thin geological fissures follow intersections of real facets, not every edge.
+  for(let seam=0;seam<2;seam++)for(let i=0;i<a.count;i+=3){
+    const verts=[0,1,2].map(j=>new THREE.Vector3().fromBufferAttribute(a,i+j));
+    if(verts.reduce((sum,v)=>sum+v.z,0)<-.22)continue;
+    if(seam===1&&verts.reduce((sum,v)=>sum+v.y,0)<.1)continue;
+    const signed=(v:THREE.Vector3)=>seam===0?v.x-v.y*.36-.025*Math.sin(variant+1):v.y+v.x*.65-.075;
+    const hits:THREE.Vector3[]=[];
+    for(let j=0;j<3;j++){const v=verts[j],w=verts[(j+1)%3],sv=signed(v),sw=signed(w);if(sv*sw<0)hits.push(v.clone().lerp(w,sv/(sv-sw)).multiplyScalar(1.009));}
+    if(hits.length!==2)continue;const [v,w]=hits;
+    const fissure=new THREE.CylinderGeometry(.0035,.005,v.distanceTo(w),3);fissure.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),w.clone().sub(v).normalize()));fissure.translate(...v.add(w).multiplyScalar(.5).toArray());parts.push(paint(fissure,seam?0x35d476:0x63ffab));
   }body.dispose();return merge(parts);
 }
 export function createWorkerPadGeometry():THREE.BufferGeometry {
@@ -163,11 +198,14 @@ export function createTimberTrack(points:readonly {x:number;z:number}[],width=.7
     const a=points[i-1],b=points[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.00001)continue;
     for(let d=carry;d<len;d+=.14)spaced.push({x:a.x+dx*d/len,z:a.z+dz*d/len,angle:Math.atan2(dx,dz)});
     carry=(carry-len)% .14;if(carry<0)carry+=.14;
-    for(const side of [-1,1]){const nx=dz/len*width*.51*side,nz=-dx/len*width*.51*side;p.push(beam(new THREE.Vector3(a.x+nx,.055,a.z+nz),new THREE.Vector3(b.x+nx,.055,b.z+nz),.037,.042,P.bronze));}
+    for(const side of [-1,1]){const nx=dz/len*width*.51*side,nz=-dx/len*width*.51*side;p.push(beam(new THREE.Vector3(a.x+nx,.055,a.z+nz),new THREE.Vector3(b.x+nx,.055,b.z+nz),.066,.065,P.bronze));}
   }
-  for(let i=0;i<spaced.length;i++){const s=spaced[i],g=box(width,.06,.129,i%4===0?0x484049:0x35323b);g.rotateY(s.angle).translate(s.x,-.006,s.z);p.push(g);
+  for(let i=0;i<spaced.length;i++){const s=spaced[i],g=box(width,.06,.129,i%4===0?0x67513e:0x493b32);atlasUV(g,1);g.rotateY(s.angle).translate(s.x,-.006,s.z);p.push(g);
     if(i%3===0){const tie=box(width+.16,.045,.055,P.woodLight);tie.rotateY(s.angle).translate(s.x,-.012,s.z);p.push(tie);}
   }const g=assembly(p);g.name='bronze-railed-snake-track';return g;
+}
+export function createConveyorTreadGeometry(width=.21,depth=.98):THREE.BufferGeometry {
+  const g=createBeveledStoneGeometry(width,.024,depth,P.woodLight,.006);atlasUV(g,1);return g;
 }
 export function createConveyorFrame(width=6.4,depth=.95):THREE.Group {
   const p:THREE.BufferGeometry[]=[box(width,.12,depth,P.iron,0,-.045)];
@@ -183,17 +221,29 @@ export interface DungeonRoomOptions {width:number;depth:number;centerX?:number;c
 /** A shallow, open-front theatrical room. Tall detail stays exclusively behind play. */
 export function createDungeonRoom(options:DungeonRoomOptions):THREE.Group {
   const {width,depth}=options,cx=options.centerX??0,cz=options.centerZ??0,back=options.backZ??cz-depth/2;
-  const p:THREE.BufferGeometry[]=[],e:THREE.BufferGeometry[]=[];
+  const p:THREE.BufferGeometry[]=[],e:THREE.BufferGeometry[]=[],shadows:THREE.BufferGeometry[]=[],spills:THREE.BufferGeometry[]=[];
   const absorb=(g:THREE.Group,x:number,y:number,z:number,ry=0,scale=1)=>{
     g.position.set(x,y,z);g.rotation.y=ry;g.scale.setScalar(scale);g.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(g),extent=new THREE.Vector3(),center=new THREE.Vector3();bounds.getSize(extent);bounds.getCenter(center);
+    const shadow=new THREE.PlaneGeometry(Math.max(.45,extent.x*1.5),Math.max(.5,extent.z*1.7));shadow.rotateX(-Math.PI/2).translate(center.x,.009,center.z);paint(shadow,0xffffff);shadow.setAttribute('uv',new THREE.Float32BufferAttribute([0,1,1,1,0,0,1,0],2));shadows.push(shadow);
+    if(g.name.includes('brazier')||g.name.includes('lantern')){
+      const spill=new THREE.PlaneGeometry(2.5,2.5);spill.rotateX(-Math.PI/2).translate(x,.013,z);paint(spill,0xffffff);spill.setAttribute('uv',new THREE.Float32BufferAttribute([0,1,1,1,0,0,1,0],2));spills.push(spill);
+    }
     g.traverse(o=>{if(o instanceof THREE.Mesh){const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld);(o.material===dungeonGlowMaterial?e:p).push(geometry);o.geometry.dispose();}});
   };
   p.push(box(width+.3,.19,depth+.3,P.mortar,cx,-.18,cz));
   const rows=Math.ceil(depth/.56),cols=Math.ceil(width/.78);
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-    const tileW=width/cols,tileD=depth/rows,x=cx-width/2+(c+.5)*tileW,z=cz-depth/2+(r+.5)*tileD;
-    const tone=tint(P.stone,.75+seeded(r*cols+c)*.35).getHex();p.push(createFlagstoneGeometry(tileW-.026,tileD-.025,tone).translate(x,-.053+seeded(r*41+c)*.009,z));
-    if(seeded(r*19+c)>.92)p.push(beam(new THREE.Vector3(x-tileW*.27,-.002,z-tileD*.1),new THREE.Vector3(x+tileW*.12,-.002,z+tileD*.2),.009,.006,P.mortar));
+  for(let r=0;r<rows;r++){
+    const tileD=depth/rows,z=cz-depth/2+(r+.5)*tileD;let left=cx-width/2,c=0;
+    while(left<cx+width/2-.01){
+      const desired=(width/cols)*(c===0&&r%2?.48:.75+seeded(r*74+c*19)*.6),tileW=Math.min(desired,cx+width/2-left),x=left+tileW/2;
+      if(tileW>.04){
+        const tone=tint(P.stone,.70+seeded(r*cols+c)*.47).getHex(),tile=createFlagstoneGeometry(tileW-.024,tileD-.022,tone),a=tile.getAttribute('position');
+        for(let i=0;i<a.count;i++){const vx=a.getX(i),vz=a.getZ(i);a.setXYZ(i,vx+Math.sin(vx*73+vz*37+r*14+c)*.006,a.getY(i),vz+Math.sin(vz*83+vx*19+r+c*7)*.006);}
+        tile.translate(x,-.053+seeded(r*41+c)*.009,z);p.push(tile);
+      }
+      left+=tileW;c++;
+    }
   }
   // Backdrop: alternating masonry courses, three green recesses, buttresses.
   const wallH=2.35,archWidth=Math.min(1.5,width*.16),archXs=[cx-width*.29,cx,cx+width*.29];
@@ -203,8 +253,26 @@ export function createDungeonRoom(options:DungeonRoomOptions):THREE.Group {
     if(archXs.some(ax=>Math.abs(x-ax)<archWidth*.57&&y<1.88))continue;
     p.push(stone(.59,wallH/7-.02,.29,r%3?P.stoneDark:P.stone,x,y,back,.028));
   }
+  for(let i=0;i<Math.ceil(width/.8);i++){
+    const x=cx-width/2+(i+.5)*.8;
+    p.push(stone(.78,.16,.43,P.stone,x,2.38,back+.025),stone(.76,.10,.36,P.stoneLight,x,2.27,back+.04));
+  }
   for(const x of archXs){
     p.push(box(archWidth*1.22,1.95,.06,0x102c29,x,.98,back-.15));
+    const recess=new THREE.PlaneGeometry(archWidth*1.13,1.92,4,6),recessPositions=recess.getAttribute('position'),recessColors=new Float32Array(recessPositions.count*3);
+    for(let i=0;i<recessPositions.count;i++){
+      const xNorm=Math.abs(recessPositions.getX(i))/(archWidth*.57),yNorm=(recessPositions.getY(i)+.96)/1.92;
+      const light=Math.max(0,1-xNorm*.65)*Math.sin(yNorm*Math.PI)*.85+.05;
+      new THREE.Color(0x071b19).lerp(new THREE.Color(0x3a9478),light).toArray(recessColors,i*3);
+    }
+    recess.setAttribute('color',new THREE.BufferAttribute(recessColors,3));recess.translate(x,.97,back-.105);e.push(recess);
+    // Layered silhouettes of receding crypt buildings inside the green recess.
+    for(let j=0;j<3;j++){
+      const tx=x+(j-1)*archWidth*.24,h=.75+(j%2)*.42;
+      p.push(box(archWidth*.19,h,.06,j%2?0x203d37:0x1b332f,tx,h/2,back-.07));
+      const roof=paint(new THREE.ConeGeometry(archWidth*.16,.36,4),0x1b3531);roof.rotateY(Math.PI/4).translate(tx,h+.14,back-.07);p.push(roof);
+      p.push(box(.06,h*.42,.025,0x0b201c,tx,h*.55,back-.025));
+    }
     // Inner receding masonry keeps recesses architectural rather than blank holes.
     for(const side of [-1,1])p.push(box(.09,1.6,.09,0x245348,x+side*archWidth*.37,.8,back-.09));
     e.push(paint(new THREE.ConeGeometry(.035,.45,4),0x1c7f59).translate(x,1.03,back-.065));
@@ -215,7 +283,7 @@ export function createDungeonRoom(options:DungeonRoomOptions):THREE.Group {
   for(const fraction of [-.47,-.145,.145,.47]){
     const x=cx+width*fraction;
     for(let r=0;r<6;r++)p.push(stone(.43,.37,.55,r%2?P.stone:P.stoneDark,x,.185+r*.38,back+.10));
-    p.push(stone(.57,.15,.68,P.stoneLight,x,.075,back+.10));
+    p.push(stone(.67,.24,.76,P.stoneLight,x,.12,back+.10),stone(.55,.13,.64,P.stone,x,.305,back+.10));
     if(Math.abs(fraction)>.2)absorb(createBrazier(.83),x,.24,back+.64);
   }
   // Only low rubble and props flank the playable footprint; front edge remains clear.
@@ -225,7 +293,12 @@ export function createDungeonRoom(options:DungeonRoomOptions):THREE.Group {
     absorb(createLantern(),cx+side*(width*.5-.45),0,cz+depth*.33,0,1.1);
     absorb(createDungeonBarrel(),cx+side*(width*.5-.38),0,cz+depth*.20,0,.9);
   }
+  for(const side of [-1,1])for(let i=0;i<12;i++){
+    const x=cx+side*(width*.5-.13-seeded(i+92)*.17),z=back+.5+seeded(i+side*43)*depth*.72;
+    const rubble=createOreGeometry(i%3);rubble.scale(.6+seeded(i)*.5,.6,.6).translate(x,.08,z);p.push(rubble);
+  }
   absorb(createCrystalCart(),cx-width*.5+.65,0,back+2.55,.12);
+  absorb(createTreasureChest(),cx+width*.5-.64,0,cz+depth*.06,-.20);
   absorb(createDungeonCrate(.53),cx+width*.5-.5,0,back+2.25,-.18);
-  const g=assembly(p,e);g.name='gothic-dungeon-room-batched';return g;
+  const g=assembly(p,e);if(shadows.length)g.add(new THREE.Mesh(merge(shadows),contactMaterial));if(spills.length)g.add(new THREE.Mesh(merge(spills),spillMaterial));g.name='gothic-dungeon-room-batched';return g;
 }
