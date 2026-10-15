@@ -122,15 +122,27 @@ export class ParticleVfx{
     // Layered warm-grey clouds at the perimeter and near edge; faint broken floor wisps.
     // Dust is distributed through the room, not hidden outside the camera's playable bounds.
     const halfWidth=landscape?8.1:3.65,back=landscape?-3.9:-7.9,depth=landscape?11.4:16.2;
-    for(let i=0;i<16;i++){
-      const side=i%2?1:-1,phase=i*2.399,z=back+((Math.floor(i/2)+.35)/8)*depth;
-      this.normal.add(camera,side*(halfWidth-.4)+Math.sin(this.time*.1+phase)*.2,.38,z+Math.cos(this.time*.08+phase)*.17,1.9,1.9,Math.sin(phase)*.5,.38,5,i%3?0xc4c5bc:0xe6c99e);
-    }
-    for(let i=0;i<8;i++)this.normal.add(camera,((i+.5)/8*2-1)*halfWidth,.25,back+depth-.2+Math.sin(this.time*.1+i)*.12,1.5,2.2,Math.sin(i*2.4)*.25,.34,5,0xd0c5af);
-    for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*halfWidth,.2,back+.4,1.3,2.8,0,.19,5,0xd8c29d);
-    for(let i=0;i<6;i++){
-      const phase=i*2.399,x=Math.sin(phase)*halfWidth*.6+Math.sin(this.time*.06+phase)*.25,z=back+(.2+i*.11)*depth;
-      this.normal.add(camera,x,.13,z,1.2,2.6,phase,.075,5,0xb9bdb2);
+    if(landscape){
+      for(let i=0;i<16;i++){
+        const side=i%2?1:-1,phase=i*2.399,z=back+((Math.floor(i/2)+.35)/8)*depth;
+        this.normal.add(camera,side*(halfWidth-.4)+Math.sin(this.time*.1+phase)*.2,.38,z+Math.cos(this.time*.08+phase)*.17,1.9,1.9,Math.sin(phase)*.5,.38,5,i%3?0xc4c5bc:0xe6c99e);
+      }
+      for(let i=0;i<8;i++)this.normal.add(camera,((i+.5)/8*2-1)*halfWidth,.25,back+depth-.2+Math.sin(this.time*.1+i)*.12,1.5,2.2,Math.sin(i*2.4)*.25,.34,5,0xd0c5af);
+      for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*halfWidth,.2,back+.4,1.3,2.8,0,.19,5,0xd8c29d);
+      for(let i=0;i<6;i++){
+        const phase=i*2.399,x=Math.sin(phase)*halfWidth*.6+Math.sin(this.time*.06+phase)*.25,z=back+(.2+i*.11)*depth;
+        this.normal.add(camera,x,.13,z,1.2,2.6,phase,.075,5,0xb9bdb2);
+      }
+    }else{
+      // The wide landscape billboards overlapped into bright horizontal bands in
+      // portrait. Keep narrower, dimmer wisps outside the track and stop before
+      // the storage/conveyor; no foreground curtain or clouds across the floor.
+      for(let i=0;i<12;i++){
+        const side=i%2?1:-1,phase=i*2.399;
+        const z=-6.6+Math.floor(i/2)*2.25+Math.sin(phase)*.38;
+        this.normal.add(camera,side*(3.95+Math.sin(this.time*.07+phase)*.1),.32,z+Math.cos(this.time*.06+phase)*.12,1.65,1,Math.sin(phase)*.12,.21,5,0xb9bdb2);
+      }
+      for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*3.4,.2,-7.5,1,1.7,0,.12,5,0xc4c5bc);
     }
     if(!reducedMotion)for(const mote of this.dust){
       // Continuous bounded drift: no wrapping, respawning or shared marching phase.
