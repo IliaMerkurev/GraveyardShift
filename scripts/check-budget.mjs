@@ -3,3 +3,6 @@ const file='dist/playable/index.html';const bytes=(await stat(file)).size;const 
 if(bytes>=5_000_000)throw new Error(`FAIL: ${bytes} bytes >= hard limit 5,000,000`);
 if(/<script\b[^>]*src=|<link\b[^>]*href="(?!data:)/.test(html))throw new Error('FAIL: HTML depends on a neighboring resource');
 console.log(`${bytes<=2_000_000?'PASS':'WARNING'}: ${bytes} bytes; target <= 2,000,000; hard limit < 5,000,000.`);
+
+let mediaBytes=0;for(const name of ['intro-portrait.mp4','intro-landscape.mp4'])mediaBytes+=(await stat(`dist/playable/media/${name}`)).size;
+console.log(`External videos: ${mediaBytes} bytes; complete package: ${bytes+mediaBytes} bytes. Includes both orientation videos.`);

@@ -139,13 +139,16 @@ export class ParticleVfx{
       // never restore the old floor-wide or foreground cloud curtain.
       for(let i=0;i<40;i++){
         const side=i%2?1:-1,phase=i*2.399;
-        // Independent deterministic variation breaks the two ruler-straight bands,
-        // while the bounded spacing still overlaps even the smallest clouds.
+        // Broad, asymmetric swells matter here: independent per-sprite jitter
+        // averaged back into two straight bands once the clouds overlapped.
         const sample=(salt:number)=>{const n=Math.sin(i*127.1+salt*311.7)*43758.5453;return n-Math.floor(n);};
-        const size=2.9+sample(1)*.8,width=1.7+sample(2)*.45;
-        const z=-7.4+Math.floor(i/2)*.8+(sample(3)-.5)*.4;
-        const x=side*(4.35+(sample(4)-.5)*.32+Math.sin(this.time*.07+phase)*.06);
-        this.normal.add(camera,x,.26+sample(5)*.28,z+Math.cos(this.time*.06+phase)*.05,size,width/size,(sample(6)-.5)*.16,.16+sample(7)*.07,5,0xb9bdb2);
+        const row=Math.floor(i/2),swell=(Math.sin(row*.73+side*1.9)+Math.sin(row*1.37+side*.8)*.45+1.45)/2.9;
+        const size=2.85+sample(1)*1.15,width=1.4+swell*.95+sample(2)*.25;
+        const z=-7.4+row*.8+(sample(3)-.5)*.44;
+        const inner=3.1+(.5+.5*Math.sin(row*.58+side*2.7))*.58;
+        const x=side*(inner+width*.5+size*.05+Math.sin(this.time*.07+phase)*.06);
+        const alpha=(.08+swell*.12+sample(7)*.02);
+        this.normal.add(camera,x,.22+sample(5)*.4,z+Math.cos(this.time*.06+phase)*.05,size,width/size,(sample(6)-.5)*.2,alpha,5,0xb9bdb2);
       }
       for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*3.4,.2,-7.5,1,1.7,0,.12,5,0xc4c5bc);
     }

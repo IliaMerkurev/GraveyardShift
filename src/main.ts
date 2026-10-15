@@ -1,4 +1,5 @@
 import './style.css';
+import { showVideoIntro } from './ui/VideoIntro';
 import { loadSkeletonWorker } from './render/SkeletonWorker';
 import { createRockSnakeAudio } from './audio/OrganicAudio';
 import { soundForEvents } from './audio/eventSounds';
@@ -12,6 +13,7 @@ const app=document.querySelector<HTMLElement>('#app')!;
 const shell=document.createElement('div');shell.className='game-shell';app.append(shell);
 async function start() {
 try {
+  await showVideoIntro(shell);
   await loadSkeletonWorker();
   const sfx=createRockSnakeAudio();
   shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.35);});
