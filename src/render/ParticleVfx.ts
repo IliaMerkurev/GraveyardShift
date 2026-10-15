@@ -73,8 +73,22 @@ class SpriteBatch{
   dispose(){this.mesh.removeFromParent();this.mesh.geometry.dispose();(this.mesh.material as THREE.Material).dispose();}
 }
 
+/** Each mote gets independent, repeatable coordinates and drift, sampled only once. */
+function createDustMotes(){
+  let seed=0x5baf7391;
+  const random=()=>{seed+=0x6d2b79f5;let n=seed;n=Math.imul(n^(n>>>15),n|1);n^=n+Math.imul(n^(n>>>7),n|61);return((n^(n>>>14))>>>0)/4294967296;};
+  return Array.from({length:48},()=>({
+    x:(random()*2-1)*.88,z:.035+random()*.93,y:.55+random()*1.55,
+    phaseX:random()*Math.PI*2,phaseY:random()*Math.PI*2,phaseZ:random()*Math.PI*2,
+    speedX:.08+random()*.14,speedY:.07+random()*.12,speedZ:.06+random()*.13,
+    driftX:.28+random()*.45,driftY:.1+random()*.18,driftZ:.2+random()*.48,
+    size:.065+random()*.045,alpha:.19+random()*.15,
+  }));
+}
+
 export class ParticleVfx{
   private atlas=makeAtlas();private normal=new SpriteBatch(this.atlas,VFX_LIMITS.particles+VFX_LIMITS.ambient,false);private glow=new SpriteBatch(this.atlas,VFX_LIMITS.particles*2+96,true);
+  private dust=createDustMotes();
   private words=new SpriteBatch(this.atlas,VFX_LIMITS.wordMarks,false);
   private particles=Array.from({length:VFX_LIMITS.particles},blank);private cursor=0;private time=0;private disposed=false;
   constructor(scene:THREE.Scene){this.words.mesh.renderOrder=8;scene.add(this.normal.mesh,this.glow.mesh,this.words.mesh);}
@@ -107,11 +121,13 @@ export class ParticleVfx{
       const phase=i*2.399,x=Math.sin(phase)*halfWidth*.6+Math.sin(this.time*.06+phase)*.25,z=back+(.2+i*.11)*depth;
       this.normal.add(camera,x,.13,z,1.2,2.6,phase,.075,5,0xb9bdb2);
     }
-    if(!reducedMotion)for(let i=0;i<48;i++){
-      const phase=i*2.399,t=this.time*.14+phase,x=(((i*.754877666)%1)*2-1)*halfWidth*.94+Math.sin(t)*.14;
-      const z=back+((i*.61803398875)%1)*depth+Math.sin(t*.7)*.18,y=.65+((i*.381966)%1)*1.5+Math.sin(t)*.2,alpha=.6+.12*Math.sin(t);
-      this.glow.add(camera,x,y,z,.34+(i%3)*.04,1,0,alpha*.32,0,0xffdb96,1.2);
-      this.glow.add(camera,x,y,z,.11+(i%3)*.025,1,0,alpha,0,0xffe7b6,1.7,.4);
+    if(!reducedMotion)for(const mote of this.dust){
+      // Continuous bounded drift: no wrapping, respawning or shared marching phase.
+      const x=mote.x*halfWidth+Math.sin(this.time*mote.speedX+mote.phaseX)*mote.driftX;
+      const y=mote.y+Math.sin(this.time*mote.speedY+mote.phaseY)*mote.driftY;
+      const z=back+mote.z*depth+Math.sin(this.time*mote.speedZ+mote.phaseZ)*mote.driftZ;
+      this.glow.add(camera,x,y,z,mote.size*3,1,0,mote.alpha*.2,0,0xffdb96,1);
+      this.glow.add(camera,x,y,z,mote.size,1,0,mote.alpha,0,0xffe7b6,1.05,.1);
     }
     for(const p of this.particles){if(!p.active)continue;p.age+=step;if(p.age>=p.life+p.delay){p.active=false;continue;}if(p.age<p.delay)continue;p.x+=p.vx*step;p.y+=p.vy*step;p.z+=p.vz*step;p.vy-=p.gravity*step;const t=(p.age-p.delay)/p.life,fade=1-t*t,size=p.size*(p.growth?(.65+Math.min(1,t*5)*.35+p.growth*t):1-t*.65);if(p.glow){
       // Two co-moving sprites make the bloom legible even on a small viewport.
