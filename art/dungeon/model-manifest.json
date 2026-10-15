@@ -1,0 +1,59 @@
+{
+  "format": "glTF 2.0",
+  "runtime": "Procedural TypeScript; GLB is DCC interchange only, not shipped",
+  "glbBytes": 497384,
+  "models": [
+    {
+      "name": "wall-stone",
+      "triangles": 48
+    },
+    {
+      "name": "flagstone",
+      "triangles": 24
+    },
+    {
+      "name": "gothic-pointed-stone-arch",
+      "triangles": 1200
+    },
+    {
+      "name": "coopered-ironbound-barrel",
+      "triangles": 548
+    },
+    {
+      "name": "braced-timber-crate",
+      "triangles": 372
+    },
+    {
+      "name": "iron-crown-fire-brazier",
+      "triangles": 212
+    },
+    {
+      "name": "caged-amber-lantern",
+      "triangles": 160
+    },
+    {
+      "name": "emerald-mine-cart",
+      "triangles": 494
+    },
+    {
+      "name": "green-veined-ore",
+      "triangles": 248
+    },
+    {
+      "name": "jade-worker-pad",
+      "triangles": 144
+    },
+    {
+      "name": "octagonal-storage-plinth",
+      "triangles": 96
+    },
+    {
+      "name": "iron-timber-conveyor-chassis",
+      "triangles": 624
+    },
+    {
+      "name": "bronze-railed-snake-track",
+      "triangles": 264
+    }
+  ]
+}

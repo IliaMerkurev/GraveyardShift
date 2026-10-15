@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { createDungeonRoom, createGothicArch, createTimberTrack, createConveyorFrame, createOreGeometry, createOreCrackGeometry, createStoragePlinth, createWorkerPadGeometry, dungeonGlowMaterial } from './dungeon/DungeonKit';
 import { TactileMotion, type ImpulseKind } from './TactileMotion';
 import type { GameState, DropTarget, GameEvent, Entity } from '../game/GameState';
 import { CONFIG } from '../game/config';
 import { effectiveForwardSpeed, recoilDistances } from '../game/motion';
 import { samplePath, PATH_LENGTH } from '../game/path';
-import { createWorker, createBarrel, createBomb, createRewind, createSlow, createBrake, createHalfSpeed, createTailBlast, disposePrimitive, makeWallGeometry, makeBrickTexture, type WorkerVisual } from './PrimitiveFactory';
+import { createWorker, createBarrel, createBomb, createRewind, createSlow, createBrake, createHalfSpeed, createTailBlast, disposePrimitive, makeWallGeometry, type WorkerVisual } from './PrimitiveFactory';
 import { viewConfig, mapPosition, unmapFieldPosition, placeZone, LANDSCAPE_LAYOUT, type ViewZone, type Point, type ScreenPoint } from './Layout';
 
 export type HitTarget = {kind:'entity'|'pad'|'slot'|'storage';id:string};
@@ -26,44 +27,45 @@ export class SceneView {
   private discardLabel:HTMLDivElement;private finishLabel:HTMLDivElement;private headLabel:HTMLDivElement;
   private labels:HTMLDivElement; private entities=new Map<string,EntityView>(); private pads=new Map<string,{mesh:THREE.Mesh;label:HTMLDivElement}>();
   private storage=new Map<string,{group:THREE.Group;material:THREE.MeshLambertMaterial;label:HTMLDivElement}>();
-  private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
+  private oreCracks:THREE.InstancedMesh[]=[];private rooms:THREE.Group[]=[];private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   private tactile=new TactileMotion();private pressed:HitTarget|null=null;
   private ripples:{mesh:THREE.Mesh;age:number;life:number}[]=[];private rippleCursor=0;
   private cameraBase=new THREE.Vector3();private shakeRemaining=0;private reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   private ring:THREE.Mesh; private targetRing:THREE.Mesh;private treads:THREE.InstancedMesh;private state:GameState|null=null;private lastWidth=0;private lastHeight=0;
   private pit:THREE.Group;private storageTray:THREE.Mesh;
-  private trackPoints:Point[]=[];private landscape=false;private field=new THREE.Group();private floor:THREE.Mesh;private belt=new THREE.Group();
+  private trackPoints:Point[]=[];private landscape=false;private field=new THREE.Group();private belt=new THREE.Group();
   constructor(readonly shell:HTMLElement,private canDrop:(target:DropTarget)=>boolean=()=>false){
     this.canvas=document.createElement('canvas');this.canvas.setAttribute('aria-label','Stop the rock snake before the finish. Tap barrels, drag workers onto pads, and tap or drag cyan rewind, purple pause, amber 20% slowdown, green 50% slowdown, or red tail-half blast bonuses onto the field. Drag unwanted workers into the discard pit.');this.canvas.dataset.testid='game-canvas';
     const context=this.canvas.getContext('webgl2',{antialias:true,alpha:false});
     if(!context) throw new Error('WebGL 2 is unavailable. Please open this prototype in a recent browser with graphics acceleration enabled.');
     this.renderer=new THREE.WebGLRenderer({canvas:this.canvas,context,antialias:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,viewConfig.dprLimit));
-    this.renderer.setClearColor(0x61556f);this.renderer.outputColorSpace=THREE.SRGBColorSpace;shell.append(this.canvas);
+    this.renderer.setClearColor(0x171c1c);this.renderer.outputColorSpace=THREE.SRGBColorSpace;shell.append(this.canvas);
     this.labels=document.createElement('div');this.labels.className='labels';shell.append(this.labels);
-    this.scene.add(new THREE.HemisphereLight(0xe9e9ff,0x514059,2.5));const key=new THREE.DirectionalLight(0xffedd5,3);key.position.set(-4,12,8);this.scene.add(key);
-    this.scene.add(this.field,this.belt);const floor=new THREE.Mesh(new THREE.BoxGeometry(viewConfig.floor.width,.3,viewConfig.floor.depth),new THREE.MeshLambertMaterial({color:0x86728f}));floor.position.y=-.25;this.floor=floor;this.scene.add(floor);
-    const walls=new THREE.Mesh(makeWallGeometry(),new THREE.MeshLambertMaterial({map:makeBrickTexture()}));this.field.add(walls);
-    // A subtle route ribbon is a flat strip, never a deforming resource mesh.
-    const positions:number[]=[];for(let d=0;d<=PATH_LENGTH;d+=.12)this.trackPoints.push(samplePath(d));
+    this.scene.add(new THREE.HemisphereLight(0xc4d5ce,0x30251d,2.1));const key=new THREE.DirectionalLight(0xffd5a1,2.5);key.position.set(-4,12,8);this.scene.add(key);
+    this.scene.add(this.field,this.belt);
+    this.rooms=[createDungeonRoom({width:7.8,depth:17.424,centerZ:.4,backZ:-8.312}),createDungeonRoom({width:17.004,depth:12.276,centerZ:1.8,backZ:-4.338})];
+    // Two short-range lights warm the masonry around the rear braziers; no shadows/post-processing.
+    this.rooms.forEach((room,i)=>{for(const side of [-1,1]){const glow=new THREE.PointLight(0xffac50,3,4.5,1);glow.position.set(side*(i?17.004:7.8)*.47,1.2,(i?-4.338:-8.312)+.64);room.add(glow);}});
+    this.scene.add(...this.rooms);
+    const walls=new THREE.Mesh(makeWallGeometry(),new THREE.MeshLambertMaterial({vertexColors:true}));this.field.add(walls);
+    // Physical timber sleepers and bronze rails follow the unchanged gameplay path.
+    for(let d=0;d<=PATH_LENGTH;d+=.12)this.trackPoints.push(samplePath(d));
     this.trackPoints.push(samplePath(PATH_LENGTH));
-    for(let i=0;i<this.trackPoints.length-1;i++){const a=this.trackPoints[i],b=this.trackPoints[i+1];const dx=b.x-a.x,dz=b.z-a.z,l=Math.hypot(dx,dz);const nx=-dz/l*.34,nz=dx/l*.34;positions.push(a.x+nx,.011,a.z+nz,a.x-nx,.011,a.z-nz,b.x+nx,.011,b.z+nz,b.x+nx,.011,b.z+nz,a.x-nx,.011,a.z-nz,b.x-nx,.011,b.z-nz);}
-    const routeGeo=new THREE.BufferGeometry();routeGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));routeGeo.computeVertexNormals();
-    this.field.add(new THREE.Mesh(routeGeo,new THREE.MeshBasicMaterial({color:0x574a69,side:THREE.DoubleSide})));
+    this.field.add(createTimberTrack(this.trackPoints,.72));
     const finish=samplePath(PATH_LENGTH);
-    for(let i=0;i<4;i++){const tile=new THREE.Mesh(new THREE.BoxGeometry(.16,.035,.21),new THREE.MeshBasicMaterial({color:i%2?0xff7f83:0xffe4ce}));tile.position.set(finish.x,.045,finish.z+(i-1.5)*.21);this.field.add(tile);}
-    this.finishLabel=document.createElement('div');this.finishLabel.className='pad-label';this.finishLabel.dataset.marker='finish';this.finishLabel.textContent='FINISH';this.finishLabel.style.background='#963c51';this.finishLabel.style.fontSize='10px';this.labels.append(this.finishLabel);
+    const portal=createGothicArch(1.05,.82);portal.position.set(finish.x+.22,0,finish.z);portal.rotation.y=Math.PI/2;this.field.add(portal);
+    this.finishLabel=document.createElement('div');this.finishLabel.className='pad-label';this.finishLabel.dataset.marker='finish';this.finishLabel.textContent='FINISH';this.finishLabel.style.background='#624126';this.finishLabel.style.fontSize='10px';this.labels.append(this.finishLabel);
     // Storage and its worker-only discard pit have their own view-space bay.
     const pit=new THREE.Group();this.pit=pit;pit.position.set(CONFIG.discard.x,0,CONFIG.discard.z);
     const hole=new THREE.Mesh(new THREE.CircleGeometry(CONFIG.discard.radius,24),new THREE.MeshBasicMaterial({color:0x1c1925,side:THREE.DoubleSide}));hole.rotation.x=-Math.PI/2;hole.position.y=.018;pit.add(hole);
-    const rim=new THREE.Mesh(new THREE.RingGeometry(CONFIG.discard.radius,CONFIG.discard.radius+.09,24),new THREE.MeshBasicMaterial({color:0xe08a59,side:THREE.DoubleSide}));rim.rotation.x=-Math.PI/2;rim.position.y=.026;pit.add(rim);this.scene.add(pit);
-    this.storageTray=new THREE.Mesh(new THREE.BoxGeometry(6.1,.06,1.35),new THREE.MeshLambertMaterial({color:0x655d79}));this.storageTray.position.y=-.055;this.scene.add(this.storageTray);
+    const rim=new THREE.Mesh(new THREE.RingGeometry(CONFIG.discard.radius,CONFIG.discard.radius+.09,24),new THREE.MeshBasicMaterial({color:0xa5753e,side:THREE.DoubleSide}));rim.rotation.x=-Math.PI/2;rim.position.y=.026;pit.add(rim);this.scene.add(pit);
+    this.storageTray=new THREE.Mesh(new THREE.BoxGeometry(6.1,.06,1.35),new THREE.MeshLambertMaterial({color:0x343735}));this.storageTray.position.y=-.055;this.scene.add(this.storageTray);
     this.discardLabel=document.createElement('div');this.discardLabel.className='pad-label discard-label';this.discardLabel.dataset.marker='discard';this.discardLabel.textContent='🗑︎';this.discardLabel.title='Discard worker';this.discardLabel.setAttribute('aria-label','Discard pit: drag and release unwanted workers here. No coins returned.');this.labels.append(this.discardLabel);
     this.headLabel=document.createElement('div');this.headLabel.className='pad-label';this.headLabel.dataset.marker='head';this.headLabel.textContent='HEAD';this.headLabel.style.background='#3a344b';this.headLabel.style.fontSize='9px';this.labels.append(this.headLabel);
-    const belt=new THREE.Mesh(new THREE.BoxGeometry(6.3,.16,1.1),new THREE.MeshLambertMaterial({color:0x324350}));belt.position.set(0,.03,0);this.belt.add(belt);
-    for(const z of [-.6,.6]){const rail=new THREE.Mesh(new THREE.BoxGeometry(6.5,.17,.16),new THREE.MeshLambertMaterial({color:0x679dc6}));rail.position.set(0,.10,z);this.belt.add(rail);}
-    this.treads=new THREE.InstancedMesh(new THREE.BoxGeometry(.045,.024,.98),new THREE.MeshLambertMaterial({color:0x65818a}),28);this.scene.add(this.treads);this.carriers=new THREE.InstancedMesh(new THREE.BoxGeometry(.68,.024,.82),new THREE.MeshLambertMaterial({color:0x6a9698}),CONFIG.conveyor.count);this.scene.add(this.carriers);
-    for(let v=0;v<3;v++){const geometry=v===1?new THREE.DodecahedronGeometry(.25,0):new THREE.IcosahedronGeometry(v===2?.26:.25,v===2?1:0);const mesh=new THREE.InstancedMesh(geometry,new THREE.MeshLambertMaterial({color:0xffffff,flatShading:true}),200);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;this.stones.push(mesh);this.scene.add(mesh);}
+    this.belt.add(createConveyorFrame(6.4,1.1));
+    this.treads=new THREE.InstancedMesh(new THREE.BoxGeometry(.045,.024,.98),new THREE.MeshLambertMaterial({color:0x705137}),28);this.scene.add(this.treads);this.carriers=new THREE.InstancedMesh(new THREE.BoxGeometry(.68,.024,.82),new THREE.MeshLambertMaterial({color:0x31564a}),CONFIG.conveyor.count);this.scene.add(this.carriers);
+    for(let v=0;v<3;v++){const geometry=createOreGeometry(v);const mesh=new THREE.InstancedMesh(geometry,new THREE.MeshLambertMaterial({color:0xffffff,flatShading:true}),200);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;this.stones.push(mesh);this.scene.add(mesh);const cracks=new THREE.InstancedMesh(createOreCrackGeometry(v),dungeonGlowMaterial,200);cracks.instanceMatrix=mesh.instanceMatrix;cracks.frustumCulled=false;this.oreCracks.push(cracks);this.scene.add(cracks);}
     this.particles=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshBasicMaterial({color:0xffffff}),viewConfig.maxEffects);this.particles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.particles.frustumCulled=false;this.scene.add(this.particles);this.coins=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,.18,10),new THREE.MeshLambertMaterial({color:0xffd66c}),viewConfig.maxEffects);this.coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.coins.frustumCulled=false;this.scene.add(this.coins);
     for(let i=0;i<viewConfig.maxEffects;i++)this.effects.push({active:false,age:0,life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,color:0,size:0,coin:false});
     this.ring=new THREE.Mesh(new THREE.RingGeometry(.98,1,64),new THREE.MeshBasicMaterial({color:0x8effc5,transparent:true,opacity:.8,side:THREE.DoubleSide,depthTest:false}));this.ring.rotation.x=-Math.PI/2;this.ring.visible=false;this.ring.renderOrder=20;this.scene.add(this.ring);
@@ -72,7 +74,7 @@ export class SceneView {
     for(let i=0;i<10;i++){const mesh=new THREE.Mesh(rippleGeometry,new THREE.MeshBasicMaterial({color:0x9effd4,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));mesh.rotation.x=-Math.PI/2;mesh.visible=false;this.scene.add(mesh);this.ripples.push({mesh,age:0,life:.4});}
     this.resize();
   }
-  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;const pitPosition=mapPosition(CONFIG.discard,this.landscape,'discard');this.pit.position.set(pitPosition.x,0,pitPosition.z);this.storageTray.visible=this.landscape;this.storageTray.position.set(LANDSCAPE_LAYOUT.storageCenterX,-.055,LANDSCAPE_LAYOUT.storageZ);this.belt.position.z=this.landscape?LANDSCAPE_LAYOUT.beltZ:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.floor.scale.set(this.landscape?2.18:1,1,this.landscape?.62:.88);this.floor.position.z=this.landscape?1.8:.4;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
+  resize(){const rect=this.canvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(w===this.lastWidth&&h===this.lastHeight)return;this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;const pitPosition=mapPosition(CONFIG.discard,this.landscape,'discard');this.pit.position.set(pitPosition.x,0,pitPosition.z);this.storageTray.visible=this.landscape;this.storageTray.position.set(LANDSCAPE_LAYOUT.storageCenterX,-.055,LANDSCAPE_LAYOUT.storageZ);this.belt.position.z=this.landscape?LANDSCAPE_LAYOUT.beltZ:CONFIG.conveyor.z;this.belt.scale.x=this.landscape?2:1;this.rooms[0].visible=!this.landscape;this.rooms[1].visible=this.landscape;this.reset();this.renderer.setSize(w,h,false);this.camera.aspect=w/h;
     const direction=new THREE.Vector3(...viewConfig.camera.direction).normalize();const vertical=this.landscape?CONFIG.camera.landscapeDepth:CONFIG.camera.frameDepth;const horizontal=this.landscape?CONFIG.camera.landscapeWidth:CONFIG.camera.frameWidth;const fov=THREE.MathUtils.degToRad(viewConfig.camera.fov);const distance=Math.max(vertical/2/Math.tan(fov/2),horizontal/2/Math.tan(fov/2)/this.camera.aspect)*viewConfig.camera.margin;
     if(this.landscape){
       // Preserve zoom; aim farther down the new track → storage → conveyor stack.
@@ -241,9 +243,9 @@ export class SceneView {
     this.canvas.dataset.speedReduction=String(state.permanentSpeedReduction);this.canvas.dataset.forwardSpeed=String(advancingSpeed);this.canvas.dataset.time=String(state.time);this.canvas.dataset.motion=motion;this.canvas.dataset.speed=String(speed);
     const recoils=recoilDistances(ordered,PATH_LENGTH);const rendered=new Map(ordered.map((s,i)=>[s.id,s.frozenRenderDistance??s.waitingRenderDistance??recoils[i]]));
     const stoneMarkers:{id:string;distance:number;x:number;y:number;bounce:number;renderDistance:number}[]=[];
-    const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);const impact=this.reducedMotion.matches||state.slowRemaining>0?0:(this.flashes.get(stone.id)??0)/.16;this.dummy.position.y+=Math.sin(impact*Math.PI)*.035;this.dummy.rotation.set(.15*Math.sin(stone.distance)+Math.sin(impact*Math.PI*2)*.13,path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
+    const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);const impact=this.reducedMotion.matches||state.slowRemaining>0?0:(this.flashes.get(stone.id)??0)/.16;this.dummy.position.y+=Math.sin(impact*Math.PI)*.035;this.dummy.rotation.set(.15*Math.sin(stone.distance)+Math.sin(impact*Math.PI*2)*.13,path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]).lerp(new THREE.Color(0x3d4540),.65);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
     this.canvas.dataset.stones=JSON.stringify(stoneMarkers);
-    for(let i=0;i<3;i++){this.stones[i].count=counts[i];this.stones[i].instanceMatrix.needsUpdate=true;if(this.stones[i].instanceColor)this.stones[i].instanceColor!.needsUpdate=true;}
+    for(let i=0;i<3;i++){this.stones[i].count=counts[i];this.oreCracks[i].count=counts[i];this.stones[i].instanceMatrix.needsUpdate=true;if(this.stones[i].instanceColor)this.stones[i].instanceColor!.needsUpdate=true;}
     const discardScreen=this.project(CONFIG.discard,.04,false,'discard');
     this.discardLabel.style.transform='translate(-50%,-50%)';this.discardLabel.style.left=`${discardScreen.x}px`;this.discardLabel.style.top=`${discardScreen.y}px`;this.discardLabel.classList.toggle('active',state.drag!==null&&state.entities[state.drag.entityId]?.kind==='worker');
     const finish=samplePath(PATH_LENGTH),finishScreen=this.project({x:finish.x+.6,z:finish.z},.25);this.finishLabel.style.left=`${finishScreen.x}px`;this.finishLabel.style.top=`${finishScreen.y}px`;
@@ -291,20 +293,20 @@ export class SceneView {
       v.hit.dataset.feedback=this.tactile.kind(entity.id)??(held?'held':'');
       const h=this.project(loc,entity.kind==='worker'?.4:entity.location.kind==='storage'?.39:.27,entity.location.kind==='slot');v.hit.style.left=`${h.x}px`;v.hit.style.top=`${h.y}px`;const p=this.project(loc,entity.kind==='worker'?1.27:entity.kind==='barrel'?.80:entity.location.kind==='storage'?1.02:.9,entity.location.kind==='slot');v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;
     }
-    for(const pad of state.pads){let v=this.pads.get(pad.id);if(!v){const mesh=new THREE.Mesh(new THREE.BoxGeometry(.95,.13,.88),new THREE.MeshLambertMaterial({color:0x41394f}));mesh.position.set(pad.x,.025,pad.z);this.scene.add(mesh);const label=document.createElement('div');label.dataset.pad=pad.id;this.labels.append(label);v={mesh,label};this.pads.set(pad.id,v);}const mapped=this.mapped(pad);v.mesh.position.set(mapped.x,.025,mapped.z);const pose=this.tactile.pose(pad.id,this.reducedMotion.matches);v.mesh.scale.set(pose.x,pose.y,pose.x);const m=v.mesh.material as THREE.MeshLambertMaterial;m.color.setHex(pad.unlocked?0x426e69:0x54415f);v.label.dataset.unlocked=String(pad.unlocked);v.label.dataset.entityId=pad.entityId??'';v.label.dataset.reserved=String(pad.reserved);v.label.className=`pad-label ${pad.unlocked?'open':state.coins>=pad.price?'affordable':''}`;v.label.textContent=pad.unlocked?(pad.entityId?'':'＋ WORK'): `${pad.price} ●`;v.label.hidden=pad.unlocked&&!!pad.entityId;const p=this.project(pad,.19);v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;}
+    for(const pad of state.pads){let v=this.pads.get(pad.id);if(!v){const mesh=new THREE.Mesh(createWorkerPadGeometry(),new THREE.MeshLambertMaterial({color:0x41394f}));mesh.position.set(pad.x,.025,pad.z);this.scene.add(mesh);const label=document.createElement('div');label.dataset.pad=pad.id;this.labels.append(label);v={mesh,label};this.pads.set(pad.id,v);}const mapped=this.mapped(pad);v.mesh.position.set(mapped.x,.025,mapped.z);const pose=this.tactile.pose(pad.id,this.reducedMotion.matches);v.mesh.scale.set(pose.x,pose.y,pose.x);const m=v.mesh.material as THREE.MeshLambertMaterial;m.color.setHex(pad.unlocked?0x44795c:0x51483c);v.label.dataset.unlocked=String(pad.unlocked);v.label.dataset.entityId=pad.entityId??'';v.label.dataset.reserved=String(pad.reserved);v.label.className=`pad-label ${pad.unlocked?'open':state.coins>=pad.price?'affordable':''}`;v.label.textContent=pad.unlocked?(pad.entityId?'':'＋ WORK'): `${pad.price} ●`;v.label.hidden=pad.unlocked&&!!pad.entityId;const p=this.project(pad,.19);v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;}
     for(const stand of state.storage){
       let v=this.storage.get(stand.id);
       if(!v){
-        const group=new THREE.Group(),material=new THREE.MeshLambertMaterial({color:0x736084,flatShading:true});
-        const base=new THREE.Mesh(new THREE.CylinderGeometry(.44,.49,.19,6),material);base.position.y=.09;group.add(base);
-        const inset=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.035,6),new THREE.MeshLambertMaterial({color:0x30364b}));inset.position.y=.20;group.add(inset);
+        const group=createStoragePlinth(),material=new THREE.MeshLambertMaterial({color:0x736447,flatShading:true});
+        const base=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,.018,8),material);base.position.y=.20;group.add(base);
+
         this.scene.add(group);const label=document.createElement('div');label.dataset.storage=stand.id;this.labels.append(label);
         v={group,material,label};this.storage.set(stand.id,v);
       }
       const point=this.mapped(stand);v.group.position.set(point.x,0,point.z);
       const pose=this.tactile.pose(stand.id,this.reducedMotion.matches);v.group.scale.set(pose.x,pose.y,pose.x);
       const occupied=!!stand.entityId||stand.reserved;
-      v.material.color.setHex(stand.unlocked?(occupied?0x68a8b9:0x67b6a3):state.coins>=stand.price?0xc5a35c:0x736084);
+      v.material.color.setHex(stand.unlocked?(occupied?0x436c55:0x51886a):state.coins>=stand.price?0xc5a35c:0x514c42);
       v.label.className=`pad-label storage-label ${stand.unlocked?'open':state.coins>=stand.price?'affordable':''}`;
       v.label.dataset.unlocked=String(stand.unlocked);v.label.dataset.entityId=stand.entityId??'';v.label.dataset.reserved=String(stand.reserved);
       v.label.textContent=stand.unlocked?(occupied?'':'＋'):`${stand.price} ●`;

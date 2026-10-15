@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createDungeonBarrel, createBeveledStoneGeometry, dungeonMaterial, dungeonGlowMaterial } from './dungeon/DungeonKit';
 import { CONFIG } from '../game/config';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -10,7 +11,7 @@ function colored(g: THREE.BufferGeometry, color: number, x = 0, y = 0, z = 0): T
   return g.translate(x, y, z);
 }
 function join(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
-  const geometry = mergeGeometries(parts.map(g => { const n = g.toNonIndexed(); g.dispose(); return n; }), false);
+  const geometry = mergeGeometries(parts.map(g => { const n = g.index ? g.toNonIndexed() : g; if(n!==g)g.dispose(); return n; }), false);
   if (!geometry) throw new Error('Could not construct primitive geometry');
   return geometry;
 }
@@ -54,15 +55,7 @@ export function createWorker(): WorkerVisual {
     dispose(){helmetMaterial.dispose();group.removeFromParent();}
   };
 }
-export function createBarrel(): THREE.Group {
-  const g = new THREE.Group();
-  const body = colored(new THREE.CylinderGeometry(.31,.30,.57,10),0x369b91,0,.32);
-  const ringA = colored(new THREE.CylinderGeometry(.328,.328,.055,10),0xe7bb71,0,.12);
-  const ringB = colored(new THREE.CylinderGeometry(.328,.328,.055,10),0xe7bb71,0,.54);
-  const geometry = join([body,ringA,ringB]); g.add(new THREE.Mesh(geometry,solid));
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(.30,.30,.045,10),new THREE.MeshLambertMaterial({color:0xded1a4}));
-  lid.position.y=.63;g.add(lid);return g;
-}
+export function createBarrel(): THREE.Group { return createDungeonBarrel(); }
 export function createBomb(): THREE.Group {
   const group=new THREE.Group();
   const body=new THREE.Mesh(new THREE.IcosahedronGeometry(.27,1),new THREE.MeshLambertMaterial({color:0x263044}));body.position.y=.31;
@@ -120,13 +113,13 @@ export function createTailBlast(): THREE.Group {
   return group;
 }
 export function makeWallGeometry(): THREE.BufferGeometry {
-  const pieces:THREE.BufferGeometry[]=[];for(const run of CONFIG.path.runs.slice(0,-1)){const z=run+CONFIG.path.bendRadius;let spans:[[number,number]]|[number,number][]=[[CONFIG.path.left+.15,CONFIG.path.right-.15]];for(const pad of CONFIG.pads.filter(p=>Math.abs(p.z-z)<.1)){spans=spans.flatMap(([a,b])=>{const result:[number,number][]=[];if(a<pad.x-.62)result.push([a,Math.min(b,pad.x-.62)]);if(b>pad.x+.62)result.push([Math.max(a,pad.x+.62),b]);return result;});}for(const[a,b]of spans)if(b-a>.05)pieces.push(box(b-a,.32,.20,0xffffff,(a+b)/2,.16,z));}return join(pieces);
+  const pieces:THREE.BufferGeometry[]=[];for(const run of CONFIG.path.runs.slice(0,-1)){const z=run+CONFIG.path.bendRadius;let spans:[[number,number]]|[number,number][]=[[CONFIG.path.left+.15,CONFIG.path.right-.15]];for(const pad of CONFIG.pads.filter(p=>Math.abs(p.z-z)<.1)){spans=spans.flatMap(([a,b])=>{const result:[number,number][]=[];if(a<pad.x-.62)result.push([a,Math.min(b,pad.x-.62)]);if(b>pad.x+.62)result.push([Math.max(a,pad.x+.62),b]);return result;});}for(const[a,b]of spans)if(b-a>.05){const count=Math.max(1,Math.ceil((b-a)/.48)),width=(b-a)/count;for(let row=0;row<2;row++)for(let i=0;i<count;i++)pieces.push(createBeveledStoneGeometry(width-.014,.15,.20,(i+row)%3?0x454b44:0x5b5c50,.018).translate(a+(i+.5)*width,.08+row*.16,z));}}return join(pieces);
 }
 export function makeBrickTexture(): THREE.CanvasTexture {
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d')!;
-  c.fillStyle='#82728b';c.fillRect(0,0,128,128);c.strokeStyle='#554963';c.lineWidth=3;
+  c.fillStyle='#4c514b';c.fillRect(0,0,128,128);c.strokeStyle='#252c28';c.lineWidth=3;
   for(let y=0;y<4;y++){c.beginPath();c.moveTo(0,y*32);c.lineTo(128,y*32);c.stroke();for(let x=-1;x<3;x++){c.beginPath();c.moveTo(x*64+(y%2)*32,y*32);c.lineTo(x*64+(y%2)*32,y*32+32);c.stroke();}}
   const texture=new THREE.CanvasTexture(canvas);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(4,1);texture.colorSpace=THREE.SRGBColorSpace;return texture;
 }
 
-export function disposePrimitive(group:THREE.Group){group.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();const materials=Array.isArray(o.material)?o.material:[o.material];for(const m of materials)if(m!==solid)m.dispose();}});group.removeFromParent();}
+export function disposePrimitive(group:THREE.Group){group.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();const materials=Array.isArray(o.material)?o.material:[o.material];for(const m of materials)if(m!==solid&&m!==dungeonMaterial&&m!==dungeonGlowMaterial)m.dispose();}});group.removeFromParent();}
