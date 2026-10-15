@@ -19,11 +19,11 @@ function shardGeometry(){
   const g=new THREE.IcosahedronGeometry(.225,0),p=g.getAttribute('position');
   for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),warp=1+.17*Math.sin(x*23+y*17+z*31);p.setXYZ(i,x*warp,y*warp*.85,z*warp);}
   g.computeVertexNormals();const colors=new Float32Array(p.count*3),color=new THREE.Color();
-  // Fresh interior cuts are warmer/lighter than the weathered outer rind. Keep
-  // the shared ore texture and fully light-reactive material, with no emission.
-  const fracture=new THREE.Color(0xeee0c5);
+  // Match the parent ore's stone palette, facet variation and atlas. No pale
+  // fracture overlay: readability comes from the larger moving silhouettes.
   for(let i=0;i<p.count;i+=3){
-    color.setHex(DUNGEON_PALETTE.stoneLight).lerp(fracture,i%9===0?.55:.96).multiplyScalar(.88+((i*17)%11)/55);
+    const noise=Math.sin(i*127.1+311.7)*43758.5453;
+    color.setHex(DUNGEON_PALETTE.stoneLight).multiplyScalar(.72+(noise-Math.floor(noise))*.48);
     for(let j=0;j<3;j++)color.toArray(colors,(i+j)*3);
   }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));atlasUV(g,3);return g;
@@ -42,11 +42,11 @@ export class StoneDebrisVfx{
     if(this.disposed)return;
     const count=Math.max(0,Math.min(blast?12:16,Math.floor(budget))),phase=Math.random()*Math.PI*2;
     // Exaggerated fracture silhouettes and arcs stay legible at the gameplay zoom.
-    // Three major pieces lead a fan of chips; they retain their size through landing.
+    // Three major pieces lead a tighter fan of chips, then shrink away promptly.
     for(let i=0;i<count;i++){
       const p=this.chunks[this.cursor++%this.chunks.length],angle=phase+i*2.399963,size=i<3?.72+Math.random()*.16:i<9?.44+Math.random()*.16:.24+Math.random()*.12;
-      const speed=(1.25+Math.random()*.95)*(blast?1.25:1),offset=.055+Math.random()*.13;
-      Object.assign(p,{active:true,age:0,life:1.85+Math.random()*.45,x:x+Math.cos(angle)*offset,y:.19+Math.random()*.19,z:z+Math.sin(angle)*offset,
+      const speed=(1.25+Math.random()*.95)*.6*(blast?1.25:1),offset=.055+Math.random()*.13;
+      Object.assign(p,{active:true,age:0,life:(1.85+Math.random()*.45)/1.7,x:x+Math.cos(angle)*offset,y:.19+Math.random()*.19,z:z+Math.sin(angle)*offset,
         vx:Math.cos(angle)*speed,vy:2.5+Math.random()*1.1,vz:Math.sin(angle)*speed,
         rx:Math.random()*6,ry:angle,rz:Math.random()*6,sx:size*(.7+Math.random()*.4),sy:size*(.65+Math.random()*.55),sz:size*(.75+Math.random()*.6),
         spinX:(Math.random()-.5)*13,spinY:(Math.random()-.5)*15,spinZ:(Math.random()-.5)*13,color:resourceColor,bounces:0});
@@ -67,8 +67,8 @@ export class StoneDebrisVfx{
         }
         p.rx+=p.spinX*h;p.ry+=p.spinY*h;p.rz+=p.spinZ*h;
       }
-      // Keep a solid silhouette during flight, then ease down into tiny rubble and disappear.
-      const t=THREE.MathUtils.clamp((p.age/p.life-.70)/.30,0,1),shrink=1-t*t*(3-2*t);
+      // Retain the large launch silhouette, then shrink on a roughly 1.7x faster clock.
+      const t=THREE.MathUtils.clamp((p.age/p.life-.68)/.32,0,1),shrink=1-t*t*(3-2*t);
       this.dummy.position.set(p.x,p.y,p.z);this.dummy.rotation.set(p.rx,p.ry,p.rz);this.dummy.scale.set(p.sx*shrink,p.sy*shrink,p.sz*shrink);this.dummy.updateMatrix();
       this.mesh.setMatrixAt(count,this.dummy.matrix);this.mesh.setColorAt(count++,this.color.setHex(p.color).lerp(this.white,.8));
     }

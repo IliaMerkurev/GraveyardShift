@@ -94,15 +94,16 @@ export class ParticleVfx{
   constructor(scene:THREE.Scene){this.words.mesh.renderOrder=8;scene.add(this.normal.mesh,this.glow.mesh,this.words.mesh);}
   private emit(values:Partial<Particle>){if(this.disposed)return;const p=this.particles[this.cursor++%this.particles.length];Object.assign(p,blank(),values,{active:true});}
   /** Short thin warm sparks keep rock silhouettes and physical coin rewards readable. */
-  oreSparks(x:number,z:number,count=3){
-    for(let i=0;i<Math.min(count,5);i++){
-      const angle=Math.random()*Math.PI*2,speed=.8+Math.random()*.8;
-      this.emit({x,y:.34,z,life:.17+Math.random()*.1,size:.12+Math.random()*.08,rotation:angle,vx:Math.cos(angle)*speed,vy:.6+Math.random()*.6,vz:Math.sin(angle)*speed,gravity:3,color:i%2?0xffd16b:0xffa943,glow:true,spark:true,opacity:.78});
+  oreSparks(x:number,z:number,count=3,reward=false){
+    // Mining gets 6–8 readable streaks. Coin accents stay fewer and smaller.
+    for(let i=0;i<Math.min(reward?count:count*2,reward?4:8);i++){
+      const angle=Math.random()*Math.PI*2,speed=reward?.8+Math.random()*.8:1.1+Math.random();
+      this.emit({x,y:.34,z,life:reward?.17+Math.random()*.1:.26+Math.random()*.14,size:reward?.12+Math.random()*.08:.25+Math.random()*.15,rotation:angle,vx:Math.cos(angle)*speed,vy:.6+Math.random()*.6,vz:Math.sin(angle)*speed,gravity:3,color:i%2?0xffd16b:0xffa943,glow:true,spark:true,opacity:reward?.78:.9});
     }
   }
   /** Bonus glow stays rich; mining rewards use small sparks rather than stacked white halos. */
   sparkle(x:number,z:number,color:number,count:number,large=false,coin=false){
-    if(coin){this.oreSparks(x,z,Math.min(count,4));return;}
+    if(coin){this.oreSparks(x,z,Math.min(count,4),true);return;}
     for(let i=0;i<Math.min(count,large?12:5);i++)this.emit({x,y:.32,z,life:large?.65:.45,size:large?.85:.55,vx:(Math.random()-.5)*(large?2.1:1.2),vy:1+Math.random(),vz:(Math.random()-.5)*(large?2.1:1.2),gravity:4,color,glow:true,opacity:.92});
   }
   explosion(x:number,z:number,strength=1,secondary=false){
@@ -140,7 +141,7 @@ export class ParticleVfx{
       this.glow.add(camera,x,y,z,mote.size,1,0,mote.alpha,0,0xffe7b6,1.05,.1);
     }
     for(const p of this.particles){if(!p.active)continue;p.age+=step;if(p.age>=p.life+p.delay){p.active=false;continue;}if(p.age<p.delay)continue;p.x+=p.vx*step;p.y+=p.vy*step;p.z+=p.vz*step;p.vy-=p.gravity*step;const t=(p.age-p.delay)/p.life,fade=1-t*t,size=p.size*(p.growth?(.65+Math.min(1,t*5)*.35+p.growth*t):1-t*.65);if(p.glow){
-      if(p.spark){this.glow.add(camera,p.x,p.y,p.z,size,.18,p.rotation,fade*p.opacity,p.tile,p.color,.9);continue;}
+      if(p.spark){this.glow.add(camera,p.x,p.y,p.z,size,.18,p.rotation,fade*p.opacity,p.tile,p.color,1.2);continue;}
       // Two co-moving sprites make the bloom legible even on a small viewport.
       // Both stay in the same bounded additive batch; no extra lights or postprocessing.
       this.glow.add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,fade*p.opacity,p.tile,p.color,1.35);

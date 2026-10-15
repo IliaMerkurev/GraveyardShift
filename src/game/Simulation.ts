@@ -39,6 +39,7 @@ export class Game {
         c.stones.acceleration < 0 || c.stones.maxSpeed < c.stones.speed ||
         c.stones.speed < 0 || c.stones.resources.length === 0 ||
         c.conveyor.count < 1 || c.conveyor.right <= c.conveyor.left || c.conveyor.speed < 0 ||
+        (c.conveyor.initialLeft!==undefined&&(!Number.isFinite(c.conveyor.initialLeft)||c.conveyor.initialLeft<c.conveyor.left||c.conveyor.initialLeft>=c.conveyor.right)) ||
         !Number.isFinite(c.mining.period) || c.mining.period <= 0 ||
         !Number.isFinite(c.mining.speedGrowth) || c.mining.speedGrowth < 1 ||
         !Number.isFinite(c.mining.minPeriod) || c.mining.minPeriod < c.simulation.fixedStep * 6 || c.mining.minPeriod > c.mining.period ||
@@ -68,7 +69,7 @@ export class Game {
     this.state = {
       time: 0, difficultyTime: 0, coins: c.economy.initialCoins, workerDropBoost: 0, entities: {},
       slots: Array.from({ length: c.conveyor.count }, (_, i) => ({
-        id: `slot-${i}`, x: c.conveyor.left + slotSpacing * (i + 0.5), z: c.conveyor.z, entityId: null, reserved: false,
+        id: `slot-${i}`, x: c.conveyor.left + (((c.conveyor.initialLeft??c.conveyor.left)-c.conveyor.left+slotSpacing*(i+.5))%(c.conveyor.right-c.conveyor.left)), z: c.conveyor.z, entityId: null, reserved: false,
       })),
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
       storage: c.storage.map((stand, i) => ({ ...stand, id: `storage-${i}`, unlocked: false, entityId: null, reserved: false })),
@@ -81,7 +82,9 @@ export class Game {
     const worker: Worker = { id: this.entityId(), kind: 'worker', location: { kind: 'pad', id: pad.id }, level: 1, mining: createMiningState() };
     this.state.entities[worker.id] = worker;
     pad.entityId = worker.id;
-    for (const slot of this.state.slots) this.spawnBarrel(slot.id);
+    // Keep the six original starter positions/order; preload incoming transit only.
+    // Outgoing hidden slots start empty, so no rewards are discarded at reset.
+    for (const slot of this.state.slots) if(slot.x >= (c.conveyor.initialLeft??c.conveyor.left)) this.spawnBarrel(slot.id);
     const head = getPathLength(c.path) * c.stones.startFraction;
     for (let i = 0; i < c.stones.initialCount; i++) this.spawnStone(head - (c.stones.initialCount - 1 - i) * c.stones.spacing);
   }

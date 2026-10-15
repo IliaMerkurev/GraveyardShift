@@ -9,7 +9,7 @@ export interface GameConfig {
     resources: readonly { color: number; hp: number; reward: number }[];
   };
   conveyor: {
-    count: number; left: number; right: number; z: number; speed: number;
+    count: number; left: number; right: number; z: number; speed: number; initialLeft?:number;
     spawnInterval: number; starter: readonly ('worker' | 'bomb' | 'rewind' | 'slow' | 'brake' | 'halfSpeed' | 'tailBlast')[];
     workerWeight: number; bombWeight: number; rewindWeight: number; brakeWeight: number; halfSpeedWeight: number; tailBlastWeight: number;
   };
@@ -42,7 +42,8 @@ export const CONFIG: GameConfig = {
     ],
   },
   conveyor: {
-    count: 6, left: -2.9, right: 2.9, z: 8, speed: 0.32,
+    // Four extra slots live in the extended end transit; original spacing/speed stay exact.
+    count: 10, left: -2.9*5/3, right: 2.9*5/3, initialLeft: -2.9, z: 8, speed: 0.32,
     spawnInterval: 2.5,
     // Seven guaranteed workers in the starter sequence allow level three without RNG.
     starter: ['worker', 'worker', 'rewind', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake', 'halfSpeed', 'tailBlast'],
