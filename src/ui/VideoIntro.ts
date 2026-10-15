@@ -1,8 +1,10 @@
 import type {MusicAudio} from '../audio/MusicAudio';
 /** External intro files stay beside the HTML; only one orientation is requested. */
 export const introSource=(width:number,height:number)=>`./media/intro-${height>width?'portrait':'landscape'}.mp4`;
+export type PreparedIntro=(()=>void)&{zoom?:(progress:number)=>void};
+export const introZoom=(progress:number)=>Math.exp(Math.log(2.4)*(1-Math.max(0,Math.min(1,progress))));
 type IntroAudio={music:MusicAudio;sounds:()=>boolean;unlockSounds?:()=>void};
-export function showVideoIntro(parent:HTMLElement,prepared:Promise<()=>void>=Promise.resolve(()=>{}),audio?:IntroAudio):Promise<void> {
+export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro>=Promise.resolve(()=>{}),audio?:IntroAudio):Promise<void> {
   return new Promise((resolve,reject)=>{
     const overlay=document.createElement('section');overlay.className='video-intro';overlay.setAttribute('aria-label','Game introduction');
     const video=document.createElement('video');video.className='video-intro__video';video.playsInline=true;video.muted=!(audio?.sounds()??true);video.defaultMuted=video.muted;video.preload='auto';
@@ -11,7 +13,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<()=>void>=Pro
     const status=document.createElement('p');status.className='video-intro__status';status.setAttribute('role','status');status.textContent='Loading intro…';
     const play=document.createElement('button');play.type='button';play.textContent='▶ Нажми, чтобы начать';play.className='video-intro__launch';play.hidden=true;
     const skip=document.createElement('button');skip.type='button';skip.textContent='Start game';skip.hidden=true;
-    const veil=document.createElement('div');veil.className='intro-smoke';veil.setAttribute('aria-hidden','true');controls.append(status,play,skip);overlay.append(video,controls,veil);parent.append(overlay);
+    const frame=document.createElement('div');frame.className='intro-film-frame';const edge=document.createElement('div');edge.className='intro-edge-blur';edge.setAttribute('aria-hidden','true');frame.append(video,edge);controls.append(status,play,skip);overlay.append(frame,controls);parent.append(overlay);
     let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false;
     const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);video.pause();video.removeAttribute('src');video.load();overlay.remove();};
     const ready=prepared.then(begin=>({begin,error:null})).catch((error:unknown)=>({begin:null,error}));
@@ -20,10 +22,23 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<()=>void>=Pro
       const result=await ready;
       if(!result.begin){finished=true;cleanup();reject(result.error);return;}
       const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false;
-      veil.className='intro-smoke intro-smoke--cover';await new Promise(r=>setTimeout(r,reduced?0:400));
-      video.style.visibility='hidden';overlay.style.background='transparent';
-      veil.className='intro-smoke intro-smoke--reveal';await new Promise(r=>setTimeout(r,reduced?0:400));
-      finished=true;cleanup();result.begin();resolve();
+      if(!reduced){
+        overlay.style.background='transparent';frame.className='intro-film-frame intro-film-frame--zoom';
+        // Identical logarithmic scale velocity through the video/room overlap.
+        await new Promise<void>(done=>{
+          let elapsed=0,last=performance.now();
+          const tick=(now:number)=>{
+            if(!document.hidden)elapsed+=Math.min(50,Math.max(0,now-last));last=now;
+            const linear=Math.min(1,elapsed/600),p=1-(1-linear)**2,blend=Math.max(0,Math.min(1,(p-.23)/.30));
+            result.begin!.zoom?.(p);
+            frame.style.transform=`scale(${introZoom(p)/2.4})`;
+            frame.style.opacity=String(1-blend*blend*(3-2*blend));
+            const softness=Math.min(1,p*5);edge.style.opacity=String(softness);frame.style.maskImage=`radial-gradient(ellipse at center,#000 ${100-58*softness}%,transparent ${145-58*softness}%)`;
+            if(p<1)requestAnimationFrame(tick);else done();
+          };result.begin!.zoom?.(0);requestAnimationFrame(tick);
+        });
+      }
+      result.begin.zoom?.(1);finished=true;cleanup();result.begin();resolve();
     };
     const failure=()=>{if(finished||transitioning)return;clearTimeout(timeout);attempt++;video.pause();controls.hidden=false;status.textContent='Intro unavailable. You can start the game.';play.hidden=true;skip.hidden=false;};
     const tryPlay=()=>{
