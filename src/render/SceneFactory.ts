@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createDungeonRoom, createBeveledStoneGeometry, createGothicArch, createTimberTrack, createConveyorFrame, createConveyorTreadGeometry, createOreGeometry, createOreCrackGeometry, createStoragePlinth, createWorkerPadGeometry, dungeonGlowMaterial, dungeonMaterial } from './dungeon/DungeonKit';
+import { createDungeonRoom, createBeveledStoneGeometry, createGothicArch, createTimberTrack, createConveyorFrame, createConveyorTunnels, conveyorSlotExposed, createConveyorTreadGeometry, createOreGeometry, createOreCrackGeometry, createStoragePlinth, createWorkerPadGeometry, dungeonGlowMaterial, dungeonMaterial } from './dungeon/DungeonKit';
 import { ParticleVfx, planBlasts } from './ParticleVfx';
 import { StoneDebrisVfx, selectDebrisEvents, STONE_DEBRIS_LIMITS } from './StoneDebrisVfx';
 import { TactileMotion, type ImpulseKind } from './TactileMotion';
@@ -68,7 +68,7 @@ export class SceneView {
     this.storageTray=new THREE.Mesh(createBeveledStoneGeometry(6.1,.06,1.35,0x45453f,.025),dungeonMaterial);this.storageTray.receiveShadow=true;this.storageTray.position.y=-.02;this.scene.add(this.storageTray);
     this.discardLabel=document.createElement('div');this.discardLabel.className='pad-label discard-label';this.discardLabel.dataset.marker='discard';this.discardLabel.textContent='🗑︎';this.discardLabel.title='Discard worker';this.discardLabel.setAttribute('aria-label','Discard pit: drag and release unwanted workers here. No coins returned.');this.labels.append(this.discardLabel);
     this.headLabel=document.createElement('div');this.headLabel.className='pad-label';this.headLabel.dataset.marker='head';this.headLabel.textContent='HEAD';this.headLabel.style.background='#3a344b';this.headLabel.style.fontSize='9px';this.labels.append(this.headLabel);
-    this.belt.add(createConveyorFrame(6.4,1.1));this.belt.traverse(object=>{if(object instanceof THREE.Mesh){object.castShadow=true;object.receiveShadow=true;}});
+    this.belt.add(createConveyorFrame(6.4,1.1),createConveyorTunnels());this.belt.traverse(object=>{if(object instanceof THREE.Mesh){object.castShadow=true;object.receiveShadow=true;}});
     this.treads=new THREE.InstancedMesh(createConveyorTreadGeometry(.21,.98),dungeonMaterial,28);this.treads.receiveShadow=true;this.scene.add(this.treads);this.carriers=new THREE.InstancedMesh(new THREE.BoxGeometry(.68,.024,.82),new THREE.MeshLambertMaterial({color:0x31564a}),CONFIG.conveyor.count);this.carriers.receiveShadow=true;this.scene.add(this.carriers);
     for(let v=0;v<3;v++){const geometry=createOreGeometry(v);const mesh=new THREE.InstancedMesh(geometry,dungeonMaterial.clone(),200);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.castShadow=true;mesh.receiveShadow=true;this.stones.push(mesh);this.scene.add(mesh);const cracks=new THREE.InstancedMesh(createOreCrackGeometry(v),dungeonGlowMaterial,200);cracks.instanceMatrix=mesh.instanceMatrix;cracks.frustumCulled=false;this.oreCracks.push(cracks);this.scene.add(cracks);}
     this.particles=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshBasicMaterial({color:0xffffff}),viewConfig.maxEffects);this.particles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.particles.frustumCulled=false;this.scene.add(this.particles);this.coins=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,.18,10),new THREE.MeshLambertMaterial({color:0xffd66c}),viewConfig.maxEffects);this.coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.coins.frustumCulled=false;this.scene.add(this.coins);
@@ -116,7 +116,7 @@ export class SceneView {
     if(x<0||x>rect.width||y<0||y>rect.height)return null;
     const core:{target:HitTarget,d:number}[]=[],halo:{target:HitTarget,d:number}[]=[];
     for(const e of Object.values(this.state.entities)){
-      const loc=this.location(e.id);if(!loc)continue;
+      const loc=this.location(e.id);if(!loc||(e.location.kind==='slot'&&!conveyorSlotExposed(loc.x)))continue;
       const p=this.project(loc,e.kind==='worker'?.40:e.location.kind==='storage'?.39:.27,e.location.kind==='slot');
       const d=Math.hypot(x-p.x,y-p.y),candidate={target:{kind:'entity' as const,id:e.id},d};
       if(d<=viewConfig.hitRadiusPx)core.push(candidate);
@@ -136,7 +136,7 @@ export class SceneView {
     if(core.length)return nearest(core);
     if(halo.length)return nearest(halo);
     const slots:{target:HitTarget,d:number}[]=[];
-    for(const p of this.state.slots){if(p.entityId||p.reserved)continue;const screen=this.project(p,.1,true),d=Math.hypot(x-screen.x,y-screen.y);if(d<=viewConfig.hitRadiusPx)slots.push({target:{kind:'slot',id:p.id},d});}
+    for(const p of this.state.slots){if(p.entityId||p.reserved||!conveyorSlotExposed(p.x))continue;const screen=this.project(p,.1,true),d=Math.hypot(x-screen.x,y-screen.y);if(d<=viewConfig.hitRadiusPx)slots.push({target:{kind:'slot',id:p.id},d});}
     return nearest(slots);
   }
   dropTarget(clientX:number,clientY:number):DropTarget{
@@ -178,9 +178,9 @@ export class SceneView {
       if(Math.abs(ground.x)<=(this.landscape?6.5:3.25)&&Math.abs(ground.z-beltZ)<=.72)return null;
       return{kind:'field',...point};
     }
-    if(entity?.kind==='bomb'){const rect=this.canvas.getBoundingClientRect();for(const slot of this.state.slots){const p=this.project(slot,.1,true);if(!slot.entityId&&Math.hypot(clientX-rect.left-p.x,clientY-rect.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}const p=this.world(clientX,clientY);return p?{kind:'track',...p}:null;}
+    if(entity?.kind==='bomb'){const rect=this.canvas.getBoundingClientRect();for(const slot of this.state.slots){if(!conveyorSlotExposed(slot.x))continue;const p=this.project(slot,.1,true);if(!slot.entityId&&Math.hypot(clientX-rect.left-p.x,clientY-rect.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}const p=this.world(clientX,clientY);return p?{kind:'track',...p}:null;}
     const rect=this.canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;const candidates:{target:DropTarget,d:number}[]=[];
-    for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){const s=this.project(p,p.entityId && this.state.entities[p.entityId]?.kind==='worker' ? .4 : .10,kind==='slot');const d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.hitRadiusPx+5)candidates.push({target:{kind,id:p.id},d});}
+    for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){if(kind==='slot'&&!conveyorSlotExposed(p.x))continue;const s=this.project(p,p.entityId && this.state.entities[p.entityId]?.kind==='worker' ? .4 : .10,kind==='slot');const d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.hitRadiusPx+5)candidates.push({target:{kind,id:p.id},d});}
     return candidates.sort((a,b)=>a.d-b.d)[0]?.target??null;
   }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
@@ -267,7 +267,7 @@ export class SceneView {
       let label=this.slotLabels.get(slot.id);if(!label){label=document.createElement('div');label.className='slot-label';label.dataset.slot=slot.id;label.textContent='＋';label.setAttribute('aria-label','Empty conveyor drop slot');this.labels.append(label);this.slotLabels.set(slot.id,label);}
       label.dataset.entityId=slot.entityId??'';label.dataset.reserved=String(slot.reserved);
       const isSource=state.drag?.source.kind==='slot'&&state.drag.source.id===slot.id;
-      label.hidden=!showSlotTargets||!!slot.entityId||(slot.reserved&&!isSource);
+      label.hidden=!conveyorSlotExposed(slot.x)||!showSlotTargets||!!slot.entityId||(slot.reserved&&!isSource);
       const screen=this.project(slot,.2,true);label.style.left=`${screen.x}px`;label.style.top=`${screen.y}px`;
     }
     this.carriers.count=carrierCount;this.carriers.instanceMatrix.needsUpdate=true;
@@ -289,7 +289,7 @@ export class SceneView {
       v.hit.classList.toggle('merge-target',mergeTarget);v.label.classList.toggle('merge-target-label',mergeTarget);
       if(mergeTarget)v.hit.dataset.mergeTarget='true';else delete v.hit.dataset.mergeTarget;
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
-      const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;v.label.hidden=false;v.hit.hidden=false;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
+      const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;const covered=entity.location.kind==='slot'&&!conveyorSlotExposed(loc.x);v.label.hidden=covered;v.hit.hidden=covered;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
       else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=bonus?.label??'';
       const pose=this.tactile.pose(entity.id,this.reducedMotion.matches),held=entity.location.kind==='drag',pressed=this.pressed?.id===entity.id&&!held;

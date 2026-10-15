@@ -217,6 +217,43 @@ export function createConveyorFrame(width=6.4,depth=.95):THREE.Group {
   const g=assembly(p);g.name='iron-timber-conveyor-chassis';return g;
 }
 
+/** Inner faces leave the middle four slot spacings exposed. Simulation bounds stay unchanged. */
+export const CONVEYOR_TUNNEL_MOUTH = 1.9;
+export function conveyorSlotExposed(x:number):boolean { return Math.abs(x)<CONVEYOR_TUNNEL_MOUTH-.12; }
+
+/** Two real, opaque tunnel housings. Openings face along X, never toward the camera.
+ * Roof and camera-facing masonry occlude cargo before its spawn/wrap boundary.
+ * Keep these in the belt group so the existing landscape X mapping also applies.
+ */
+export function createConveyorTunnels():THREE.Group {
+  const tunnels=new THREE.Group();tunnels.name='conveyor-end-tunnels';
+  const inner=CONVEYOR_TUNNEL_MOUTH,outer=3.38,length=outer-inner,center=(inner+outer)/2;
+  for(const side of [-1,1]){
+    const p:THREE.BufferGeometry[]=[];
+    // Closed outer end, solid side walls and timber ceiling: no sightline to wrapping cargo.
+    p.push(box(length,.17,1.48,P.wood,side*center,1.39));
+    p.push(box(.16,1.31,1.48,P.stoneDark,side*(outer-.08),.735));
+    for(const z of [-.66,.66]){
+      p.push(box(length,1.24,.20,P.mortar,side*center,.73,z));
+      for(let row=0;row<4;row++)for(let col=0;col<3;col++){
+        const x=inner+(col+.5)*length/3;
+        p.push(stone(length/3-.018,.29,.23,(row+col)%3?P.stone:P.stoneLight,side*x,.27+row*.30,z,.025));
+      }
+      p.push(stone(length+.05,.11,.29,P.stoneLight,side*center,1.33,z,.018));
+    }
+    for(let i=0;i<6;i++)p.push(box(length,.045,.215,i%2?P.wood:P.woodLight,side*center,1.495,(i-2.5)*.235));
+    for(const x of [inner+.16,outer-.16]){
+      p.push(box(.09,.055,1.50,P.ironEdge,side*x,1.535));
+      for(const z of [-.58,.58])p.push(cyl(.025,.025,.018,6,P.bronzeLight,side*x,1.572,z));
+    }
+    const housing=assembly(p);housing.name=side===1?'conveyor-entrance-tunnel':'conveyor-exit-tunnel';
+    // Pointed masonry mouth, seated above the moving wooden slats.
+    const arch=createGothicArch(1.05,1.12);arch.rotation.y=side*Math.PI/2;arch.position.set(side*inner,.17,0);housing.add(arch);
+    tunnels.add(housing);
+  }
+  return tunnels;
+}
+
 export interface DungeonRoomOptions {width:number;depth:number;centerX?:number;centerZ?:number;backZ?:number}
 /** A shallow, open-front theatrical room. Tall detail stays exclusively behind play. */
 export function createDungeonRoom(options:DungeonRoomOptions):THREE.Group {
