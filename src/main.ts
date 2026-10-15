@@ -19,14 +19,15 @@ audioSettings.subscribe(value=>music.setEnabled(value.music));
 // Register audio unlock before asynchronous model loading or the intro gesture.
 const sfx=createRockSnakeAudio();
 audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
+shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.7);});
+shell.addEventListener('change',event=>{if((event.target as HTMLElement).matches('input[type=checkbox]'))sfx.play('ui',.7);});
 async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   await loadSkeletonWorker();
-  shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.35);});
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;let active=false;let introProgress=1;
   const pause=()=>{sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(!active||game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);sfx.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('purchase');hud.upgradeFeedback();}},audioSettings});
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();}else sfx.play('reject');},audioSettings});
   const input=new PointerController(view.canvas,game,view,text=>{if(text.startsWith('Drag '))hud.guidance(text,text);else hud.message(text);},event=>sfx.play(event));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});

@@ -11,7 +11,7 @@ export class PointerController {
   private draggedEntityId:string|null=null;
   private touch=false;
   private lastPoint:{x:number;y:number}|null=null;
-  constructor(private canvas:HTMLCanvasElement,private game:Game,private view:SceneView,private feedback:(text:string)=>void,private tactile:(event:'pickup'|'drop'|'reject'|'ui')=>void=()=>{}){
+  constructor(private canvas:HTMLCanvasElement,private game:Game,private view:SceneView,private feedback:(text:string)=>void,private tactile:(event:'pickup'|'drop'|'reject'|'ui'|'store'|'withdraw')=>void=()=>{}){
     canvas.addEventListener('pointerdown',this.down);
     canvas.addEventListener('pointermove',this.move);
     canvas.addEventListener('pointerup',this.up);
@@ -25,7 +25,7 @@ export class PointerController {
     event.preventDefault();this.activePointerId=event.pointerId;this.touch=event.pointerType==='touch';this.moved=false;this.lastPoint={x:event.clientX,y:event.clientY};
     this.start={x:event.clientX,y:event.clientY,target:this.view.hit(event.clientX,event.clientY)};
     this.canvas.setPointerCapture(event.pointerId);
-    const target=this.start.target;this.view.press?.(target);if(target)this.tactile('pickup');
+    const target=this.start.target;this.view.press?.(target);if(target)this.tactile(target.kind==='entity'&&this.game.state.entities[target.id]?.location.kind==='storage'?'withdraw':'pickup');
     const entity=target?.kind==='entity'?this.game.state.entities[target.id]:undefined;
     // Own belt items and stored bonuses from first contact, including a hold
     // before movement or a release without a move sample.
@@ -46,13 +46,13 @@ export class PointerController {
     // A final release can arrive without the corresponding move sample.
     this.moved ||= Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx;
     if(this.moved&&this.draggedEntityId===null&&this.start.target?.kind==='entity'&&this.game.beginDrag(this.start.target.id)){this.draggedEntityId=this.start.target.id;this.view.impulse?.(this.start.target.id,'pickup');}
-    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.view.dropTarget(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?'drop':'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
+    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.view.dropTarget(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
     else if(!this.moved){
       if(this.draggedEntityId!==null)this.game.cancelDrag();
       const target=this.start.target;
       if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='brake')this.game.useBrake(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='halfSpeed')this.game.useHalfSpeed(entity.id);else if(entity?.kind==='tailBlast')this.game.useTailBlast(entity.id);else if(entity?.kind==='worker')this.feedback('Drag to a pad or matching worker.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto rocks.');}
-      else if(target?.kind==='storage'){const stand=this.game.state.storage.find(p=>p.id===target.id);if(stand&&!stand.unlocked&&!this.game.buyStorage(stand.id))this.feedback(`Need ${Math.max(0,stand.price-this.game.state.coins)} more coins for storage.`);else if(stand?.unlocked)this.feedback('Drag a bonus here to store it.');}
-      else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id))this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}
+      else if(target?.kind==='storage'){const stand=this.game.state.storage.find(p=>p.id===target.id);if(stand&&!stand.unlocked&&!this.game.buyStorage(stand.id)){this.tactile('reject');this.feedback(`Need ${Math.max(0,stand.price-this.game.state.coins)} more coins for storage.`);}else if(stand?.unlocked)this.feedback('Drag a bonus here to store it.');}
+      else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id)){this.tactile('reject');this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}}
     }
     this.finish();
   };
