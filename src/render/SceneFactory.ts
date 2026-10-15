@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createDungeonRoom, createBeveledStoneGeometry, createGothicArch, createTimberTrack, createConveyorFrame, createConveyorTreadGeometry, createOreGeometry, createOreCrackGeometry, createStoragePlinth, createWorkerPadGeometry, dungeonGlowMaterial, dungeonMaterial } from './dungeon/DungeonKit';
+import { ParticleVfx, planBlasts } from './ParticleVfx';
 import { TactileMotion, type ImpulseKind } from './TactileMotion';
 import type { GameState, DropTarget, GameEvent, Entity } from '../game/GameState';
 import { CONFIG } from '../game/config';
@@ -29,6 +30,7 @@ export class SceneView {
   private storage=new Map<string,{group:THREE.Group;material:THREE.MeshLambertMaterial;label:HTMLDivElement}>();
   private oreCracks:THREE.InstancedMesh[]=[];private rooms:THREE.Group[]=[];private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  private vfx:ParticleVfx;private previousStonePositions=new Map<string,Point>();
   private tactile=new TactileMotion();private pressed:HitTarget|null=null;
   private ripples:{mesh:THREE.Mesh;age:number;life:number}[]=[];private rippleCursor=0;
   private cameraBase=new THREE.Vector3();private shakeRemaining=0;private reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -44,7 +46,7 @@ export class SceneView {
     this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;shell.append(this.canvas);
     this.labels=document.createElement('div');this.labels.className='labels';shell.append(this.labels);
     this.scene.add(new THREE.HemisphereLight(0xa9c9c1,0x21170e,.9));const key=new THREE.DirectionalLight(0xffc891,2.2);key.position.set(-5,12,6);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-11;key.shadow.camera.right=11;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=.5;key.shadow.camera.far=35;key.shadow.normalBias=.025;key.shadow.bias=-.0002;key.shadow.radius=2;this.scene.add(key);
-    this.scene.add(this.field,this.belt);
+    this.scene.add(this.field,this.belt);this.vfx=new ParticleVfx(this.scene);
     this.rooms=[createDungeonRoom({width:7.8,depth:17.424,centerZ:.4,backZ:-8.312}),createDungeonRoom({width:17.004,depth:12.276,centerZ:1.8,backZ:-4.338})];
     // Local amber pools and cold green niches complement one bounded directional shadow map.
     this.rooms.forEach((room,i)=>{for(const side of [-1,1]){const glow=new THREE.PointLight(0xff932f,5,4.5,1);glow.position.set(side*(i?17.004:7.8)*.47,1.2,(i?-4.338:-8.312)+.64);room.add(glow);}const recess=new THREE.PointLight(0x37d996,2.8,4,1);recess.position.set(0,1,(i?-4.338:-8.312)+.4);room.add(recess);});
@@ -189,7 +191,7 @@ export class SceneView {
   release(){this.pressed=null;}
   impulse(id:string,kind:ImpulseKind){this.tactile.trigger(id,kind);}
   private ripple(point:Point,color:number,life=.4){const r=this.ripples[this.rippleCursor++%this.ripples.length],p=this.mapped(point);r.age=0;r.life=life;r.mesh.position.set(p.x,.055,p.z);r.mesh.visible=true;(r.mesh.material as THREE.MeshBasicMaterial).color.setHex(color);}
-  burst(x:number,z:number,color:number,count=10,large=false,coin=false){if(this.reducedMotion.matches)return;const zone:ViewZone=x===CONFIG.discard.x&&z===CONFIG.discard.z?'discard':CONFIG.storage.some(stand=>stand.x===x&&stand.z===z)?'storage':z===CONFIG.conveyor.z?'belt':'field';const p=this.mapped({x,z},false,zone);x=p.x;z=p.z;for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?3:1.5),vy:this.reducedMotion.matches?.5:1.4+Math.random()*1.4,vz:(Math.random()-.5)*(large?3:1.5),color,size:coin?.11:large?.12:.075,coin});}}
+  burst(x:number,z:number,color:number,count=10,large=false,coin=false){if(this.reducedMotion.matches)return;const zone:ViewZone=x===CONFIG.discard.x&&z===CONFIG.discard.z?'discard':CONFIG.storage.some(stand=>stand.x===x&&stand.z===z)?'storage':z===CONFIG.conveyor.z?'belt':'field';const p=this.mapped({x,z},false,zone);x=p.x;z=p.z;this.vfx.sparkle(x,z,color,count,large,coin);for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{active:true,age:0,life:large?.65:.42,x,y:.3,z,vx:(Math.random()-.5)*(large?3:1.5),vy:this.reducedMotion.matches?.5:1.4+Math.random()*1.4,vz:(Math.random()-.5)*(large?3:1.5),color,size:coin?.11:large?.12:.075,coin});}}
   private updateCameraShake(state:GameState,dt:number,events:GameEvent[]){
     // Always rebuild from the settled pose, so repeated bombs cannot accumulate drift.
     this.camera.position.copy(this.cameraBase);
@@ -225,7 +227,7 @@ export class SceneView {
     }
     return targets;
   }
-  reset(){this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
+  reset(){this.vfx.reset();this.previousStonePositions.clear();this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
   sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.tactile.tick(dt);
     for(const e of events){
       if((e.type==='open'||e.type==='merge')&&e.entityId)this.tactile.trigger(e.entityId,e.type);
@@ -316,12 +318,32 @@ export class SceneView {
       v.label.setAttribute('aria-label',stand.unlocked?(occupied?'Occupied bonus storage':'Empty bonus storage'):`Buy bonus storage for ${stand.price} coins`);
       const screen=this.project(stand,.04);v.label.style.left=`${screen.x}px`;v.label.style.top=`${screen.y+17}px`;
     }
-    const tailExplosion=events.some(event=>event.type==='tailBlast');
-    for(const e of events){if(e.type==='coins')this.burst(e.x,e.z,0xffd26a,4,false,true);else if(e.type==='destroy')this.burst(e.x,e.z,tailExplosion?0xff667b:0xb9e9df,tailExplosion?8:5,tailExplosion);else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);else if(e.type==='bomb')this.burst(e.x,e.z,0xffc05d,45,true);else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);else if(e.type==='brake')this.burst(e.x,e.z,0xffc260,18,true);else if(e.type==='halfSpeed')this.burst(e.x,e.z,0x83ec94,24,true);else if(e.type==='tailBlast')this.burst(e.x,e.z,0xff667b,45,true);else if(e.type==='discard')this.burst(e.x,e.z,0x996b68,5);}
+    const blast=events.find(event=>event.type==='bomb'||event.type==='tailBlast');
+    if(!this.reducedMotion.matches&&!state.paused&&!state.gameOver&&!document.hidden){
+      for(const effect of planBlasts(events,this.previousStonePositions)){const p=this.mapped(effect.point);this.vfx.explosion(p.x,p.z,effect.strength,effect.secondary);}
+    }
+    let destructionBursts=0,coinBursts=0;
+    for(const e of events){
+      if(state.paused||state.gameOver||document.hidden)break;
+      if(e.type==='coins'){if(coinBursts++<(blast?4:12))this.burst(e.x,e.z,0xffd26a,4,false,true);}
+      else if(e.type==='destroy'){if(destructionBursts++<(blast?4:12))this.burst(e.x,e.z,blast?0xffae43:0xb9e9df,5,!!blast);}
+      else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);
+      else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);
+      else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);
+      else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);
+      else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);
+      else if(e.type==='brake')this.burst(e.x,e.z,0xffc260,18,true);
+      else if(e.type==='halfSpeed')this.burst(e.x,e.z,0x83ec94,24,true);
+      else if(e.type==='discard')this.burst(e.x,e.z,0x996b68,5);
+    }
+    this.previousStonePositions.clear();for(const stone of state.stones){const distance=rendered.get(stone.id)??stone.distance;if(distance>=0)this.previousStonePositions.set(stone.id,samplePath(distance));}
+    this.vfx.update(dt,this.camera,this.landscape,this.reducedMotion.matches,state.paused||state.gameOver||document.hidden);
+    this.canvas.dataset.vfxParticles=String(this.vfx.metrics().vfxParticles);
     if(this.reducedMotion.matches)for(const e of this.effects)e.active=false;
     let count=0,coinCount=0;for(const e of this.effects){if(!e.active)continue;e.age+=dt;if(e.age>=e.life){e.active=false;continue;}e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=8*dt;this.dummy.position.set(e.x,e.y,e.z);this.dummy.scale.setScalar(e.size*(1-e.age/e.life));this.dummy.rotation.set(e.coin?Math.PI/2:e.age*5,e.age*6,e.age*3);this.dummy.updateMatrix();if(e.coin)this.coins.setMatrixAt(coinCount++,this.dummy.matrix);else{this.particles.setMatrixAt(count,this.dummy.matrix);this.particles.setColorAt(count++,this.color.setHex(e.color));}}this.coins.count=coinCount;this.coins.instanceMatrix.needsUpdate=true;this.particles.count=count;this.particles.instanceMatrix.needsUpdate=true;if(this.particles.instanceColor)this.particles.instanceColor.needsUpdate=true;
     for(const r of this.ripples){if(!r.mesh.visible)continue;r.age+=dt;const t=Math.min(1,r.age/r.life);r.mesh.visible=t<1;r.mesh.scale.setScalar(this.reducedMotion.matches?1:1+t*1.3);(r.mesh.material as THREE.MeshBasicMaterial).opacity=(1-t)*.65;}
     this.renderer.render(this.scene,this.camera);
   }
-  metrics(){return{calls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,effects:this.particles.count+this.coins.count};}
+  dispose(){this.vfx.dispose();}
+  metrics(){return{...this.vfx.metrics(),calls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,effects:this.particles.count+this.coins.count};}
 }
