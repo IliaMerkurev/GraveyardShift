@@ -26,9 +26,12 @@ export function synthesizeImpact(kind: ImpactKind, sampleRate: number): Float32A
       }
     } else {
       const phase = 2 * Math.PI * (54 * t + 70 * .055 * (1 - Math.exp(-t / .055)));
-      value = .66 * Math.sin(phase) * Math.exp(-t * 10)
-        + 1.05 * low * Math.exp(-t * 7) + .62 * mid * Math.exp(-t * 16)
-        + .22 * (noise - mid) * Math.exp(-t * 95);
+      // Bass supplies weight, while the dry midrange blast survives phone speakers.
+      value = .42 * Math.sin(phase) * Math.exp(-t * 10)
+        + .8 * low * Math.exp(-t * 7)
+        + 2.6 * (mid - low) * Math.exp(-t * 15)
+        + .45 * Math.sin(2 * Math.PI * (340 * t - 350 * t * t)) * Math.exp(-t * 24)
+        + .32 * (noise - mid) * Math.exp(-t * 65);
       for (const at of [.073, .127, .219, .337]) {
         const u = t - at;
         if (u >= 0) value += .19 * mid * Math.exp(-u * 45);

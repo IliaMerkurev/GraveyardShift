@@ -1,7 +1,7 @@
 import type {MusicAudio} from '../audio/MusicAudio';
 /** External intro files stay beside the HTML; only one orientation is requested. */
 export const introSource=(width:number,height:number)=>`./media/intro-${height>width?'portrait':'landscape'}.mp4`;
-type IntroAudio={music:MusicAudio;sounds:()=>boolean};
+type IntroAudio={music:MusicAudio;sounds:()=>boolean;unlockSounds?:()=>void};
 export function showVideoIntro(parent:HTMLElement,prepared:Promise<()=>void>=Promise.resolve(()=>{}),audio?:IntroAudio):Promise<void> {
   return new Promise((resolve,reject)=>{
     const overlay=document.createElement('section');overlay.className='video-intro';overlay.setAttribute('aria-label','Game introduction');
@@ -30,6 +30,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<()=>void>=Pro
       if(finished||transitioning||document.hidden)return;
       // Do not let the music run ahead while the film is still buffering.
       if(video.readyState<3){controls.hidden=false;status.textContent='Loading intro…';play.hidden=true;return;}
+      audio?.unlockSounds?.();
       const ticket=++attempt;video.playbackRate=2;video.muted=!(audio?.sounds()??true);controls.hidden=true;
       // Both play calls happen in the same gesture, before awaiting either promise.
       void Promise.all([video.play(),audio?.music.start()??Promise.resolve()]).then(()=>{

@@ -16,10 +16,11 @@ const app=document.querySelector<HTMLElement>('#app')!;
 const shell=document.createElement('div');shell.className='game-shell';app.append(shell);
 const audioSettings=new AudioSettings();const music=new MusicAudio(soundtrack);
 audioSettings.subscribe(value=>music.setEnabled(value.music));
+// Register audio unlock before asynchronous model loading or the intro gesture.
+const sfx=createRockSnakeAudio();
+audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
 async function prepareGame(shell:HTMLElement):Promise<()=>void> {
   await loadSkeletonWorker();
-  const sfx=createRockSnakeAudio();
-  audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
   shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.35);});
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;let active=false;
   const pause=()=>{sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
@@ -55,7 +56,7 @@ async function prepareGame(shell:HTMLElement):Promise<()=>void> {
 }
 async function start(){
   const stage=document.createElement('div');stage.className='game-stage';stage.inert=true;shell.append(stage);
-  try{await showVideoIntro(shell,prepareGame(stage),{music,sounds:()=>audioSettings.value.sounds});}
+  try{await showVideoIntro(shell,prepareGame(stage),{music,sounds:()=>audioSettings.value.sounds,unlockSounds:sfx.unlock});}
   catch(error){shell.innerHTML='';const message=document.createElement('div');message.className='fatal';message.setAttribute('role','alert');message.textContent=error instanceof Error?error.message:'This browser could not initialize the playable.';shell.append(message);}
 }
 void start();
