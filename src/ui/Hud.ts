@@ -1,3 +1,5 @@
+import {attachAudioMenu} from './AudioMenu';
+import type {AudioSettings} from '../audio/AudioSettings';
 import type { GameEvent, GameState } from '../game/GameState';
 import { workerBarrelRange, workerUpgradeHasEffect, workerUpgradePrice } from '../game/commands';
 import { CONFIG } from '../game/config';
@@ -7,10 +9,10 @@ export class Hud {
   private upgrade:HTMLButtonElement;private popTimes=new WeakMap<HTMLElement,number>();
   private toastUntil=0;private goalShown=false;private ended=false;
   private onboarding=0;private guidanceCounts=new Map<string,number>();
-  constructor(private shell:HTMLElement,actions:{restart:()=>void;pause:()=>void;resume:()=>void;upgrade:()=>void;toggleSound?:()=>boolean}){
+  constructor(private shell:HTMLElement,actions:{restart:()=>void;pause:()=>void;resume:()=>void;upgrade:()=>void;toggleSound?:()=>boolean;audioSettings?:AudioSettings}){
     const ui=document.createElement('div');ui.innerHTML=`<header class="topbar"><div class="wordmark">GRAVEYARD SHIFT<small>UNDEAD MINING CO. · v0.4</small></div><div class="wallet" aria-label="Coins"><span class="coin">●</span><span data-coins>0</span></div><button class="icon-button sound-button" data-sound aria-label="Mute sound effects" aria-pressed="false" title="Mute sound effects">♪</button><button class="icon-button pause-button" data-pause aria-label="Pause game" aria-pressed="false" title="Pause game"><span aria-hidden="true">Ⅱ</span><small>Pause</small></button><button class="icon-button" aria-label="Restart" title="Restart">↻</button></header><footer class="footer"><button class="upgrade-button" data-worker-upgrade></button><span class="belt-status" hidden></span><button class="help-button" aria-label="Help">?</button></footer><div class="toast" role="status"></div><div class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title"><section class="card"><h1 id="modal-title"></h1><p></p><button data-continue>Keep mining</button><button data-restart class="secondary">Restart</button></section></div>`;
     shell.append(ui);this.coin=ui.querySelector('[data-coins]')!;this.status=ui.querySelector('.belt-status')!;this.toastElement=ui.querySelector('.toast')!;this.overlay=ui.querySelector('.overlay')!;
-    const sound=ui.querySelector<HTMLButtonElement>('[data-sound]')!;sound.addEventListener('click',()=>{const muted=actions.toggleSound?.()??false;sound.textContent=muted?'♪̸':'♪';sound.dataset.muted=String(muted);sound.setAttribute('aria-pressed',String(muted));sound.title=muted?'Unmute sound effects':'Mute sound effects';sound.setAttribute('aria-label',sound.title);});
+    const sound=ui.querySelector<HTMLButtonElement>('[data-sound]')!;if(actions.audioSettings)attachAudioMenu(sound,actions.audioSettings);else sound.addEventListener('click',()=>{const muted=actions.toggleSound?.()??false;sound.textContent=muted?'♪̸':'♪';sound.dataset.muted=String(muted);sound.setAttribute('aria-pressed',String(muted));sound.title=muted?'Unmute sound effects':'Mute sound effects';sound.setAttribute('aria-label',sound.title);});
     this.pauseButton=ui.querySelector<HTMLButtonElement>('[data-pause]')!;
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
     this.upgrade=ui.querySelector<HTMLButtonElement>('[data-worker-upgrade]')!;this.upgrade.addEventListener('click',actions.upgrade);

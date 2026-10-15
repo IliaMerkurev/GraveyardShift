@@ -11,7 +11,7 @@ for(const match of [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*><\/scri
 for(const match of [...html.matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)]){
   const css=await readFile(path.join(root,match[1]),'utf8');html=inlineStyle(html,match[0],css);
 }
-html=html.replace('<head>','<head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; media-src \'self\'; connect-src \'none\'; base-uri \'none\'; form-action \'none\'">');
+html=html.replace('<head>','<head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; media-src \'self\' data:; connect-src \'none\'; base-uri \'none\'; form-action \'none\'">');
 if(/<script\b[^>]*src=|<link\b[^>]*href="(?!data:)|sourceMappingURL|\/\@vite\/|__rocksnake/.test(html))throw new Error('Standalone output contains a dependency, dev hook, or source map');
 const embedded=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1];
 if(!embedded)throw new Error('Missing embedded module');

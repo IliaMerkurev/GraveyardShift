@@ -1,3 +1,6 @@
+import soundtrack from './assets/GraveyardShift.mp3?inline';
+import {MusicAudio} from './audio/MusicAudio';
+import {AudioSettings} from './audio/AudioSettings';
 import './style.css';
 import { showVideoIntro } from './ui/VideoIntro';
 import { loadSkeletonWorker } from './render/SkeletonWorker';
@@ -11,15 +14,18 @@ import { PlayableBridge } from './platform/PlayableBridge';
 
 const app=document.querySelector<HTMLElement>('#app')!;
 const shell=document.createElement('div');shell.className='game-shell';app.append(shell);
+const audioSettings=new AudioSettings();const music=new MusicAudio(soundtrack);
+audioSettings.subscribe(value=>music.setEnabled(value.music));
 async function prepareGame(shell:HTMLElement):Promise<()=>void> {
   await loadSkeletonWorker();
   const sfx=createRockSnakeAudio();
+  audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
   shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.35);});
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;let active=false;
   const pause=()=>{sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(!active||game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);sfx.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('purchase');hud.upgradeFeedback();}},toggleSound:()=>sfx.setMuted(!sfx.isMuted())});
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('purchase');hud.upgradeFeedback();}},audioSettings});
   const input=new PointerController(view.canvas,game,view,text=>{if(text.startsWith('Drag '))hud.guidance(text,text);else hud.message(text);},event=>sfx.play(event));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});
@@ -49,7 +55,7 @@ async function prepareGame(shell:HTMLElement):Promise<()=>void> {
 }
 async function start(){
   const stage=document.createElement('div');stage.className='game-stage';stage.inert=true;shell.append(stage);
-  try{await showVideoIntro(shell,prepareGame(stage));}
+  try{await showVideoIntro(shell,prepareGame(stage),{music,sounds:()=>audioSettings.value.sounds});}
   catch(error){shell.innerHTML='';const message=document.createElement('div');message.className='fatal';message.setAttribute('role','alert');message.textContent=error instanceof Error?error.message:'This browser could not initialize the playable.';shell.append(message);}
 }
 void start();
