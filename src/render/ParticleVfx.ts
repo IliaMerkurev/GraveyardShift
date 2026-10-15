@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { GameEvent } from '../game/GameState';
 import type { Point } from './Layout';
 
-export const VFX_LIMITS={particles:224,ambient:44,blastCenters:4} as const;
+export const VFX_LIMITS={particles:224,ambient:130,blastCenters:4} as const;
+const WHITE=new THREE.Color(0xffffff);
 /** Victim events precede their aggregate. Keep each action separate and bound all centers. */
 export function planBlasts(events:GameEvent[],previous:ReadonlyMap<string,Point>){
   const result:{point:Point;strength:number;secondary:boolean}[]=[];
@@ -22,11 +23,11 @@ export function planBlasts(events:GameEvent[],previous:ReadonlyMap<string,Point>
 }
 type Particle={active:boolean;age:number;life:number;x:number;y:number;z:number;vx:number;vy:number;vz:number;size:number;growth:number;opacity:number;rotation:number;spin:number;tile:number;color:number;glow:boolean;gravity:number;delay:number};
 const blank=():Particle=>({active:false,age:0,life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,size:0,growth:0,opacity:1,rotation:0,spin:0,tile:0,color:0xffffff,glow:false,gravity:0,delay:0});
-/** Original canvas artwork, not a copied image. Five shared atlas cells, no network assets. */
+/** Original canvas artwork, not a copied image. Six shared atlas cells, no network assets. */
 function makeAtlas(){
-  const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=256;const c=canvas.getContext('2d')!;
+  const canvas=document.createElement('canvas');canvas.width=1536;canvas.height=256;const c=canvas.getContext('2d')!;
   const disc=(x:number,y:number,r:number,color:string)=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fillStyle=color;c.fill();};
-  const gradient=c.createRadialGradient(128,128,0,128,128,124);gradient.addColorStop(0,'rgba(255,255,255,1)');gradient.addColorStop(.12,'rgba(255,255,255,.9)');gradient.addColorStop(.38,'rgba(255,255,255,.26)');gradient.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=gradient;c.fillRect(0,0,256,256);
+  const gradient=c.createRadialGradient(128,128,0,128,128,124);gradient.addColorStop(0,'rgba(255,255,255,1)');gradient.addColorStop(.2,'rgba(255,255,255,.98)');gradient.addColorStop(.42,'rgba(255,255,255,.58)');gradient.addColorStop(.72,'rgba(255,255,255,.13)');gradient.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=gradient;c.fillRect(0,0,256,256);
   c.save();c.translate(256,0);
   for(let i=0;i<9;i++){const a=i*Math.PI*2/9;disc(128+Math.cos(a)*56,128+Math.sin(a)*48,48,'#d84a12');}
   for(let i=0;i<9;i++){const a=i*Math.PI*2/9;disc(128+Math.cos(a)*54,126+Math.sin(a)*46,40,'#ffab16');}
@@ -36,6 +37,17 @@ function makeAtlas(){
   burst(1,'#951d2d');burst(.92,'#ef3e26');burst(.71,'#ff9823');burst(.46,'#ffe778');c.restore();
   c.save();c.translate(768,0);c.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?44:110,x=128+Math.cos(a)*r,y=128+Math.sin(a)*r;i?c.lineTo(x,y):c.moveTo(x,y);}c.closePath();c.fillStyle='#ffdd55';c.strokeStyle='#eb7420';c.lineWidth=17;c.lineJoin='round';c.fill();c.stroke();c.restore();
   c.save();c.translate(1152,128);c.rotate(-.12);c.font='italic 900 65px sans-serif';c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';c.strokeStyle='#ffe976';c.lineWidth=15;c.strokeText('BOOM!',0,0,221);c.strokeStyle='#65202a';c.lineWidth=7;c.strokeText('BOOM!',0,0,221);c.fillStyle='#f44329';c.fillText('BOOM!',0,0,221);c.restore();
+  // A dedicated feathered fractal cloud, not a glow disc. Deterministic and shared.
+  const cloud=c.createImageData(256,256);
+  const hash=(x:number,y:number)=>{const n=Math.sin(x*127.1+y*311.7+19.3)*43758.5453;return n-Math.floor(n);};
+  const noise=(x:number,y:number)=>{const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return THREE.MathUtils.lerp(THREE.MathUtils.lerp(hash(ix,iy),hash(ix+1,iy),u),THREE.MathUtils.lerp(hash(ix,iy+1),hash(ix+1,iy+1),u),v);};
+  for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+    const dx=(x-128)/120,dy=(y-128)/115,edge=Math.max(0,1-dx*dx-dy*dy);
+    const billow=noise(x/55,y/55)*.55+noise(x/26+7,y/26+3)*.28+noise(x/12+11,y/12+19)*.12+noise(x/5,y/5)*.05;
+    const density=Math.min(1,Math.max(0,(billow-.22)*2)),i=(y*256+x)*4;
+    cloud.data[i]=226;cloud.data[i+1]=220;cloud.data[i+2]=207;cloud.data[i+3]=Math.round(255*edge*edge*density*.92);
+  }
+  c.putImageData(cloud,1280,0);
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
 }
 /** One instanced draw call per blend mode, including ambient effects. */
@@ -48,32 +60,32 @@ class SpriteBatch{
     this.opacity=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(THREE.DynamicDrawUsage);this.tile=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(THREE.DynamicDrawUsage);this.tint=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('vfxOpacity',this.opacity);geometry.setAttribute('vfxTile',this.tile);geometry.setAttribute('vfxTint',this.tint);
     const material=new THREE.ShaderMaterial({uniforms:{atlas:{value:texture}},transparent:true,depthWrite:false,depthTest:true,blending:additive?THREE.AdditiveBlending:THREE.NormalBlending,toneMapped:false,
-      vertexShader:`attribute float vfxOpacity;attribute float vfxTile;attribute vec3 vfxTint;varying vec2 spriteUv;varying float alpha;varying vec3 tint;void main(){spriteUv=vec2((uv.x+vfxTile)/5.0,uv.y);alpha=vfxOpacity;tint=vfxTint;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}`,
+      vertexShader:`attribute float vfxOpacity;attribute float vfxTile;attribute vec3 vfxTint;varying vec2 spriteUv;varying float alpha;varying vec3 tint;void main(){spriteUv=vec2((uv.x+vfxTile)/6.0,uv.y);alpha=vfxOpacity;tint=vfxTint;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}`,
       fragmentShader:`uniform sampler2D atlas;varying vec2 spriteUv;varying float alpha;varying vec3 tint;void main(){vec4 texel=texture2D(atlas,spriteUv);gl_FragColor=vec4(texel.rgb*tint,texel.a*alpha);if(gl_FragColor.a<.002)discard;
       #include <colorspace_fragment>
       }`});
     this.mesh=new THREE.InstancedMesh(geometry,material,capacity);this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.mesh.frustumCulled=false;this.mesh.count=0;this.mesh.renderOrder=additive?7:6;
   }
-  add(camera:THREE.Camera,x:number,y:number,z:number,size:number,aspect:number,rotation:number,opacity:number,tile:number,color:number){
-    const i=this.count++;this.dummy.position.set(x,y,z);this.dummy.quaternion.copy(camera.quaternion);this.dummy.rotateZ(rotation);this.dummy.scale.set(size*aspect,size,1);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);this.opacity.setX(i,opacity);this.tile.setX(i,tile);this.color.setHex(color);this.tint.setXYZ(i,this.color.r,this.color.g,this.color.b);
+  add(camera:THREE.Camera,x:number,y:number,z:number,size:number,aspect:number,rotation:number,opacity:number,tile:number,color:number,intensity=1,whiteMix=0){
+    const i=this.count++;this.dummy.position.set(x,y,z);this.dummy.quaternion.copy(camera.quaternion);this.dummy.rotateZ(rotation);this.dummy.scale.set(size*aspect,size,1);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);this.opacity.setX(i,opacity);this.tile.setX(i,tile);this.color.setHex(color).lerp(WHITE,whiteMix).multiplyScalar(intensity);this.tint.setXYZ(i,this.color.r,this.color.g,this.color.b);
   }
   flush(){this.mesh.count=this.count;this.mesh.instanceMatrix.needsUpdate=true;this.opacity.needsUpdate=true;this.tile.needsUpdate=true;this.tint.needsUpdate=true;}
   dispose(){this.mesh.removeFromParent();this.mesh.geometry.dispose();(this.mesh.material as THREE.Material).dispose();}
 }
 
 export class ParticleVfx{
-  private atlas=makeAtlas();private normal=new SpriteBatch(this.atlas,VFX_LIMITS.particles+VFX_LIMITS.ambient,false);private glow=new SpriteBatch(this.atlas,VFX_LIMITS.particles,true);
+  private atlas=makeAtlas();private normal=new SpriteBatch(this.atlas,VFX_LIMITS.particles+VFX_LIMITS.ambient,false);private glow=new SpriteBatch(this.atlas,VFX_LIMITS.particles*2+96,true);
   private particles=Array.from({length:VFX_LIMITS.particles},blank);private cursor=0;private time=0;private disposed=false;
   constructor(scene:THREE.Scene){scene.add(this.normal.mesh,this.glow.mesh);}
   private emit(values:Partial<Particle>){if(this.disposed)return;const p=this.particles[this.cursor++%this.particles.length];Object.assign(p,blank(),values,{active:true});}
   /** Glow accompanies physical chips and coins, retaining their readable silhouettes. */
-  sparkle(x:number,z:number,color:number,count:number,large=false,coin=false){for(let i=0;i<Math.min(count,large?12:5);i++)this.emit({x,y:.32,z,life:large?.65:.45,size:coin?.23:large?.3:.19,vx:(Math.random()-.5)*(large?2.1:1.2),vy:1+Math.random(),vz:(Math.random()-.5)*(large?2.1:1.2),gravity:4,color,glow:true,opacity:.7});}
+  sparkle(x:number,z:number,color:number,count:number,large=false,coin=false){for(let i=0;i<Math.min(count,large?12:5);i++)this.emit({x,y:.32,z,life:large?.65:.45,size:coin?.65:large?.85:.55,vx:(Math.random()-.5)*(large?2.1:1.2),vy:1+Math.random(),vz:(Math.random()-.5)*(large?2.1:1.2),gravity:4,color,glow:true,opacity:.92});}
   explosion(x:number,z:number,strength=1,secondary=false){
-    const s=Math.max(.65,Math.min(1.35,strength));
+    const s=Math.max(.65,Math.min(1.35,strength))*1.5;
     this.emit({x,y:.5,z,life:.55,size:1.85*s,growth:.45,tile:2,opacity:.96,rotation:(Math.random()-.5)*.3});
     this.emit({x,y:.6,z:z+.02,life:.2,size:.9*s,growth:.7,color:0xffd754,glow:true,opacity:.7});
     const n=secondary?4:7;for(let i=0;i<n;i++){const a=i/n*Math.PI*2;this.emit({x:x+Math.cos(a)*.16,y:.5+Math.sin(a)*.1,z,life:.62+Math.random()*.12,delay:.025+Math.random()*.04,size:.55*s,growth:.55,tile:1,vx:Math.cos(a)*.7*s,vy:.4+Math.sin(a)*.35,vz:Math.sin(a)*.55*s,rotation:a*.2,spin:(i%2?1:-1)*.2});}
-    for(let i=0;i<(secondary?4:7);i++){const a=i/7*Math.PI*2;this.emit({x,y:.7,z,life:.58+Math.random()*.18,size:.18+Math.random()*.09,tile:3,vx:Math.cos(a)*2.1*s,vy:1.2+Math.random(),vz:Math.sin(a)*1.7*s,gravity:3,spin:(i%2?1:-1)*3,rotation:a});}
+    for(let i=0;i<(secondary?4:7);i++){const a=i/7*Math.PI*2;this.emit({x,y:.7,z,life:.58+Math.random()*.18,size:(.18+Math.random()*.09)*1.5,tile:3,vx:Math.cos(a)*2.1*s,vy:1.2+Math.random(),vz:Math.sin(a)*1.7*s,gravity:3,spin:(i%2?1:-1)*3,rotation:a});}
     if(!secondary)this.emit({x,y:.95,z:z+.22,life:.53,delay:.045,size:1.45*s,growth:.1,tile:4});
     this.sparkle(x,z,0xffb93f,secondary?5:10,true);
   }
@@ -81,11 +93,31 @@ export class ParticleVfx{
   update(dt:number,camera:THREE.Camera,landscape:boolean,reducedMotion:boolean,paused:boolean){
     if(this.disposed)return;const step=paused?0:Math.min(.1,Math.max(0,dt));this.time+=reducedMotion?0:step;this.normal.count=0;this.glow.count=0;
     if(reducedMotion)for(const p of this.particles)p.active=false;
-    // Low, feathered, perimeter-only mist. Never a full-field fog overlay.
+    // Layered warm-grey clouds at the perimeter and near edge; faint broken floor wisps.
+    // Dust is distributed through the room, not hidden outside the camera's playable bounds.
     const halfWidth=landscape?8.1:3.65,back=landscape?-3.9:-7.9,depth=landscape?11.4:16.2;
-    for(let i=0;i<12;i++){const side=i%2?1:-1,phase=i*2.399;this.normal.add(camera,side*(halfWidth-.08)+Math.sin(this.time*.12+phase)*.1,.13,back+(i/12)*depth,.8,2.1,0,.055,0,0x9ab8ad);}
-    if(!reducedMotion)for(let i=0;i<32;i++){const phase=i*2.399,t=this.time*.14+phase,x=(i%2?1:-1)*(halfWidth-.3-Math.sin(phase)*.24)+Math.sin(t)*.12,z=back+((i*.61803398875)%1)*depth+Math.sin(t*.7)*.12;this.normal.add(camera,x,.4+((i*.381966)%1)*1.5+Math.sin(t)*.16,z,.045+(i%3)*.012,1,0,.15+.08*Math.sin(t),0,0xffe5b0);}
-    for(const p of this.particles){if(!p.active)continue;p.age+=step;if(p.age>=p.life+p.delay){p.active=false;continue;}if(p.age<p.delay)continue;p.x+=p.vx*step;p.y+=p.vy*step;p.z+=p.vz*step;p.vy-=p.gravity*step;const t=(p.age-p.delay)/p.life,fade=1-t*t,size=p.size*(p.growth?(.65+Math.min(1,t*5)*.35+p.growth*t):1-t*.65);if(p.glow)this.glow.add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,fade*p.opacity,p.tile,p.color);}
+    for(let i=0;i<16;i++){
+      const side=i%2?1:-1,phase=i*2.399,z=back+((Math.floor(i/2)+.35)/8)*depth;
+      this.normal.add(camera,side*(halfWidth-.4)+Math.sin(this.time*.1+phase)*.2,.38,z+Math.cos(this.time*.08+phase)*.17,1.9,1.9,Math.sin(phase)*.5,.38,5,i%3?0xc4c5bc:0xe6c99e);
+    }
+    for(let i=0;i<8;i++)this.normal.add(camera,((i+.5)/8*2-1)*halfWidth,.25,back+depth-.2+Math.sin(this.time*.1+i)*.12,1.5,2.2,Math.sin(i*2.4)*.25,.34,5,0xd0c5af);
+    for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*halfWidth,.2,back+.4,1.3,2.8,0,.19,5,0xd8c29d);
+    for(let i=0;i<6;i++){
+      const phase=i*2.399,x=Math.sin(phase)*halfWidth*.6+Math.sin(this.time*.06+phase)*.25,z=back+(.2+i*.11)*depth;
+      this.normal.add(camera,x,.13,z,1.2,2.6,phase,.075,5,0xb9bdb2);
+    }
+    if(!reducedMotion)for(let i=0;i<48;i++){
+      const phase=i*2.399,t=this.time*.14+phase,x=(((i*.754877666)%1)*2-1)*halfWidth*.94+Math.sin(t)*.14;
+      const z=back+((i*.61803398875)%1)*depth+Math.sin(t*.7)*.18,y=.65+((i*.381966)%1)*1.5+Math.sin(t)*.2,alpha=.6+.12*Math.sin(t);
+      this.glow.add(camera,x,y,z,.34+(i%3)*.04,1,0,alpha*.32,0,0xffdb96,1.2);
+      this.glow.add(camera,x,y,z,.11+(i%3)*.025,1,0,alpha,0,0xffe7b6,1.7,.4);
+    }
+    for(const p of this.particles){if(!p.active)continue;p.age+=step;if(p.age>=p.life+p.delay){p.active=false;continue;}if(p.age<p.delay)continue;p.x+=p.vx*step;p.y+=p.vy*step;p.z+=p.vz*step;p.vy-=p.gravity*step;const t=(p.age-p.delay)/p.life,fade=1-t*t,size=p.size*(p.growth?(.65+Math.min(1,t*5)*.35+p.growth*t):1-t*.65);if(p.glow){
+      // Two co-moving sprites make the bloom legible even on a small viewport.
+      // Both stay in the same bounded additive batch; no extra lights or postprocessing.
+      this.glow.add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,fade*p.opacity,p.tile,p.color,1.35);
+      this.glow.add(camera,p.x,p.y,p.z,size*.3,1,p.rotation+p.spin*t,fade*Math.min(1,p.opacity+.1),p.tile,p.color,2,.6);
+    }}
     // Stable painter order survives ring-buffer wrap: ink burst, puffs, stars, then lettering.
     for(const tile of [0,2,1,3,4])for(const p of this.particles){
       if(!p.active||p.glow||p.tile!==tile||p.age<p.delay)continue;
