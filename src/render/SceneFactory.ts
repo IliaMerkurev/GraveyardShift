@@ -7,7 +7,8 @@ import type { GameState, DropTarget, GameEvent, Entity } from '../game/GameState
 import { CONFIG } from '../game/config';
 import { effectiveForwardSpeed, recoilDistances } from '../game/motion';
 import { samplePath, PATH_LENGTH } from '../game/path';
-import { createWorker, createBarrel, createBomb, createRewind, createSlow, createBrake, createHalfSpeed, createTailBlast, disposePrimitive, makeWallGeometry, type WorkerVisual } from './PrimitiveFactory';
+import { createBarrel, createBomb, createRewind, createSlow, createBrake, createHalfSpeed, createTailBlast, disposePrimitive, makeWallGeometry } from './PrimitiveFactory';
+import { createWorker, disposeSkeletonWorkerAsset, type WorkerVisual } from './SkeletonWorker';
 import { viewConfig, mapPosition, unmapFieldPosition, placeZone, LANDSCAPE_LAYOUT, type ViewZone, type Point, type ScreenPoint } from './Layout';
 
 export type HitTarget = {kind:'entity'|'pad'|'slot'|'storage';id:string};
@@ -228,7 +229,8 @@ export class SceneView {
     }
     return targets;
   }
-  reset(){this.vfx.reset();this.stoneDebris.reset();this.previousStonePositions.clear();this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
+  private clearWorkers(){for(const [id,view] of this.entities)if(view.worker){view.worker.dispose();view.label.remove();view.hit.remove();this.entities.delete(id);}}
+  reset(){this.clearWorkers();this.vfx.reset();this.stoneDebris.reset();this.previousStonePositions.clear();this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
   sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.tactile.tick(dt);
     for(const e of events){
       if((e.type==='open'||e.type==='merge')&&e.entityId)this.tactile.trigger(e.entityId,e.type);
@@ -290,12 +292,11 @@ export class SceneView {
       if(mergeTarget)v.hit.dataset.mergeTarget='true';else delete v.hit.dataset.mergeTarget;
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
       const loc=entity.location.kind==='drag'?dragPosition:this.location(entity.id);if(!loc){v.group.visible=false;v.label.hidden=true;v.hit.hidden=true;continue;}v.group.visible=true;const covered=entity.location.kind==='slot'&&!conveyorSlotExposed(loc.x);v.label.hidden=covered;v.hit.hidden=covered;const mapped=this.mapped(loc,entity.location.kind==='slot');v.group.position.set(mapped.x,entity.location.kind==='slot'?.14:entity.location.kind==='drag'?.45:entity.location.kind==='storage'?.26:.1,mapped.z);
-      if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.location.kind==='pad'?entity.mining.phase:0);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
+      if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.mining.phase,entity.location.kind==='pad'&&(entity.mining.phase>0||entity.mining.targetId!==null),dt,this.reducedMotion.matches);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
       else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=bonus?.label??'';
       const pose=this.tactile.pose(entity.id,this.reducedMotion.matches),held=entity.location.kind==='drag',pressed=this.pressed?.id===entity.id&&!held;
       const holdScale=held?1.09:1;v.group.scale.set(pose.x*holdScale,pose.y*holdScale*(pressed&&!this.reducedMotion.matches?.94:1),pose.x*holdScale);
       v.group.position.y+=pose.lift;v.group.rotation.z=pose.tilt;
-      if(v.worker&&this.tactile.kind(entity.id)==='merge'&&!this.reducedMotion.matches)v.worker.arm.rotation.x-=pose.lift*5;
       v.hit.dataset.feedback=this.tactile.kind(entity.id)??(held?'held':'');
       const h=this.project(loc,entity.kind==='worker'?.4:entity.location.kind==='storage'?.39:.27,entity.location.kind==='slot');v.hit.style.left=`${h.x}px`;v.hit.style.top=`${h.y}px`;const p=this.project(loc,entity.kind==='worker'?1.27:entity.kind==='barrel'?.80:entity.location.kind==='storage'?1.02:.9,entity.location.kind==='slot');v.label.style.left=`${p.x}px`;v.label.style.top=`${p.y}px`;
     }
@@ -355,6 +356,6 @@ export class SceneView {
     for(const r of this.ripples){if(!r.mesh.visible)continue;r.age+=dt;const t=Math.min(1,r.age/r.life);r.mesh.visible=t<1;r.mesh.scale.setScalar(this.reducedMotion.matches?1:1+t*1.3);(r.mesh.material as THREE.MeshBasicMaterial).opacity=(1-t)*.65;}
     this.renderer.render(this.scene,this.camera);
   }
-  dispose(){this.vfx.dispose();this.stoneDebris.dispose();}
+  dispose(){this.clearWorkers();disposeSkeletonWorkerAsset();this.vfx.dispose();this.stoneDebris.dispose();}
   metrics(){return{...this.vfx.metrics(),...this.stoneDebris.metrics(),calls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,effects:this.particles.count+this.coins.count};}
 }

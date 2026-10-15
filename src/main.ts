@@ -1,4 +1,5 @@
 import './style.css';
+import { loadSkeletonWorker } from './render/SkeletonWorker';
 import { createRockSnakeAudio } from './audio/OrganicAudio';
 import { soundForEvents } from './audio/eventSounds';
 import { Game } from './game/Simulation';
@@ -9,7 +10,9 @@ import { PlayableBridge } from './platform/PlayableBridge';
 
 const app=document.querySelector<HTMLElement>('#app')!;
 const shell=document.createElement('div');shell.className='game-shell';app.append(shell);
+async function start() {
 try {
+  await loadSkeletonWorker();
   const sfx=createRockSnakeAudio();
   shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.35);});
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;
@@ -43,3 +46,6 @@ try {
     Object.defineProperty(window,'__rocksnake',{value:Object.freeze(api),writable:false});
   }
 } catch(error){shell.innerHTML='';const message=document.createElement('div');message.className='fatal';message.setAttribute('role','alert');message.textContent=error instanceof Error?error.message:'This browser could not initialize the playable.';shell.append(message);}
+
+}
+void start();
