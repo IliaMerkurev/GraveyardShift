@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { GameEvent } from '../game/GameState';
 import type { Point } from './Layout';
 
-export const VFX_LIMITS={particles:224,ambient:130,blastCenters:4} as const;
+export const VFX_LIMITS={particles:224,ambient:130,blastCenters:4,wordMarks:16} as const;
 const WHITE=new THREE.Color(0xffffff);
 /** Victim events precede their aggregate. Keep each action separate and bound all centers. */
 export function planBlasts(events:GameEvent[],previous:ReadonlyMap<string,Point>){
@@ -50,7 +50,7 @@ function makeAtlas(){
   c.putImageData(cloud,1280,0);
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
 }
-/** One instanced draw call per blend mode, including ambient effects. */
+/** Shared instanced sprite renderer; lettering uses a final normal-blend pass. */
 class SpriteBatch{
   readonly mesh:THREE.InstancedMesh;count=0;
   private opacity:THREE.InstancedBufferAttribute;private tile:THREE.InstancedBufferAttribute;private tint:THREE.InstancedBufferAttribute;
@@ -75,8 +75,9 @@ class SpriteBatch{
 
 export class ParticleVfx{
   private atlas=makeAtlas();private normal=new SpriteBatch(this.atlas,VFX_LIMITS.particles+VFX_LIMITS.ambient,false);private glow=new SpriteBatch(this.atlas,VFX_LIMITS.particles*2+96,true);
+  private words=new SpriteBatch(this.atlas,VFX_LIMITS.wordMarks,false);
   private particles=Array.from({length:VFX_LIMITS.particles},blank);private cursor=0;private time=0;private disposed=false;
-  constructor(scene:THREE.Scene){scene.add(this.normal.mesh,this.glow.mesh);}
+  constructor(scene:THREE.Scene){this.words.mesh.renderOrder=8;scene.add(this.normal.mesh,this.glow.mesh,this.words.mesh);}
   private emit(values:Partial<Particle>){if(this.disposed)return;const p=this.particles[this.cursor++%this.particles.length];Object.assign(p,blank(),values,{active:true});}
   /** Glow accompanies physical chips and coins, retaining their readable silhouettes. */
   sparkle(x:number,z:number,color:number,count:number,large=false,coin=false){for(let i=0;i<Math.min(count,large?12:5);i++)this.emit({x,y:.32,z,life:large?.65:.45,size:coin?.65:large?.85:.55,vx:(Math.random()-.5)*(large?2.1:1.2),vy:1+Math.random(),vz:(Math.random()-.5)*(large?2.1:1.2),gravity:4,color,glow:true,opacity:.92});}
@@ -89,9 +90,9 @@ export class ParticleVfx{
     if(!secondary)this.emit({x,y:.95,z:z+.22,life:.53,delay:.045,size:1.45*s,growth:.1,tile:4});
     this.sparkle(x,z,0xffb93f,secondary?5:10,true);
   }
-  reset(){for(const p of this.particles)p.active=false;this.cursor=0;this.time=0;this.normal.count=0;this.glow.count=0;this.normal.flush();this.glow.flush();}
+  reset(){for(const p of this.particles)p.active=false;this.cursor=0;this.time=0;this.normal.count=0;this.glow.count=0;this.words.count=0;this.normal.flush();this.glow.flush();this.words.flush();}
   update(dt:number,camera:THREE.Camera,landscape:boolean,reducedMotion:boolean,paused:boolean){
-    if(this.disposed)return;const step=paused?0:Math.min(.1,Math.max(0,dt));this.time+=reducedMotion?0:step;this.normal.count=0;this.glow.count=0;
+    if(this.disposed)return;const step=paused?0:Math.min(.1,Math.max(0,dt));this.time+=reducedMotion?0:step;this.normal.count=0;this.glow.count=0;this.words.count=0;
     if(reducedMotion)for(const p of this.particles)p.active=false;
     // Layered warm-grey clouds at the perimeter and near edge; faint broken floor wisps.
     // Dust is distributed through the room, not hidden outside the camera's playable bounds.
@@ -118,14 +119,16 @@ export class ParticleVfx{
       this.glow.add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,fade*p.opacity,p.tile,p.color,1.35);
       this.glow.add(camera,p.x,p.y,p.z,size*.3,1,p.rotation+p.spin*t,fade*Math.min(1,p.opacity+.1),p.tile,p.color,2,.6);
     }}
-    // Stable painter order survives ring-buffer wrap: ink burst, puffs, stars, then lettering.
+    // Stable painter order survives ring-buffer wrap. Lettering draws AFTER the additive
+    // core/halo batch so bright glow cannot wash out its ink and red fill.
     for(const tile of [0,2,1,3,4])for(const p of this.particles){
       if(!p.active||p.glow||p.tile!==tile||p.age<p.delay)continue;
       const t=(p.age-p.delay)/p.life,size=p.size*(p.growth?(.65+Math.min(1,t*5)*.35+p.growth*t):1-t*.65);
-      this.normal.add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,(1-t*t)*p.opacity,p.tile,p.color);
+      if(tile===4&&this.words.count>=VFX_LIMITS.wordMarks)continue;
+      (tile===4?this.words:this.normal).add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,(1-t*t)*p.opacity,p.tile,p.color);
     }
-    this.normal.flush();this.glow.flush();
+    this.normal.flush();this.glow.flush();this.words.flush();
   }
-  metrics(){return{vfxParticles:this.particles.filter(p=>p.active).length,vfxSprites:this.normal.mesh.count+this.glow.mesh.count};}
-  dispose(){if(this.disposed)return;this.reset();this.normal.dispose();this.glow.dispose();this.atlas.dispose();this.disposed=true;}
+  metrics(){return{vfxParticles:this.particles.filter(p=>p.active).length,vfxSprites:this.normal.mesh.count+this.glow.mesh.count+this.words.mesh.count};}
+  dispose(){if(this.disposed)return;this.reset();this.normal.dispose();this.glow.dispose();this.words.dispose();this.atlas.dispose();this.disposed=true;}
 }
