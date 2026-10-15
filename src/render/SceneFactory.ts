@@ -43,10 +43,7 @@ export class SceneView {
     this.renderer.setClearColor(0x171c1c);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
     this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;shell.append(this.canvas);
     this.labels=document.createElement('div');this.labels.className='labels';shell.append(this.labels);
-    // Lift textured masonry in linear light; retain a warm key and readable cool shadow faces.
-    this.scene.add(new THREE.HemisphereLight(0xcbd8dc,0x59483b,2.6));const key=new THREE.DirectionalLight(0xffdbb4,5.8);key.position.set(-5,12,6);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-11;key.shadow.camera.right=11;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=.5;key.shadow.camera.far=35;key.shadow.normalBias=.025;key.shadow.bias=-.0002;key.shadow.radius=2;this.scene.add(key);
-    // Broad camera-side bounce exposes ore facets without adding another shadow map.
-    const fill=new THREE.DirectionalLight(0xb8cbdc,1.4);fill.position.set(6,7,10);this.scene.add(fill);
+    this.scene.add(new THREE.HemisphereLight(0xa9c9c1,0x21170e,.9));const key=new THREE.DirectionalLight(0xffc891,2.2);key.position.set(-5,12,6);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-11;key.shadow.camera.right=11;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=.5;key.shadow.camera.far=35;key.shadow.normalBias=.025;key.shadow.bias=-.0002;key.shadow.radius=2;this.scene.add(key);
     this.scene.add(this.field,this.belt);
     this.rooms=[createDungeonRoom({width:7.8,depth:17.424,centerZ:.4,backZ:-8.312}),createDungeonRoom({width:17.004,depth:12.276,centerZ:1.8,backZ:-4.338})];
     // Local amber pools and cold green niches complement one bounded directional shadow map.
