@@ -134,13 +134,13 @@ export class ParticleVfx{
         this.normal.add(camera,x,.13,z,1.2,2.6,phase,.075,5,0xb9bdb2);
       }
     }else{
-      // The wide landscape billboards overlapped into bright horizontal bands in
-      // portrait. Keep narrower, dimmer wisps outside the track and stop before
-      // the storage/conveyor; no foreground curtain or clouds across the floor.
-      for(let i=0;i<12;i++){
+      // Tall overlapping wisps form a continuous soft border in portrait.
+      // Their narrow horizontal footprint stays outside the playable track;
+      // never restore the old floor-wide or foreground cloud curtain.
+      for(let i=0;i<40;i++){
         const side=i%2?1:-1,phase=i*2.399;
-        const z=-6.6+Math.floor(i/2)*2.25+Math.sin(phase)*.38;
-        this.normal.add(camera,side*(3.95+Math.sin(this.time*.07+phase)*.1),.32,z+Math.cos(this.time*.06+phase)*.12,1.65,1,Math.sin(phase)*.12,.21,5,0xb9bdb2);
+        const z=-7.4+Math.floor(i/2)*.8+Math.sin(phase)*.06;
+        this.normal.add(camera,side*(4.2+Math.sin(this.time*.07+phase)*.06),.4,z+Math.cos(this.time*.06+phase)*.05,3.3,.65,Math.sin(phase)*.035,.28,5,0xb9bdb2);
       }
       for(let i=0;i<4;i++)this.normal.add(camera,((i+.5)/4*2-1)*3.4,.2,-7.5,1,1.7,0,.12,5,0xc4c5bc);
     }
