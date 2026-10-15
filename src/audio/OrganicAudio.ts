@@ -1,3 +1,4 @@
+import {synthesizeImpact, type ImpactKind} from './ImpactSound';
 /* Original procedural tactile SFX. No samples, AI model, voice or music.
  * const sfx = createRockSnakeAudio(); sfx.play('pickup');
  * sfx.setMuted(true); sfx.isMuted(); sfx.destroy();
@@ -9,7 +10,7 @@ export function createRockSnakeAudio() {
   const active = new Set<AudioScheduledSourceNode>();
   let pending: {event: string; intensity: number; at: number} | null = null;
   const last: Record<string, number> = Object.create(null), voices: number[] = [], buffers = new Map<string, AudioBuffer>();
-  const gaps: Record<string, number> = {pickup:.065,drop:.10,merge:.12,purchase:.16,hit:.085,break:.10,bonus:.20};
+  const gaps: Record<string, number> = {pickup:.065,drop:.10,merge:.12,purchase:.16,hit:.12,break:.14,bonus:.20,explosion:.18,open:.10,ui:.07,defeat:1};
   const listeners = ['pointerdown','keydown','touchstart'];
   function prune(t: number) { while (voices.length && voices[0] <= t) voices.shift(); }
   function gated() { return muted || paused || background || document.hidden || dead; }
@@ -89,14 +90,27 @@ export function createRockSnakeAudio() {
     source.onended=()=>{active.delete(source);source.disconnect();filter.disconnect();g.disconnect();};
     source.start(t,Math.random()*.5);source.stop(t+d+.006);
   }
+  function impact(kind: ImpactKind,t: number,a: number,p: number) {
+    if(!ctx||!master)return;
+    if(!buffers.has(kind)) {
+      const samples=synthesizeImpact(kind,ctx.sampleRate),b=ctx.createBuffer(1,samples.length,ctx.sampleRate);
+      b.getChannelData(0).set(samples);buffers.set(kind,b);
+    }
+    const source=ctx.createBufferSource(),g=ctx.createGain();source.buffer=buffers.get(kind)!;
+    source.playbackRate.value=p;g.gain.value=a;source.connect(g);g.connect(master);active.add(source);
+    source.onended=()=>{active.delete(source);source.disconnect();g.disconnect();};source.start(t);
+  }
   function play(event: string,intensity=1): boolean {
-    const aliases: Record<string,string>={open:"purchase",reject:"bump",ui:"hit",bump:"drop"};
+    const aliases: Record<string,string>={reject:"bump",bump:"drop"};
     event=aliases[event]||event; if(event==="bump")event="drop";
     // Only the trusted first gesture unlocks audio; events before it stay silent.
     if(gated()||!ctx||!(event in gaps)) return false;
     if(ctx.state!=='running'){pending={event,intensity,at:performance.now()};unlock();return false;}
     const t=ctx.currentTime;prune(t);
-    if(voices.length>=4 || t-lastAny<.025 || t-(last[event]??-10)<gaps[event])return false;
+    if(t-(last[event]??-10)<gaps[event])return false;
+    const important=['explosion','defeat','merge','purchase','bonus'].includes(event);
+    if(event==='defeat'||(important&&voices.length>=4))silence();
+    if(voices.length>=4 || (!important&&t-lastAny<.025))return false;
     last[event]=lastAny=t;
     const p=.94+Math.random()*.12, a=.55+.45*Math.max(0,Math.min(1,Number(intensity)||0));
     let duration=.22;
@@ -106,8 +120,12 @@ export function createRockSnakeAudio() {
         case 'drop':tone(t,170*p,115*p,.12,.65*a);tone(t,430*p,400*p,.055,.18*a);air(t,.045,.25*a,900);break;
         case 'merge':tone(t,390*p,115*p,.20,.57*a);tone(t+.055,510*p,220*p,.13,.34*a);air(t,.085,.12*a,1100);duration=.28;break;
         case 'purchase':air(t,.14,.22*a,1700,.7,.025);tone(t+.07,570*p,300*p,.13,.49*a);duration=.25;break;
-        case 'hit':tone(t,820*p,690*p,.043,.27*a);tone(t,1260*p,1190*p,.024,.11*a);air(t,.027,.24*a,2300);duration=.085;break;
-        case 'break':tone(t,260*p,170*p,.105,.48*a);air(t,.07,.32*a,1200);tone(t+.045,390*p,250*p,.07,.20*a);duration=.18;break;
+        case 'hit':impact('hit',t,.85*a,p);duration=.14;break;
+        case 'break':impact('break',t,1.1*a,p);duration=.38;break;
+        case 'explosion':impact('explosion',t,1.65*a,p);duration=.8;break;
+        case 'open':tone(t,290*p,105*p,.09,.65*a);air(t,.055,.35*a,850);tone(t+.045,510*p,185*p,.08,.3*a);duration=.16;break;
+        case 'ui':tone(t,650*p,480*p,.035,.17*a);duration=.05;break;
+        case 'defeat':tone(t,240,120,.22,.5*a);tone(t+.15,165,65,.28,.45*a);air(t,.37,.12*a,650);duration=.48;break;
         case 'bonus':air(t,.20,.25*a,1300,.5,.035);tone(t+.06,680*p,210*p,.17,.53*a);tone(t+.16,440*p,160*p,.12,.25*a);duration=.34;break;
       }
       voices.push(t+duration);voices.sort((a,b)=>a-b);return true;
