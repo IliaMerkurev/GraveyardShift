@@ -202,7 +202,7 @@ export class SceneView {
       if(events.some(event=>event.type==='bomb'||event.type==='tailBlast'))this.shakeRemaining=.28;
       if(this.shakeRemaining>0){
         this.shakeRemaining=Math.max(0,this.shakeRemaining-dt);
-        const elapsed=.28-this.shakeRemaining,strength=.13*(this.shakeRemaining/.28)**2;
+        const elapsed=.28-this.shakeRemaining,strength=.169*(this.shakeRemaining/.28)**2;
         this.camera.position.x+=Math.sin(elapsed*113)*strength;
         this.camera.position.y+=Math.sin(elapsed*157+.8)*strength*.65;
       }

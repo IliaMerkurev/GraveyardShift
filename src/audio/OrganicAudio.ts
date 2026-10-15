@@ -122,7 +122,7 @@ export function createRockSnakeAudio() {
         case 'purchase':air(t,.14,.22*a,1700,.7,.025);tone(t+.07,570*p,300*p,.13,.49*a);duration=.25;break;
         case 'hit':impact('hit',t,.85*a,p);duration=.14;break;
         case 'break':impact('break',t,1.1*a,p);duration=.38;break;
-        case 'explosion':impact('explosion',t,1.65*a,p);duration=.8;break;
+        case 'explosion':impact('explosion',t,2.33*a,p);duration=.8;break;
         case 'open':tone(t,290*p,105*p,.09,.65*a);air(t,.055,.35*a,850);tone(t+.045,510*p,185*p,.08,.3*a);duration=.16;break;
         case 'ui':tone(t,650*p,480*p,.035,.17*a);duration=.05;break;
         case 'defeat':tone(t,240,120,.22,.5*a);tone(t+.15,165,65,.28,.45*a);air(t,.37,.12*a,650);duration=.48;break;
