@@ -85,3 +85,12 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 .game-shell .toast{background:#1c2722f2;color:#f2e8cf}.overlay{background:#0b1210c9}.card{background:linear-gradient(135deg,#343b32,#202a24);color:#e9e4d3;border:1px solid #8a7653;box-shadow:0 15px 70px #020805cc;border-radius:15px}.card h1{font-family:Georgia,'Times New Roman',serif;color:#f1dfb5}.card button{background:#527459;color:#fff8e3}.card button.secondary{background:#5d5947;color:#f4e8c8}.sound-button[data-muted="true"]{color:#a7a58e;background:#1b221e}.discard-label{background:transparent;border:0;color:#efbd78;box-shadow:none}
 @media(min-aspect-ratio:1/1){.wordmark{font-size:18px}}
 @media(max-width:380px){.wordmark{font-size:11px;letter-spacing:0}.wordmark small{font-size:7px;letter-spacing:.4px}}
+
+/* Full-game pause is separate from the purple snake-only bonus. */
+.topbar .icon-button{flex-shrink:0}
+.topbar .pause-button{width:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1}
+.pause-button span{font-size:18px;font-weight:900}.pause-button small{font-size:9px;font-weight:800}
+.pause-button[aria-pressed="true"]{background:#527459;border-color:#d5e7ab;color:#fff8e3}
+.pause-button:disabled{opacity:.55;cursor:default}
+@media(max-width:480px){.topbar{left:12px;right:12px;gap:5px}.wordmark{min-width:0;font-size:11px;letter-spacing:0}.wordmark small{font-size:7px;letter-spacing:.1px}.topbar .wallet{min-width:65px;padding:8px 6px;font-size:19px;gap:4px}.topbar .coin{width:21px;height:21px;font-size:10px}}
+@media(min-aspect-ratio:1/1){.game-shell .toast,.game-shell .footer .belt-status{left:240px;right:270px}}

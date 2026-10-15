@@ -98,7 +98,7 @@ export class ParticleVfx{
     // Mining gets 6–8 readable streaks. Coin accents stay fewer and smaller.
     for(let i=0;i<Math.min(reward?count:count*2,reward?4:8);i++){
       const angle=Math.random()*Math.PI*2,speed=reward?.8+Math.random()*.8:1.1+Math.random();
-      this.emit({x,y:.34,z,life:reward?.17+Math.random()*.1:.26+Math.random()*.14,size:reward?.12+Math.random()*.08:.25+Math.random()*.15,rotation:angle,vx:Math.cos(angle)*speed,vy:.6+Math.random()*.6,vz:Math.sin(angle)*speed,gravity:3,color:i%2?0xffd16b:0xffa943,glow:true,spark:true,opacity:reward?.78:.9});
+      this.emit({x,y:.34,z,life:reward?.17+Math.random()*.1:.26+Math.random()*.14,size:reward?.12+Math.random()*.08:(.25+Math.random()*.15)*1.35,rotation:angle,vx:Math.cos(angle)*speed,vy:.6+Math.random()*.6,vz:Math.sin(angle)*speed,gravity:3,color:i%2?0xffd16b:0xffa943,glow:true,spark:true,opacity:reward?.78:.9});
     }
   }
   /** Bonus glow stays rich; mining rewards use small sparks rather than stacked white halos. */
