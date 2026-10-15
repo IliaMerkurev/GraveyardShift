@@ -336,7 +336,7 @@ export class SceneView {
       if(state.paused||state.gameOver||document.hidden)break;
       if(e.type==='coins'){if(coinBursts++<(blast?4:12))this.burst(e.x,e.z,0xffd26a,4,false,true);}
       // Destruction uses material-colored solid rubble; coins and hit feedback stay separate.
-      else if(e.type==='hit')this.burst(e.x,e.z,0xb9e9df,3);
+      else if(e.type==='hit'&&!this.reducedMotion.matches){const p=this.mapped(e,false,'field');this.vfx.oreSparks(p.x,p.z,3);}
       else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);
       else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);
       else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);

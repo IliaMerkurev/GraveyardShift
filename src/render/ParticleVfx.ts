@@ -21,8 +21,8 @@ export function planBlasts(events:GameEvent[],previous:ReadonlyMap<string,Point>
   for(const point of extras){if(result.length>=VFX_LIMITS.blastCenters)break;result.push({point,strength:.7,secondary:true});}
   return result;
 }
-type Particle={active:boolean;age:number;life:number;x:number;y:number;z:number;vx:number;vy:number;vz:number;size:number;growth:number;opacity:number;rotation:number;spin:number;tile:number;color:number;glow:boolean;gravity:number;delay:number};
-const blank=():Particle=>({active:false,age:0,life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,size:0,growth:0,opacity:1,rotation:0,spin:0,tile:0,color:0xffffff,glow:false,gravity:0,delay:0});
+type Particle={active:boolean;age:number;life:number;x:number;y:number;z:number;vx:number;vy:number;vz:number;size:number;growth:number;opacity:number;rotation:number;spin:number;tile:number;color:number;glow:boolean;spark:boolean;gravity:number;delay:number};
+const blank=():Particle=>({active:false,age:0,life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,size:0,growth:0,opacity:1,rotation:0,spin:0,tile:0,color:0xffffff,glow:false,spark:false,gravity:0,delay:0});
 /** Original canvas artwork, not a copied image. Six shared atlas cells, no network assets. */
 function makeAtlas(){
   const canvas=document.createElement('canvas');canvas.width=1536;canvas.height=256;const c=canvas.getContext('2d')!;
@@ -93,8 +93,18 @@ export class ParticleVfx{
   private particles=Array.from({length:VFX_LIMITS.particles},blank);private cursor=0;private time=0;private disposed=false;
   constructor(scene:THREE.Scene){this.words.mesh.renderOrder=8;scene.add(this.normal.mesh,this.glow.mesh,this.words.mesh);}
   private emit(values:Partial<Particle>){if(this.disposed)return;const p=this.particles[this.cursor++%this.particles.length];Object.assign(p,blank(),values,{active:true});}
-  /** Glow accompanies physical chips and coins, retaining their readable silhouettes. */
-  sparkle(x:number,z:number,color:number,count:number,large=false,coin=false){for(let i=0;i<Math.min(count,large?12:5);i++)this.emit({x,y:.32,z,life:large?.65:.45,size:coin?.65:large?.85:.55,vx:(Math.random()-.5)*(large?2.1:1.2),vy:1+Math.random(),vz:(Math.random()-.5)*(large?2.1:1.2),gravity:4,color,glow:true,opacity:.92});}
+  /** Short thin warm sparks keep rock silhouettes and physical coin rewards readable. */
+  oreSparks(x:number,z:number,count=3){
+    for(let i=0;i<Math.min(count,5);i++){
+      const angle=Math.random()*Math.PI*2,speed=.8+Math.random()*.8;
+      this.emit({x,y:.34,z,life:.17+Math.random()*.1,size:.12+Math.random()*.08,rotation:angle,vx:Math.cos(angle)*speed,vy:.6+Math.random()*.6,vz:Math.sin(angle)*speed,gravity:3,color:i%2?0xffd16b:0xffa943,glow:true,spark:true,opacity:.78});
+    }
+  }
+  /** Bonus glow stays rich; mining rewards use small sparks rather than stacked white halos. */
+  sparkle(x:number,z:number,color:number,count:number,large=false,coin=false){
+    if(coin){this.oreSparks(x,z,Math.min(count,4));return;}
+    for(let i=0;i<Math.min(count,large?12:5);i++)this.emit({x,y:.32,z,life:large?.65:.45,size:large?.85:.55,vx:(Math.random()-.5)*(large?2.1:1.2),vy:1+Math.random(),vz:(Math.random()-.5)*(large?2.1:1.2),gravity:4,color,glow:true,opacity:.92});
+  }
   explosion(x:number,z:number,strength=1,secondary=false){
     const s=Math.max(.65,Math.min(1.35,strength))*1.5;
     this.emit({x,y:.5,z,life:.55,size:1.85*s,growth:.45,tile:2,opacity:.96,rotation:(Math.random()-.5)*.3});
@@ -130,6 +140,7 @@ export class ParticleVfx{
       this.glow.add(camera,x,y,z,mote.size,1,0,mote.alpha,0,0xffe7b6,1.05,.1);
     }
     for(const p of this.particles){if(!p.active)continue;p.age+=step;if(p.age>=p.life+p.delay){p.active=false;continue;}if(p.age<p.delay)continue;p.x+=p.vx*step;p.y+=p.vy*step;p.z+=p.vz*step;p.vy-=p.gravity*step;const t=(p.age-p.delay)/p.life,fade=1-t*t,size=p.size*(p.growth?(.65+Math.min(1,t*5)*.35+p.growth*t):1-t*.65);if(p.glow){
+      if(p.spark){this.glow.add(camera,p.x,p.y,p.z,size,.18,p.rotation,fade*p.opacity,p.tile,p.color,.9);continue;}
       // Two co-moving sprites make the bloom legible even on a small viewport.
       // Both stay in the same bounded additive batch; no extra lights or postprocessing.
       this.glow.add(camera,p.x,p.y,p.z,size,1,p.rotation+p.spin*t,fade*p.opacity,p.tile,p.color,1.35);

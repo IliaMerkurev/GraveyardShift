@@ -21,9 +21,9 @@ function shardGeometry(){
   g.computeVertexNormals();const colors=new Float32Array(p.count*3),color=new THREE.Color();
   // Fresh interior cuts are warmer/lighter than the weathered outer rind. Keep
   // the shared ore texture and fully light-reactive material, with no emission.
-  const fracture=new THREE.Color(0xb9afa2);
+  const fracture=new THREE.Color(0xeee0c5);
   for(let i=0;i<p.count;i+=3){
-    color.setHex(DUNGEON_PALETTE.stoneLight).lerp(fracture,i%9===0?.18:.76).multiplyScalar(.86+((i*17)%11)/35);
+    color.setHex(DUNGEON_PALETTE.stoneLight).lerp(fracture,i%9===0?.55:.96).multiplyScalar(.88+((i*17)%11)/55);
     for(let j=0;j<3;j++)color.toArray(colors,(i+j)*3);
   }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));atlasUV(g,3);return g;
@@ -41,11 +41,13 @@ export class StoneDebrisVfx{
   crumble(x:number,z:number,resourceColor:number,blast=false,budget=16){
     if(this.disposed)return;
     const count=Math.max(0,Math.min(blast?12:16,Math.floor(budget))),phase=Math.random()*Math.PI*2;
+    // Exaggerated fracture silhouettes and arcs stay legible at the gameplay zoom.
+    // Three major pieces lead a fan of chips; they retain their size through landing.
     for(let i=0;i<count;i++){
-      const p=this.chunks[this.cursor++%this.chunks.length],angle=phase+i*2.399963,size=(i<4?.40+Math.random()*.12:i<9?.24+Math.random()*.1:.12+Math.random()*.1)*(blast?1:1.15);
-      const speed=(.45+Math.random()*.7)*(blast?1.45:1),offset=.035+Math.random()*.12;
-      Object.assign(p,{active:true,age:0,life:1.05+Math.random()*.4,x:x+Math.cos(angle)*offset,y:.19+Math.random()*.19,z:z+Math.sin(angle)*offset,
-        vx:Math.cos(angle)*speed,vy:.95+Math.random()*1.35,vz:Math.sin(angle)*speed,
+      const p=this.chunks[this.cursor++%this.chunks.length],angle=phase+i*2.399963,size=i<3?.72+Math.random()*.16:i<9?.44+Math.random()*.16:.24+Math.random()*.12;
+      const speed=(1.25+Math.random()*.95)*(blast?1.25:1),offset=.055+Math.random()*.13;
+      Object.assign(p,{active:true,age:0,life:1.85+Math.random()*.45,x:x+Math.cos(angle)*offset,y:.19+Math.random()*.19,z:z+Math.sin(angle)*offset,
+        vx:Math.cos(angle)*speed,vy:2.5+Math.random()*1.1,vz:Math.sin(angle)*speed,
         rx:Math.random()*6,ry:angle,rz:Math.random()*6,sx:size*(.7+Math.random()*.4),sy:size*(.65+Math.random()*.55),sz:size*(.75+Math.random()*.6),
         spinX:(Math.random()-.5)*13,spinY:(Math.random()-.5)*15,spinZ:(Math.random()-.5)*13,color:resourceColor,bounces:0});
     }
@@ -66,7 +68,7 @@ export class StoneDebrisVfx{
         p.rx+=p.spinX*h;p.ry+=p.spinY*h;p.rz+=p.spinZ*h;
       }
       // Keep a solid silhouette during flight, then ease down into tiny rubble and disappear.
-      const t=THREE.MathUtils.clamp((p.age/p.life-.58)/.42,0,1),shrink=1-t*t*(3-2*t);
+      const t=THREE.MathUtils.clamp((p.age/p.life-.70)/.30,0,1),shrink=1-t*t*(3-2*t);
       this.dummy.position.set(p.x,p.y,p.z);this.dummy.rotation.set(p.rx,p.ry,p.rz);this.dummy.scale.set(p.sx*shrink,p.sy*shrink,p.sz*shrink);this.dummy.updateMatrix();
       this.mesh.setMatrixAt(count,this.dummy.matrix);this.mesh.setColorAt(count++,this.color.setHex(p.color).lerp(this.white,.8));
     }

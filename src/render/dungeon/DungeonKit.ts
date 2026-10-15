@@ -217,38 +217,31 @@ export function createConveyorFrame(width=6.4,depth=.95):THREE.Group {
   const g=assembly(p);g.name='iron-timber-conveyor-chassis';return g;
 }
 
-/** Inner faces leave the middle four slot spacings exposed. Simulation bounds stay unchanged. */
-export const CONVEYOR_TUNNEL_MOUTH = 1.9;
-export function conveyorSlotExposed(x:number):boolean { return Math.abs(x)<CONVEYOR_TUNNEL_MOUTH-.12; }
+/** End bays follow the existing spawn/expiry bounds; no simulation remapping. */
+export const CONVEYOR_TUNNEL_MOUTH = 2.12;
+export const CONVEYOR_TUNNEL_EXIT = 2.5;
+export function conveyorSlotExposed(x:number):boolean { return x>-CONVEYOR_TUNNEL_EXIT+.08&&x<CONVEYOR_TUNNEL_MOUTH-.08; }
 
-/** Two real, opaque tunnel housings. Openings face along X, never toward the camera.
- * Roof and camera-facing masonry occlude cargo before its spawn/wrap boundary.
- * Keep these in the belt group so the existing landscape X mapping also applies.
+/** Compact pointed hoods, with low eaves to keep the storage/discard bay clear.
+ * Real opaque depth-writing surfaces hide wrapping cargo; held items are independent.
  */
 export function createConveyorTunnels():THREE.Group {
   const tunnels=new THREE.Group();tunnels.name='conveyor-end-tunnels';
-  const inner=CONVEYOR_TUNNEL_MOUTH,outer=3.38,length=outer-inner,center=(inner+outer)/2;
   for(const side of [-1,1]){
+    const inner=side===1?CONVEYOR_TUNNEL_MOUTH:CONVEYOR_TUNNEL_EXIT,outer=3.28,length=outer-inner,center=(inner+outer)/2;
     const p:THREE.BufferGeometry[]=[];
-    // Closed outer end, solid side walls and timber ceiling: no sightline to wrapping cargo.
-    p.push(box(length,.17,1.48,P.wood,side*center,1.39));
-    p.push(box(.16,1.31,1.48,P.stoneDark,side*(outer-.08),.735));
-    for(const z of [-.66,.66]){
-      p.push(box(length,1.24,.20,P.mortar,side*center,.73,z));
-      for(let row=0;row<4;row++)for(let col=0;col<3;col++){
-        const x=inner+(col+.5)*length/3;
-        p.push(stone(length/3-.018,.29,.23,(row+col)%3?P.stone:P.stoneLight,side*x,.27+row*.30,z,.025));
-      }
-      p.push(stone(length+.05,.11,.29,P.stoneLight,side*center,1.33,z,.018));
+    for(const z of [-.48,.59]){
+      const eave=z<0?.35:.65;
+      p.push(box(length,eave-.09,.16,P.mortar,side*center,(eave+.09)/2,z));
+      for(let row=0;row<(z<0?1:2);row++)for(let col=0;col<3;col++)p.push(stone(length/3-.018,.255,.18,(row+col)%3?P.stone:P.stoneLight,side*(inner+(col+.5)*length/3),.245+row*.265,z,.025));
+      // Timber slopes meet at a narrow ridge instead of a tall flat roof over the pit.
+      p.push(beam(new THREE.Vector3(side*center,eave,z),new THREE.Vector3(side*center,1.30,0),length,.12,P.wood));
+      for(let i=0;i<3;i++)p.push(beam(new THREE.Vector3(side*(inner+(i+.5)*length/3),eave,z),new THREE.Vector3(side*(inner+(i+.5)*length/3),1.30,0),length/3-.018,.135,i%2?P.wood:P.woodLight));
+      for(const x of [inner+.11,outer-.11])p.push(beam(new THREE.Vector3(side*x,eave+.01,z),new THREE.Vector3(side*x,1.32,0),.055,.15,P.ironEdge));
     }
-    for(let i=0;i<6;i++)p.push(box(length,.045,.215,i%2?P.wood:P.woodLight,side*center,1.495,(i-2.5)*.235));
-    for(const x of [inner+.16,outer-.16]){
-      p.push(box(.09,.055,1.50,P.ironEdge,side*x,1.535));
-      for(const z of [-.58,.58])p.push(cyl(.025,.025,.018,6,P.bronzeLight,side*x,1.572,z));
-    }
+    p.push(box(length+.04,.065,.12,P.bronze,side*center,1.34));
     const housing=assembly(p);housing.name=side===1?'conveyor-entrance-tunnel':'conveyor-exit-tunnel';
-    // Pointed masonry mouth, seated above the moving wooden slats.
-    const arch=createGothicArch(1.05,1.12);arch.rotation.y=side*Math.PI/2;arch.position.set(side*inner,.17,0);housing.add(arch);
+    const arch=createGothicArch(.94,1.10);arch.rotation.y=side*Math.PI/2;arch.position.set(side*inner,.17,0);housing.add(arch);
     tunnels.add(housing);
   }
   return tunnels;
