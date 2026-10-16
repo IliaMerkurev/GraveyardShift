@@ -1,0 +1,64 @@
+{
+  "format": "glTF 2.0",
+  "runtime": "Procedural TypeScript; GLB is DCC interchange only, not shipped",
+  "textureStatus": "Node GLB contains geometry, UVs, vertex colours and PBR materials; browser-painted atlas is not embedded. See browser export utility for matching textured export.",
+  "glbBytes": 804916,
+  "models": [
+    {
+      "name": "wall-stone",
+      "triangles": 48
+    },
+    {
+      "name": "flagstone",
+      "triangles": 24
+    },
+    {
+      "name": "gothic-pointed-stone-arch",
+      "triangles": 1200
+    },
+    {
+      "name": "coopered-ironbound-barrel",
+      "triangles": 548
+    },
+    {
+      "name": "braced-timber-crate",
+      "triangles": 372
+    },
+    {
+      "name": "iron-crown-fire-brazier",
+      "triangles": 302
+    },
+    {
+      "name": "caged-amber-lantern",
+      "triangles": 160
+    },
+    {
+      "name": "emerald-mine-cart",
+      "triangles": 494
+    },
+    {
+      "name": "green-veined-ore",
+      "triangles": 344
+    },
+    {
+      "name": "jade-worker-pad",
+      "triangles": 144
+    },
+    {
+      "name": "octagonal-storage-plinth",
+      "triangles": 96
+    },
+    {
+      "name": "brass-treasure-and-candles",
+      "triangles": 1302
+    },
+    {
+      "name": "iron-timber-conveyor-chassis",
+      "triangles": 624
+    },
+    {
+      "name": "bronze-railed-snake-track",
+      "triangles": 264
+    }
+  ]
+}

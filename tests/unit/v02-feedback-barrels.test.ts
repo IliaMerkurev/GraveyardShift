@@ -313,3 +313,30 @@ describe('v0.2 feedback: read-only browser render mirrors', () => {
     expect(padLabel.dataset.reserved).toBe('false');
   });
 });
+
+describe('tactile scene presentation',()=>{
+  it('press and open spring preserve hit coordinates and settle after release',()=>{
+    const {game,view,visuals,sync}=setup();const id=game.state.slots[2].entityId!;
+    const initial={...visuals.entities.get(id)!.hit.style};view.press({kind:'entity',id});sync();
+    expect(visuals.entities.get(id)!.group.scale.y).toBeLessThan(1);
+    expect(visuals.entities.get(id)!.hit.style).toEqual(initial);
+    game.openBarrel('slot-2');view.release();sync();expect(visuals.entities.get(id)!.group.scale.y).toBeGreaterThan(1);
+    view.sync(game.state,1,null,[]);expect(visuals.entities.get(id)!.group.scale.y).toBe(1);
+  });
+  it('repeated celebration events use a fixed ripple pool and reset clears feedback',()=>{
+    const {game,view}=setup();const state=structuredClone(game.state);
+    for(let i=0;i<30;i++)view.sync(game.state,.01,null,[{type:'merge',x:0,z:0}]);
+    const internals=view as unknown as {ripples:{mesh:Mesh}[]};expect(internals.ripples).toHaveLength(10);
+    expect(game.state).toEqual(state);view.reset();expect(internals.ripples.every(r=>!r.mesh.visible)).toBe(true);
+  });
+});
+
+describe('tactile reduced-motion scene',()=>{
+  it('removes existing and new ballistic particles when reduced motion turns on',()=>{
+    const {game,view}=setup();view.burst(0,0,0xffffff,20,true);
+    const internals=view as unknown as {reducedMotion:{matches:boolean};effects:{active:boolean}[]};
+    expect(internals.effects.some(e=>e.active)).toBe(true);internals.reducedMotion.matches=true;
+    view.sync(game.state,.016,null,Array.from({length:100},()=>({type:'destroy' as const,x:0,z:0})));
+    expect(internals.effects.every(e=>!e.active)).toBe(true);
+  });
+});

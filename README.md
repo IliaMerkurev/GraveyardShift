@@ -68,3 +68,7 @@ See [feedback iteration rules](docs/FEEDBACK_ITERATION.md) and [focused feedback
 ### Latest: permanent slowdown, worker disposal, easier pickup
 
 Amber ↓20% bonuses permanently reduce the snake's current underlying forward speed while its existing acceleration continues. Purple pause bonuses remain separate. Drag unwanted workers of any level into the orange-rimmed DISCARD WORKERS pit; no coins are awarded. Pickup halos are more forgiving while drop targets remain deliberate. See [rules and source-review scope](docs/SLOWDOWN_DISCARD_PICKUP_ITERATION.md). Owner performs gameplay QA; this iteration only bundles and packages the standalone.
+
+### Gothic environment pass (prototype/0.4)
+
+Graveyard Shift uses a compact procedural 3D dungeon kit: beveled masonry, amber braziers, green ore fissures, timber-and-bronze track and conveyor, carved storage, and a stone finish portal. The neutral workers remain placeholders for later Tripo characters. Existing layout, input, balance, tactile feedback and audio are preserved; all visuals and audio remain inside the standalone HTML, with no network assets or fonts. Keep the complete future export strictly below 5,000,000 bytes, including imported characters.

@@ -3,7 +3,7 @@ import { nextWorkerLevel } from './progression';
 import { recoilDistances, effectiveForwardSpeed } from './motion';
 import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
-  type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow, type Brake,
+  type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow, type Brake, type HalfSpeed, type TailBlast,
 } from './GameState';
 import { distanceToPath, samplePath, getPathLength } from './path';
 
@@ -98,7 +98,7 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
   if (barrel.content === 'worker') {
     const level = barrelWorkerLevel(ctx.state, random);
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level, mining: createMiningState() };
-  } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake') {
+  } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake' || barrel.content === 'halfSpeed' || barrel.content === 'tailBlast') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
   } else {
     // Unknown content cannot manufacture a reward or consume a barrel.
@@ -111,10 +111,34 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
 }
 
 /** Both gestures share one consumption/effect gate. Call only after ownership validation. */
-function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake, point: Point): void {
+function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake | HalfSpeed | TailBlast, point: Point): void {
   delete ctx.state.entities[entity.id];
+  if (entity.kind === 'tailBlast') {
+    const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
+    const rendered = recoilDistances(ordered, getPathLength(ctx.config.path), ctx.config.stones);
+    const victims = ordered.slice(0, Math.ceil(ordered.length / 2));
+    const survivors = ordered.slice(victims.length);
+    // Snapshot visible poses before removals change recoil constraints.
+    for (const [i, stone] of ordered.entries()) {
+      stone.waitingRenderDistance = stone.frozenRenderDistance ?? stone.waitingRenderDistance ?? rendered[i];
+    }
+    for (const stone of victims) damageStone(ctx, stone.id, Number.MAX_VALUE);
+    ctx.state.tailWaitingIds = survivors.map(stone => stone.id);
+    ctx.state.rewindTarget = null;
+    ctx.state.rewindSpeed = 0;
+    ctx.state.headSpeed = 0;
+    ctx.emit({ type: 'tailBlast', ...point, entityId: entity.id, amount: victims.length });
+    return;
+  }
+  if (entity.kind === 'halfSpeed') {
+    const speed = effectiveForwardSpeed(ctx.state.difficultyTime, ctx.state.permanentSpeedReduction, ctx.config, ctx.state.minimumForwardSpeed);
+    ctx.state.minimumForwardSpeed = Math.min(ctx.state.minimumForwardSpeed, speed / 2);
+    ctx.state.permanentSpeedReduction += speed / 2;
+    ctx.emit({ type: 'halfSpeed', ...point, entityId: entity.id, amount: speed / 2 });
+    return;
+  }
   if (entity.kind === 'brake') {
-    const speed = effectiveForwardSpeed(ctx.state.difficultyTime, ctx.state.permanentSpeedReduction, ctx.config);
+    const speed = effectiveForwardSpeed(ctx.state.difficultyTime, ctx.state.permanentSpeedReduction, ctx.config, ctx.state.minimumForwardSpeed);
     const floor = ctx.config.stones.speed * ctx.config.brake.minimumBaseFraction;
     const reduction = Math.min(speed * ctx.config.brake.reductionFraction, Math.max(0, speed - floor));
     ctx.state.permanentSpeedReduction += reduction;
@@ -125,13 +149,15 @@ function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake, point
     // Preserve impact poses too, even if mining removes a neighboring constraint.
     const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
     const rendered = recoilDistances(ordered, getPathLength(ctx.config.path), ctx.config.stones);
-    for (const [i, stone] of ordered.entries()) stone.frozenRenderDistance ??= rendered[i];
+    for (const [i, stone] of ordered.entries()) stone.frozenRenderDistance ??= stone.waitingRenderDistance ?? rendered[i];
     ctx.state.headSpeed = 0;
     // Snake-only full pause; repeated collection refreshes, never stacks.
     ctx.state.slowRemaining = ctx.config.slow.duration;
     ctx.emit({ type: 'slow', ...point, entityId: entity.id, amount: ctx.config.slow.duration });
     return;
   }
+  ctx.state.tailWaitingIds = [];
+  for (const stone of ctx.state.stones) delete stone.waitingRenderDistance;
   const head = ctx.state.stones.reduce((max, stone) => Math.max(max, stone.distance), 0);
   // The screenshot mark is just before the first bend, on the first straight.
   const target = ctx.config.path.right - ctx.config.path.left - ctx.config.stones.rewindBeforeFirstBend;
@@ -142,10 +168,10 @@ function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake, point
   ctx.emit({ type: 'rewind', ...point, entityId: entity.id, amount: shift });
 }
 
-function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow' | 'brake'): boolean {
+function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 'slow' | 'brake' | 'halfSpeed' | 'tailBlast'): boolean {
   if (ctx.state.paused || ctx.state.gameOver) return false;
   const entity = ctx.state.entities[entityId];
-  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
+  if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
   const slot = getPlace(ctx.state, entity.location);
   if (!slot || slot.reserved || slot.entityId !== entityId) return false;
   slot.entityId = null;
@@ -153,6 +179,8 @@ function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 
   return true;
 }
 
+export function useHalfSpeed(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'halfSpeed'); }
+export function useTailBlast(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'tailBlast'); }
 export function useBrake(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'brake'); }
 export function useSlow(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'slow'); }
 export function useRewind(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'rewind'); }
@@ -235,7 +263,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   const source = getPlace(ctx.state, drag.source);
   if (!entity || entity.location.kind !== 'drag' || !source?.reserved || source.entityId !== null) return false;
   if (target.kind === 'discard') return entity.kind === 'worker';
-  if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow' || entity.kind === 'brake') && isBonusFieldPoint(target, ctx.config);
+  if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow' || entity.kind === 'brake' || entity.kind === 'halfSpeed' || entity.kind === 'tailBlast') && isBonusFieldPoint(target, ctx.config);
   if (target.kind === 'track') {
     if (entity.kind !== 'bomb' || !Number.isFinite(target.x) || !Number.isFinite(target.z)) return false;
     if (distanceToPath(target, ctx.config.path) > ctx.config.bomb.trackTolerance) return false;
@@ -248,7 +276,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (!place) return false;
   if (place.reserved && !samePlace(target, drag.source)) return false;
   if (target.kind === 'storage') {
-    if (entity.kind !== 'bomb' && entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake') return false;
+    if (entity.kind !== 'bomb' && entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') return false;
     return (place as Pad).unlocked ? place.entityId === null : canBuyPad(ctx, place as Pad);
   }
   if (entity.kind === 'bomb') return target.kind === 'slot' && place.entityId === null;
@@ -302,7 +330,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
     delete ctx.state.entities[entity.id];
     ctx.emit({ type: 'discard', x: ctx.config.discard.x, z: ctx.config.discard.z, entityId: entity.id });
   } else if (target.kind === 'field') {
-    if (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake') { cancelDrag(ctx); return false; }
+    if (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') { cancelDrag(ctx); return false; }
     activateBonus(ctx, entity, { x: target.x, z: target.z });
   } else if (target.kind === 'track') {
     // Snapshot IDs before removals; an ID can pass through the reward gate only once.
