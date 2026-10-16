@@ -192,16 +192,14 @@ export class Game {
 
   private tickStones(dt: number): void {
     const c = this.config.stones;
-    // Freeze every snake motion, including recoil and pending rewind. Mining,
+    // Freeze ordinary motion and recoil; explicit rewind remains active. Mining,
     // conveyor and effects still run; difficulty excludes the same frozen interval.
     const frozenDt = Math.min(dt, this.state.slowRemaining);
     if (frozenDt > 0) {
       for (const id of Object.keys(this.state.gapReadyAt)) this.state.gapReadyAt[id]! += frozenDt;
-      this.state.headSpeed = 0;
-      dt -= frozenDt;
-      if (dt <= 1e-9) return;
+      if(this.state.rewindTarget===null){this.state.headSpeed = 0;dt -= frozenDt;if(dt<=1e-9)return;}
     }
-    for (const stone of this.state.stones) delete stone.frozenRenderDistance;
+    if(!frozenDt||this.state.slowRemaining<=dt)for (const stone of this.state.stones) delete stone.frozenRenderDistance;
     const speed = effectiveForwardSpeed(this.state.difficultyTime, this.state.permanentSpeedReduction, this.config, this.state.minimumForwardSpeed);
     const travel = speed * dt;
     const end = getPathLength(this.config.path);
@@ -211,7 +209,7 @@ export class Game {
     if (this.state.rewindTarget !== null) {
       const head = ordered.at(-1)?.distance ?? this.state.rewindTarget;
       const shift = Math.min(Math.max(0, head - this.state.rewindTarget), this.state.rewindSpeed * dt);
-      for (const stone of ordered) { stone.distance -= shift; stone.bounceRemaining = 0; }
+      for (const stone of ordered) { stone.distance -= shift;if(stone.frozenRenderDistance!==undefined)stone.frozenRenderDistance-=shift; stone.bounceRemaining = 0; }
       this.state.headSpeed = -shift / dt;
       if (head - shift <= this.state.rewindTarget + 1e-9) {
         this.state.rewindTarget = null;

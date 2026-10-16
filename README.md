@@ -24,7 +24,7 @@ After the fixed starter sequence, barrels reveal workers 50% of the time. Six bo
 - **Snake pause:** freeze snake motion and its acceleration clock for five seconds; miners and the conveyor continue.
 - **20% slowdown:** permanently reduce current forward speed, subject to its configured minimum.
 - **50% slowdown:** permanently halve current forward speed, including below the usual minimum.
-- **Tail-half blast:** destroy half the current rocks from the tail, rounded up, with normal rewards.
+- **Tail-half blast:** destroy half the live on-track rocks from the tail, rounded up, with normal rewards. One visible rock is destroyed; two lose one. Hidden incoming rocks are excluded. An empty visible snake retains the bonus.
 
 Tap any bonus or drop it off the conveyor to activate it. A valid empty unlocked pocket or an affordable empty locked pocket stores the bonus first. Bombs snap to the nearest live rock and are retained if none exists. Purchase bonus storage stands for **50 / 150 / 300 coins**; each holds one bonus until used. Worker-drop upgrades start at **50 coins** and rise 20% per purchase: **50 → 60 → 72 → 87** (ceil(50 × 1.2^paidUpgrades)). The upper worker level is 1 plus purchased upgrades; the lower level is max(1, upper − 2). Reveals roll within that range, favoring lower levels. For example, upper level 13 gives levels 11–13. Each paid upgrade requires its next upper level (2 + paidUpgrades) to be no higher than the highest worker currently owned on an unlocked work pad. Conveyor workers and past maximum levels do not count. Removing that worker never reduces already purchased upgrades or their reveal range. Placement and merging never raise future barrel levels automatically. Existing workers are unchanged by purchases and level up only through merging. The button abbreviates prices with K/M/B/T; its tooltip and purchases use the exact whole-coin cost.
 
@@ -141,3 +141,5 @@ Each of the six bonus types gets a seven-second, input-transparent action chip o
 The pre-PLAY screen offers the same capability-aware fullscreen control and four compact icon rules plus a six-bonus icon legend, reusing the in-game effect-chip labels. Unsupported fullscreen feedback stays on this screen. Fullscreen does not start the intro, music or gameplay; PLAY remains the explicit launch gesture. Intro fullscreen listeners are removed on launch.
 
 The start-screen bonus legend is visually separated from the basic rules by an extra gap.
+
+Rewind moves to the first-turn target even during the snake freeze bonus. Freeze time continues counting down and does not restart; remaining freeze holds the rewound snake in place. Difficulty time stays frozen. Global game pause still stops both effects.

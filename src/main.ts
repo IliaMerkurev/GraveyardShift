@@ -58,7 +58,7 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
     if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');
     const tailBlast=events.find(e=>e.type==='tailBlast');if(tailBlast)hud.guidance(tailBlast.amount?(game.state.tailWaitingIds.length>0?'Tail half blasted · front waits for new rocks':'Tail half blasted · new rocks are coming'):'No rocks to blast','tailBlast');
     if(events.some(e=>e.type==='discard'))hud.message(`Income +20% · ×${formatIncome(game.state.incomeMultiplier)}`);
-    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until pause ends':'Rewound to the first bend'):'Already before the rewind point','rewind');
+    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?'Rewound to the first bend':'Already before the rewind point','rewind');
     if(events.some(e=>e.type==='gameover')){input.cancel();hud.defeat();modalPaused=true;bridge.end();}
     frames++;if(now-fpsAt>=1000){fps=frames*1000/(now-fpsAt);frames=0;fpsAt=now;}
     if(diagnostics){const m=view.metrics();diagnostics.textContent=`${fps.toFixed(1)} fps · ${m.calls} calls · ${m.triangles} tris\n${game.state.stones.length} rocks · ${m.effects} effects`;}

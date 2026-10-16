@@ -13,8 +13,8 @@
 .storage-label,.storage-label.open{font-size:9px;padding:3px 5px;border:1px solid #8da7bb;border-radius:5px;letter-spacing:.2px}
 
 /* A dedicated bottom rail keeps the upgrade visible without covering play targets. */
-.footer .belt-status{grid-column:1/-1;grid-row:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0;border:0;background:transparent;font-size:10px;letter-spacing:.6px}
-.upgrade-button{grid-column:1;grid-row:2;border:2px solid #fff0ac;font-weight:900}
+.footer .belt-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0;border:0;background:transparent;font-size:10px;letter-spacing:.6px}
+.upgrade-button{border:2px solid #fff0ac;font-weight:900}
 .upgrade-button[data-ready="true"]:not(:disabled){border-color:#fff8d6;box-shadow:0 3px 0 #956323,0 0 17px #ffcf5277;transform-origin:50% 100%;animation:upgrade-ready-bounce 1.35s ease-in-out infinite}
 .upgrade-button:disabled{cursor:default}
 
@@ -50,7 +50,7 @@
 
 /* Landscape follows the portrait stack: track, storage/pit row, then conveyor. */
 @media(min-aspect-ratio:1/1){
-  .footer .upgrade-button{grid-row:1;}
+
   .footer .upgrade-button{}
   .game-shell .topbar{top:8px}
   .topbar .wallet{padding:5px 10px;font-size:20px}
@@ -93,7 +93,7 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 .video-intro__controls[hidden]{display:none}
 
 .intro-film-frame{position:absolute;inset:0;transform-origin:50% 50%;will-change:transform,opacity}.intro-edge-blur{position:absolute;inset:0;pointer-events:none;opacity:0;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);mask-image:radial-gradient(ellipse at center,transparent 35%,#000 73%);background:radial-gradient(ellipse at center,transparent 45%,#171b1744 85%)}.game-stage--intro> :not(canvas){opacity:var(--intro-hud-opacity,0)!important}.game-stage--intro canvas{will-change:transform}
-.intro-film-frame[hidden]{display:none}.intro-start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(20px,5vh,44px);padding:24px;background:radial-gradient(ellipse at 50% 34%,#65845b38,transparent 54%),radial-gradient(ellipse at 50% 100%,#b07a2929,transparent 60%),linear-gradient(145deg,#111b1a,#080c0e 70%);overflow:hidden}.intro-start:before{content:'';position:absolute;inset:12px;border:1px solid #70856b38;border-radius:18px;pointer-events:none}.intro-start__logo{position:relative;display:block;width:min(82vw,480px);height:auto;max-height:48vh;object-fit:contain;filter:drop-shadow(0 12px 24px #0009);color:#e2cb8c;text-align:center;font:900 clamp(32px,8vw,68px)/1.02 Georgia,serif;letter-spacing:.04em;margin:0}.intro-start__button{position:relative;min-width:190px;min-height:62px;padding:14px 48px;border:2px solid #e7c879;border-radius:14px;color:#fff4ce;background:linear-gradient(#93703b,#4c3c24);box-shadow:0 7px 0 #241d16,0 14px 35px #0008,inset 0 2px #ffe7a96b;font:800 24px system-ui;cursor:pointer;transition:transform .12s,filter .12s}.intro-start__button:hover{filter:brightness(1.15)}.intro-start__button:active{transform:translateY(4px)}.intro-start__button:focus-visible{outline:3px solid #f6ffe1;outline-offset:6px}@media(orientation:landscape) and (max-height:600px){.intro-start{gap:16px;padding:16px}.intro-start__logo{max-height:53vh;width:min(55vw,480px)}.intro-start__button{min-height:48px;padding:8px 40px;font-size:21px}}@media(prefers-reduced-motion:reduce){.intro-start__button{transition:none}}
+.intro-film-frame[hidden]{display:none}.intro-start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at 50% 34%,#65845b38,transparent 54%),radial-gradient(ellipse at 50% 100%,#b07a2929,transparent 60%),linear-gradient(145deg,#111b1a,#080c0e 70%);overflow:hidden}.intro-start:before{content:'';position:absolute;inset:12px;border:1px solid #70856b38;border-radius:18px;pointer-events:none}.intro-start__logo{position:relative;display:block;width:min(82vw,480px);height:auto;object-fit:contain;filter:drop-shadow(0 12px 24px #0009);color:#e2cb8c;text-align:center;font:900 clamp(32px,8vw,68px)/1.02 Georgia,serif;letter-spacing:.04em;margin:0}.intro-start__button{position:relative;min-width:190px;min-height:62px;padding:14px 48px;border:2px solid #e7c879;border-radius:14px;color:#fff4ce;background:linear-gradient(#93703b,#4c3c24);box-shadow:0 7px 0 #241d16,0 14px 35px #0008,inset 0 2px #ffe7a96b;font:800 24px system-ui;cursor:pointer;transition:transform .12s,filter .12s}.intro-start__button:hover{filter:brightness(1.15)}.intro-start__button:active{transform:translateY(4px)}.intro-start__button:focus-visible{outline:3px solid #f6ffe1;outline-offset:6px}@media(orientation:landscape) and (max-height:600px){.intro-start{padding:16px}.intro-start__logo{width:min(55vw,480px)}.intro-start__button{min-height:48px;padding:8px 40px;font-size:21px}}@media(prefers-reduced-motion:reduce){.intro-start__button{transition:none}}
 
 /* Reuse the start-screen artwork inside the existing header footprint. */
 .topbar .wordmark{min-width:0;overflow:hidden}.hud-logo{display:block;width:180px;max-width:100%;height:auto;max-height:50px;object-fit:contain;object-position:left center}.topbar .wallet{flex-shrink:0}

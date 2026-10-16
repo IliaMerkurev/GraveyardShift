@@ -97,6 +97,8 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
   return true;
 }
 
+const liveRock=(s:GameState['stones'][number])=>s.hp>0&&s.distance>=0;
+
 /** Both gestures share one consumption/effect gate. Call only after ownership validation. */
 function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake | HalfSpeed | TailBlast, point: Point): void {
   if(entity.location.kind==='storage'||entity.location.kind==='drag'&&ctx.state.drag?.source.kind==='storage')ctx.state.tutorial.storageUsed=true;
@@ -104,10 +106,9 @@ function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake | Half
   if (entity.kind === 'tailBlast') {
     const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
     const rendered = recoilDistances(ordered, getPathLength(ctx.config.path), ctx.config.stones);
-    const victims = ordered.slice(0, Math.ceil(ordered.length / 2));
-    const survivors = ordered.slice(victims.length);
+    const live=ordered.filter(liveRock),victims=live.slice(0,Math.ceil(live.length/2)),survivors=live.slice(victims.length);
     // Snapshot visible poses before removals change recoil constraints.
-    for (const [i, stone] of ordered.entries()) {
+    for (const stone of survivors) {const i=ordered.indexOf(stone);
       stone.waitingRenderDistance = stone.frozenRenderDistance ?? stone.waitingRenderDistance ?? rendered[i];
     }
     for (const stone of victims) damageStone(ctx, stone.id, Number.MAX_VALUE);
@@ -161,7 +162,7 @@ function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 
   const entity = ctx.state.entities[entityId];
   if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
   const slot = getPlace(ctx.state, entity.location);
-  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
+  if (!slot || slot.reserved || slot.entityId !== entityId || kind==='tailBlast'&&!ctx.state.stones.some(liveRock)) return false;
   slot.entityId = null;
   activateBonus(ctx, entity, { x: slot.x, z: slot.z });
   return true;
@@ -250,6 +251,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   const entity = ctx.state.entities[drag.entityId];
   const source = getPlace(ctx.state, drag.source);
   if (!entity || entity.location.kind !== 'drag' || !source?.reserved || source.entityId !== null) return false;
+  if(entity.kind==='tailBlast'&&target.kind==='field'&&!ctx.state.stones.some(liveRock))return false;
   if (target.kind === 'discard') return entity.kind === 'worker';
   if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow' || entity.kind === 'brake' || entity.kind === 'halfSpeed' || entity.kind === 'tailBlast') && isBonusFieldPoint(target, ctx.config);
   if (target.kind === 'track') {

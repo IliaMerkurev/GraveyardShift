@@ -3,10 +3,10 @@ import type {SceneView} from '../render/SceneFactory';
 import type {GameEvent,GameState} from '../game/GameState';
 export const BONUS_HELP:Record<string,string>={
   bomb:'💣 Bomb — Tap or drop off the belt to blast the nearest rocks.',
-  rewind:'⏪ Rewind — Return to just before the first bend; speed stays unchanged.',
+  rewind:'⏪ Rewind — Return before the first bend; speed unchanged.',
   slow:'Ⅱ Pause — Stop the snake for 5s (refreshes); miners and belt keep moving.',
-  brake:'↓20% Brake — Permanently cut current speed by 20%, down to 10% of starting speed; acceleration continues.',
-  halfSpeed:'↓50% Half speed — Permanently halve current speed, even below the normal minimum; acceleration continues.',
+  brake:'↓20% Brake — Permanent −20% current speed; minimum 10% of starting speed; acceleration continues.',
+  halfSpeed:'↓50% Half speed — Permanent half current speed, even below the usual minimum; acceleration continues.',
   tailBlast:'✹½ Tail blast — Destroy the rear half; the front waits for new rocks to catch up.'
 };
 export const BONUS_TIP:Record<string,string>={bomb:'💣 Blast nearby rocks',rewind:'⏪ Rewind to first turn',slow:'Ⅱ Freeze · 5s',brake:'↓ Speed −20%',halfSpeed:'½ Speed ÷2',tailBlast:'✹ Destroy ½ tail'};
