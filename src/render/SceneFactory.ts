@@ -85,14 +85,15 @@ export class SceneView {
     const rect=this.canvas.getBoundingClientRect(),w=rect.width,h=rect.height;
     if(w===this.lastWidth&&h===this.lastHeight)return;
     this.lastWidth=w;this.lastHeight=h;this.landscape=this.shell.clientWidth>this.shell.clientHeight;
+    fitCamera(this.camera,w,h,this.landscape);this.cameraBase.copy(this.camera.position);
     this.field.rotation.y=this.landscape?Math.PI/2:0;this.field.scale.set(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale,1,this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale);
+    this.field.position.z=this.landscape?0:PORTRAIT_LAYOUT.fieldOffsetZ;
     this.field.position.x=this.landscape?LANDSCAPE_LAYOUT.fieldOffsetX:0;
     const layout=this.landscape?LANDSCAPE_LAYOUT:PORTRAIT_LAYOUT,pit=mapPosition(CONFIG.discard,this.landscape,'discard');
     this.pit.position.set(pit.x,0,pit.z);this.pit.scale.setScalar(this.landscape?1:1.25);this.storageTray.position.set(layout.storageCenterX,-.02,layout.storageZ);this.storageTray.scale.x=this.landscape?1:.68;
     this.belt.position.z=layout.beltZ;this.belt.scale.x=this.landscape?1.65:1;
     this.belt.children[0].visible=!this.landscape;this.belt.children[1].visible=this.landscape;
     this.rooms[0].visible=!this.landscape;this.rooms[1].visible=this.landscape;this.reset();this.renderer.setSize(w,h,false);
-    fitCamera(this.camera,w,h,this.landscape);this.cameraBase.copy(this.camera.position);
   }
   private mapped(point:Point,belt=false,zone?:ViewZone):Point{return mapPosition(point,this.landscape,zone??(belt?'belt':placeZone(point)));}
   project(point:Point,y=0,belt=false,zone?:ViewZone):ScreenPoint{const p=this.mapped(point,belt,zone);const v=new THREE.Vector3(p.x,y,p.z).project(this.camera);return{x:(v.x+1)*this.lastWidth/2,y:(1-v.y)*this.lastHeight/2};}
