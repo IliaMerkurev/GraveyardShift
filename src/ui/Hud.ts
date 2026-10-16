@@ -20,7 +20,7 @@ export class Hud {
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
     this.upgrade=ui.querySelector<HTMLButtonElement>('[data-worker-upgrade]')!;this.upgrade.addEventListener('click',actions.upgrade);
     ui.querySelector('[aria-label="Restart"]')!.addEventListener('click',actions.restart);
-    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop the snake before FINISH. Tap barrels; drag workers onto pads, paying for locked pads. Equal levels merge; stronger workers replace weaker pad workers. Each manual discard or replacement gives +20% rock income this run (numeric limits apply); merges and canceled drops do not. Drag bombs onto rocks. Tap other bonuses or drop them on the field: rewind moves the snake before bend one; pause lasts 5s; ↓20% slows it with a 10% starting-speed floor; ↓50% halves speed without that floor; tail blast destroys half the rocks. Acceleration continues through rewinds. Upgrades raise the spawn range by one; rolls favor lower levels within the latest three. Prices rise 20% per purchase, rounded up: 50, 60, 72, 87. Discards affect only income; upgrades affect only future spawns and prices. Buy storage for bonuses. Belt items exit left; held items are safe; canceled drags return them. Restart resets income to ×1 and upgrades to 50. Guide optional.',false);});
+    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop the snake before FINISH. Tap barrels; drag heroes to pads (locked pads cost coins). Equal levels merge; stronger heroes return weaker ones to the belt. Only manual pit discards give +20% income/run. Bombs drop on rocks; other bonuses tap/drop: rewind to bend one (speed unchanged), pause 5s, ↓20% speed (10% floor), ↓50% speed (no floor), destroy half the tail. Upgrades raise the three-level spawn range; low rolls favored. Price +20%: 50,60,72,87 (rounded up). Income and prices are independent; numeric limits apply. Store bonuses in pockets. Belt items exit; held items stay safe; invalid drops return. Restart: income ×1, upgrade 50. Guide optional.',false);});
     ui.querySelector('[data-guide]')!.addEventListener('click',()=>actions.guide?.());
     ui.querySelector('[data-continue]')!.addEventListener('click',()=>{if(this.ended)return;this.overlay.hidden=true;actions.resume();});
     ui.querySelector('[data-restart]')!.addEventListener('click',actions.restart);
@@ -49,7 +49,7 @@ export class Hud {
     const levelRange=range.lowest===range.highest?String(range.lowest):`${range.lowest}–${range.highest}`;
     const action=price===null?'LIMIT':`↑${formatNumber(price)}`;
     this.upgrade.textContent=`LV ${levelRange}\n${action}`;
-    this.upgrade.title=`Worker barrels: level ${levelRange}. ${price===null?'Numeric price limit reached.':`Raise spawn range for ${price} coins. Price +20% per purchase; discards affect only income.`}`;
+    this.upgrade.title=`Spawn levels ${levelRange}. ${price===null?'Numeric price limit.':`+1 level: ${price} coins; price +20%. Discards affect income only.`}`;
     this.upgrade.setAttribute('aria-label',this.upgrade.title);
     this.upgrade.dataset.boost=String(state.workerDropBoost);this.upgrade.dataset.price=price===null?'':String(price);
     this.upgrade.dataset.ready=String(!this.upgrade.disabled);

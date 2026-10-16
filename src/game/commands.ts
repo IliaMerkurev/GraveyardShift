@@ -32,10 +32,11 @@ function reward(ctx: CommandContext, amount: number, point: Point): void {
   ctx.emit({ type: 'coins', x: point.x, z: point.z, amount });
 }
 
-function discardWorker(ctx:CommandContext,id:string,replaced=false){
+function discardWorker(ctx:CommandContext,id:string){
+  ctx.state.tutorial.discarded=true;
   ctx.state.incomeMultiplier=Math.min(Number.MAX_SAFE_INTEGER,ctx.state.incomeMultiplier*1.2);
   delete ctx.state.entities[id];
-  ctx.emit({type:'discard',x:ctx.config.discard.x,z:ctx.config.discard.z,entityId:id,replaced,amount:ctx.state.incomeMultiplier});
+  ctx.emit({type:'discard',x:ctx.config.discard.x,z:ctx.config.discard.z,entityId:id,amount:ctx.state.incomeMultiplier});
 }
 
 export function checkGoal(ctx: CommandContext): void {
@@ -236,6 +237,12 @@ export function cancelDrag(ctx: CommandContext): boolean {
   return true;
 }
 
+/** Reuse the reserved belt source, otherwise take a genuinely free carrier. */
+function replacementSlot(state:GameState):Slot|undefined{
+  const source=state.drag?.source;
+  return source?.kind==='slot'?state.slots.find(s=>s.id===source.id):state.slots.filter(s=>!s.entityId&&!s.reserved).sort((a,b)=>b.x-a.x)[0];
+}
+
 export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (ctx.state.paused || ctx.state.gameOver || !ctx.state.drag || !target) return false;
   const drag = ctx.state.drag;
@@ -265,7 +272,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (target.kind === 'pad' && !(place as Pad).unlocked) return canBuyPad(ctx, place as Pad);
   if (!place.entityId) return true;
   const other = ctx.state.entities[place.entityId];
-  return other?.kind === 'worker' && (other.level === entity.level || target.kind === 'pad' && entity.level > other.level);
+  return other?.kind === 'worker' && (other.level === entity.level || target.kind === 'pad' && entity.level > other.level && !!replacementSlot(ctx.state));
 }
 
 /** Single reward gate for mining and bombs. Removing the ID makes repeated damage inert. */
@@ -349,7 +356,14 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
       ctx.state.tutorial.merged = true;
       ctx.emit({ type: 'merge', x: destination.x, z: destination.z, entityId: occupant.id, level: occupant.level });
     } else {
-      if (occupant?.kind === 'worker') discardWorker(ctx,occupant.id,true);
+      if (occupant?.kind === 'worker') {
+        const belt=replacementSlot(ctx.state)!;
+        belt.entityId=occupant.id;
+        occupant.location={kind:'slot',id:belt.id};
+        ctx.state.tutorial.returnedId=occupant.id;
+        occupant.mining=createMiningState();
+        ctx.emit({type:'replace',x:belt.x,z:belt.z,entityId:occupant.id,level:occupant.level});
+      }
       destination.entityId = entity.id;
       entity.location = { ...target };
       if (target.kind === 'pad' && entity.kind === 'worker') ctx.state.tutorial.placed = true;

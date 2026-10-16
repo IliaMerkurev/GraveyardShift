@@ -8,28 +8,33 @@ import type {SceneView} from '../render/SceneFactory';
 export class Tutorial {
   private svg:SVGSVGElement;
   private done=false;
+  private discarded=false;
   constructor(private shell:HTMLElement,private view:SceneView){
-    try{this.done=localStorage.getItem('graveyard-guide')==='storage';}catch{}
+    try{this.done=localStorage.getItem('graveyard-guide')==='storage';this.discarded=localStorage.getItem('graveyard-income')==='done';}catch{}
     this.svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     this.svg.classList.add('live-guide');this.svg.setAttribute('aria-hidden','true');
     this.svg.innerHTML='<path class="guide-trail"/><circle r="17" class="guide-ring"/><path class="guide-arrow" d="M -8 -36 L 8 -36 L 8 -17 L 19 -17 L 0 3 L -19 -17 L -8 -17 Z"/><text class="guide-label" text-anchor="middle"/>';
     shell.append(this.svg);
   }
-  reset(){this.done=false;try{localStorage.removeItem('graveyard-guide');}catch{}}
+  reset(){this.done=this.discarded=false;try{localStorage.removeItem('graveyard-guide');localStorage.removeItem('graveyard-income');}catch{}}
   render(s:GameState){
+    if(s.tutorial.discarded&&!this.discarded){this.discarded=true;try{localStorage.setItem('graveyard-income','done');}catch{}}
     s.tutorial.finished=this.done;
     this.svg.style.display='none';
-    if(this.done||s.paused||s.gameOver||s.drag||this.shell.querySelector('.audio-menu:not([hidden])'))return;
+    if(this.done&&this.discarded||s.paused||s.gameOver||s.drag||this.shell.querySelector('.audio-menu:not([hidden])'))return;
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     const rect=this.view.canvas.getBoundingClientRect(),shell=this.shell.getBoundingClientRect();
-    const project=(p:Parameters<SceneView['project']>[0],y:number,belt=false)=>{const v=this.view.project(p,y,belt);return{x:v.x+rect.left-shell.left,y:v.y+rect.top-shell.top};};
+    const project=(p:Parameters<SceneView['project']>[0],y:number,belt=false,zone?:Parameters<SceneView['project']>[3])=>{const v=this.view.project(p,y,belt,zone);return{x:v.x+rect.left-shell.left,y:v.y+rect.top-shell.top};};
     const entities=Object.values(s.entities),t=s.tutorial;
     const visible=(e:Entity)=>e.location.kind!=='slot'||(getEntityPosition(s,e)!.x>=-2.7&&getEntityPosition(s,e)!.x<=2.7);
     const position=(e:Entity)=>{const p=getEntityPosition(s,e);return p?project(p,e.kind==='worker'?.7:.65,e.location.kind==='slot'):null;};
     const find=(kind:string)=>entities.find(e=>e.kind===kind&&visible(e));
     let from:{x:number;y:number}|null=null,to:{x:number;y:number}|null=null,label='TAP';
     const barrel=(kind:string)=>{const e=entities.find(e=>e.kind==='barrel'&&e.content===kind&&visible(e));if(e)from=position(e);};
-    if(!t.merged){
+    const spare=!this.discarded&&entities.find(e=>e.kind==='worker'&&e.location.kind==='slot'&&visible(e)&&(e.id===t.returnedId||entities.some(w=>w.kind==='worker'&&w.location.kind==='pad'&&w.level>e.level)));
+    if(spare){from=position(spare);to=project(CONFIG.discard,.1,false,'discard');label='Income +20%';}
+    else if(this.done)return;
+    else if(!t.merged){
       const workers=entities.filter(e=>e.kind==='worker').sort((a,b)=>Number(a.location.kind==='pad')-Number(b.location.kind==='pad'));
       for(const a of workers){if(!visible(a))continue;const b=workers.find(b=>b.id!==a.id&&b.kind==='worker'&&a.kind==='worker'&&b.level===a.level&&visible(b));if(b){from=position(a);to=position(b);label='MERGE';break;}}
       if(!from)barrel('worker');
