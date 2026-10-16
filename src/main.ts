@@ -19,6 +19,10 @@ audioSettings.subscribe(value=>music.setEnabled(value.music));
 // Register audio unlock before asynchronous model loading or the intro gesture.
 const sfx=createRockSnakeAudio();
 audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
+// The first real gesture unlocks audio even if the silent intro already ended.
+const unlockAudio=()=>{sfx.unlock();void music.start().catch(()=>{});document.removeEventListener('pointerdown',unlockAudio);document.removeEventListener('keydown',unlockAudio);};
+document.addEventListener('pointerdown',unlockAudio);document.addEventListener('keydown',unlockAudio);
+
 shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.7);});
 shell.addEventListener('change',event=>{if((event.target as HTMLElement).matches('input[type=checkbox]'))sfx.play('ui',.7);});
 async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {

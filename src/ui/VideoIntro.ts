@@ -11,11 +11,10 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     video.defaultPlaybackRate=2;video.playbackRate=2;video.src=introSource(window.innerWidth,window.innerHeight);
     const controls=document.createElement('div');controls.className='video-intro__controls';
     const status=document.createElement('p');status.className='video-intro__status';status.setAttribute('role','status');status.textContent='Loading intro…';
-    const play=document.createElement('button');play.type='button';play.textContent='▶ Нажми, чтобы начать';play.className='video-intro__launch';play.hidden=true;
     const skip=document.createElement('button');skip.type='button';skip.textContent='Start game';skip.hidden=true;
-    const frame=document.createElement('div');frame.className='intro-film-frame';const edge=document.createElement('div');edge.className='intro-edge-blur';edge.setAttribute('aria-hidden','true');frame.append(video,edge);controls.append(status,play,skip);overlay.append(frame,controls);parent.append(overlay);
+    const frame=document.createElement('div');frame.className='intro-film-frame';const edge=document.createElement('div');edge.className='intro-edge-blur';edge.setAttribute('aria-hidden','true');frame.append(video,edge);controls.append(status,skip);overlay.append(frame,controls);parent.append(overlay);
     let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false;
-    const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);video.pause();video.removeAttribute('src');video.load();overlay.remove();};
+    const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);document.removeEventListener('pointerdown',gesture);document.removeEventListener('keydown',gesture);video.pause();video.removeAttribute('src');video.load();overlay.remove();};
     const ready=prepared.then(begin=>({begin,error:null})).catch((error:unknown)=>({begin:null,error}));
     const finish=async()=>{
       if(finished||transitioning)return;transitioning=true;attempt++;video.pause();controls.hidden=true;
@@ -40,28 +39,32 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
       }
       result.begin.zoom?.(1);finished=true;cleanup();result.begin();resolve();
     };
-    const failure=()=>{if(finished||transitioning)return;clearTimeout(timeout);attempt++;video.pause();controls.hidden=false;status.textContent='Intro unavailable. You can start the game.';play.hidden=true;skip.hidden=false;};
+    const failure=()=>{if(finished||transitioning)return;clearTimeout(timeout);attempt++;video.pause();controls.hidden=false;status.textContent='Intro unavailable. You can start the game.';skip.hidden=false;};
     const tryPlay=()=>{
       if(finished||transitioning||document.hidden)return;
-      // Do not let the music run ahead while the film is still buffering.
-      if(video.readyState<3){controls.hidden=false;status.textContent='Loading intro…';play.hidden=true;return;}
-      audio?.unlockSounds?.();
+      if(video.readyState<3){controls.hidden=false;status.textContent='Loading intro…';return;}
       const ticket=++attempt;video.playbackRate=2;video.muted=!(audio?.sounds()??true);controls.hidden=true;
-      // Both play calls happen in the same gesture, before awaiting either promise.
-      void Promise.all([video.play(),audio?.music.start()??Promise.resolve()]).then(()=>{
-        if(finished||ticket!==attempt)return;started=true;clearTimeout(timeout);controls.hidden=true;
-      }).catch(()=>{
-        if(finished||ticket!==attempt)return;clearTimeout(timeout);video.pause();if(!started){video.currentTime=0;audio?.music.cancelStart();}
-        controls.hidden=false;status.textContent='';play.textContent=started?'▶ Продолжить':'▶ Нажми, чтобы начать';play.hidden=false;skip.hidden=true;
+      // Audio rejection must never block or rewind the film.
+      void audio?.music.start().catch(()=>{});
+      const playing=()=>{if(finished||ticket!==attempt)return;started=true;clearTimeout(timeout);controls.hidden=true;};
+      void video.play().then(playing).catch(()=>{
+        if(finished||transitioning||ticket!==attempt)return;
+        video.muted=true;
+        void video.play().then(playing).catch(()=>{if(ticket===attempt)failure();});
       });
     };
+    const gesture=()=>{
+      if(finished||transitioning||document.hidden)return;
+      video.muted=!(audio?.sounds()??true);
+      // Unmute in place: keep currentTime and the already running zoom untouched.
+      if(video.paused&&video.readyState>=3)tryPlay();
+    };
     const visibility=()=>{if(document.hidden){if(!finished&&!transitioning){backgroundPause=started||!video.paused;attempt++;video.pause();}}else if(backgroundPause){backgroundPause=false;tryPlay();}};
-    play.addEventListener('click',tryPlay);
     skip.addEventListener('click',()=>{void audio?.music.start().catch(()=>{});void finish();});
     video.addEventListener('ended',finish);video.addEventListener('error',failure);
     video.addEventListener('loadedmetadata',()=>{video.playbackRate=2;});
-    video.addEventListener('canplay',()=>{if(!started&&play.hidden&&skip.hidden)tryPlay();});
-    document.addEventListener('visibilitychange',visibility);
+    video.addEventListener('canplay',()=>{if(!started&&skip.hidden)tryPlay();});
+    document.addEventListener('visibilitychange',visibility);document.addEventListener('pointerdown',gesture);document.addEventListener('keydown',gesture);
     const timeout=setTimeout(()=>{if(!finished&&!started)failure();},12000);
     tryPlay();
   });
