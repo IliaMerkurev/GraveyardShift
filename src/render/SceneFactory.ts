@@ -15,6 +15,7 @@ export type HitTarget = {kind:'entity'|'pad'|'slot'|'storage';id:string};
 type EntityView = {kind:string;group:THREE.Group; worker?:WorkerVisual;label:HTMLDivElement;hit:HTMLDivElement};
 type Effect = {active:boolean;age:number;life:number;x:number;y:number;z:number;vx:number;vy:number;vz:number;color:number;size:number;coin:boolean};
 const resourceColors=CONFIG.stones.resources.map(r=>r.color);
+const overlayTargets='.topbar button,.upgrade-button,.audio-menu:not([hidden]),.overlay:not([hidden]),.toast.visible';
 const fieldBonusVisuals:Partial<Record<Entity['kind'],{create:()=>THREE.Group;label:string;color:string;background:string;description:string}>>={
   rewind:{create:createRewind,label:'⏪',color:'#074b5e',background:'#a7fff6',description:'Rewind bonus. Tap or drag onto the field to use.'},
   slow:{create:createSlow,label:'⏸',color:'#33277e',background:'#d7d0ff',description:'Pause snake bonus. Tap or drag onto the field to freeze the snake for five seconds.'},
@@ -44,10 +45,10 @@ export class SceneView {
     const context=this.canvas.getContext('webgl2',{antialias:true,alpha:false});
     if(!context) throw new Error('WebGL 2 is unavailable. Please open this prototype in a recent browser with graphics acceleration enabled.');
     this.renderer=new THREE.WebGLRenderer({canvas:this.canvas,context,antialias:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,viewConfig.dprLimit));
-    this.renderer.setClearColor(0x171c1c);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
+    this.renderer.setClearColor(0x171c1c);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.4;
     this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;shell.append(this.canvas);
     this.labels=document.createElement('div');this.labels.className='labels';shell.append(this.labels);
-    this.scene.add(new THREE.HemisphereLight(0xa9c9c1,0x21170e,.9));const key=new THREE.DirectionalLight(0xffc891,2.2);key.position.set(-5,12,6);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-11;key.shadow.camera.right=11;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=.5;key.shadow.camera.far=35;key.shadow.normalBias=.025;key.shadow.bias=-.0002;key.shadow.radius=2;this.scene.add(key);
+    this.scene.add(new THREE.HemisphereLight(0xa9c9c1,0x21170e,.9));const key=new THREE.DirectionalLight(0xffc891,2.3);key.position.set(-5,12,6);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-11;key.shadow.camera.right=11;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=.5;key.shadow.camera.far=35;key.shadow.normalBias=.025;key.shadow.bias=-.0002;key.shadow.radius=2;this.scene.add(key);
     this.scene.add(this.field,this.belt);this.vfx=new ParticleVfx(this.scene);this.stoneDebris=new StoneDebrisVfx(this.scene);
     this.rooms=[createDungeonRoom({width:7.2,depth:12.7,centerZ:1.05,backZ:-5.3}),createDungeonRoom({width:17.004,depth:12.276,centerZ:1.8,backZ:-4.338})];
     // Local amber pools and cold green niches complement one bounded directional shadow map.
@@ -99,7 +100,7 @@ export class SceneView {
   private insidePit(point:Point):boolean{const ground=this.mapped(point,false,'field'),pit=this.mapped(CONFIG.discard,false,'discard');return Math.hypot(ground.x-pit.x,ground.z-pit.z)<=CONFIG.discard.radius*(this.landscape?1:1.25);}
   private location(entityId:string):Point|null{const e=this.state?.entities[entityId];if(!e||!this.state||e.location.kind==='drag')return null;const ref=e.location;return(ref.kind==='pad'?this.state.pads:ref.kind==='storage'?this.state.storage:this.state.slots).find(p=>p.id===ref.id)??null;}
   private overUI(clientX:number,clientY:number):boolean{
-    return [...this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')].some(ui=>{const r=ui.getBoundingClientRect();return clientX>=r.left&&clientX<=r.right&&clientY>=r.top&&clientY<=r.bottom;});
+    return [...this.shell.querySelectorAll<HTMLElement>(overlayTargets)].some(ui=>{const r=ui.getBoundingClientRect();return clientX>=r.left&&clientX<=r.right&&clientY>=r.top&&clientY<=r.bottom;});
   }
   hit(clientX:number,clientY:number):HitTarget|null{
     if(!this.state||this.overUI(clientX,clientY))return null;
@@ -135,7 +136,7 @@ export class SceneView {
     // UI and every storage stand take precedence over bonus activation. In
     // particular, an occupied/unaffordable stand returns an invalid storage
     // target rather than falling through to field/track consumption.
-    for(const ui of this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')){
+    for(const ui of this.shell.querySelectorAll<HTMLElement>(overlayTargets)){
       const rect=ui.getBoundingClientRect();
       if(clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return null;
     }
@@ -158,7 +159,7 @@ export class SceneView {
     if(entity&&fieldBonusVisuals[entity.kind]){
       // Pointer capture still delivers releases over HTML controls. Those are
       // never part of the playfield, even if ground lies behind them.
-      for(const ui of this.shell.querySelectorAll<HTMLElement>('.topbar, .tutorial, .footer, .overlay:not([hidden]), .toast.visible')){
+      for(const ui of this.shell.querySelectorAll<HTMLElement>(overlayTargets)){
         const rect=ui.getBoundingClientRect();
         if(clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return null;
       }
@@ -243,6 +244,13 @@ export class SceneView {
     const counts=[0,0,0];for(const stone of state.stones){const renderDistance=rendered.get(stone.id)??stone.distance,bounce=renderDistance-stone.distance,path=samplePath(renderDistance),ground=this.project(path,0);stoneMarkers.push({id:stone.id,distance:stone.distance,x:ground.x,y:ground.y,bounce,renderDistance});if(stone.distance<0)continue;const mesh=this.stones[stone.variant%3],i=counts[stone.variant%3]++;const p=this.mapped(path);this.dummy.position.set(p.x,.27+bounce*.2,p.z);const impact=this.reducedMotion.matches||state.slowRemaining>0?0:(this.flashes.get(stone.id)??0)/.16;this.dummy.position.y+=Math.sin(impact*Math.PI)*.035;this.dummy.rotation.set(.15*Math.sin(stone.distance)+Math.sin(impact*Math.PI*2)*.13,path.angle+stone.variant+(this.landscape?Math.PI/2:0),.2);this.dummy.scale.setScalar(1);this.dummy.updateMatrix();mesh.setMatrixAt(i,this.dummy.matrix);this.color.setHex(resourceColors[stone.resource]).lerp(new THREE.Color(0xffffff),.8);if(this.flashes.has(stone.id))this.color.lerp(new THREE.Color(0xffffff),.7);else if(stone.hp<stone.maxHp)this.color.lerp(new THREE.Color(0xffffff),.12);mesh.setColorAt(i,this.color);}
     this.canvas.dataset.stones=JSON.stringify(stoneMarkers);
     for(let i=0;i<3;i++){this.stones[i].count=counts[i];this.oreCracks[i].count=counts[i];this.stones[i].instanceMatrix.needsUpdate=true;if(this.stones[i].instanceColor)this.stones[i].instanceColor!.needsUpdate=true;}
+    // The upgrade belongs to the storage bay, so its hit box follows the camera.
+    const upgrade=this.shell.querySelector<HTMLElement>('[data-worker-upgrade]');
+    if(upgrade){
+      const x=this.landscape?2.7:1.3,z=this.landscape?LANDSCAPE_LAYOUT.storageZ:PORTRAIT_LAYOUT.storageZ;
+      const p=this.project(unmapFieldPosition({x,z},this.landscape),.1),edge=this.project(unmapFieldPosition({x:x+.5,z},this.landscape),.1);
+      upgrade.style.left=`${p.x+this.canvas.offsetLeft}px`;upgrade.style.top=`${p.y+this.canvas.offsetTop}px`;upgrade.style.setProperty('--size',`${Math.max(44,Math.min(84,2*(edge.x-p.x)))}px`);
+    }
     const discardScreen=this.project(CONFIG.discard,.04,false,'discard');
     this.discardLabel.style.transform='translate(-50%,-50%)';this.discardLabel.style.left=`${discardScreen.x}px`;this.discardLabel.style.top=`${discardScreen.y}px`;this.discardLabel.classList.toggle('active',state.drag!==null&&state.entities[state.drag.entityId]?.kind==='worker');
     const finish=samplePath(PATH_LENGTH),finishScreen=this.project({x:finish.x+.6,z:finish.z},.25);this.finishLabel.style.left=`${finishScreen.x}px`;this.finishLabel.style.top=`${finishScreen.y}px`;

@@ -12,7 +12,7 @@ export interface ScreenPoint {x:number;y:number}
 /** Scene placement is independent of game-state coordinates. Drag points always use field space. */
 export type ViewZone = 'field' | 'belt' | 'storage' | 'discard';
 export const LANDSCAPE_LAYOUT = { fieldOffsetX: 0, storageCenterX: -1.2, storageSpacing: 2.4, storageZ: 4.25, pitX: 4.2, pitZ: 4.25, beltZ: 5.85, cameraTargetZ: 2.2 } as const;
-export const PORTRAIT_LAYOUT = { fieldWidthScale:.9, fieldDepthScale:.6, storageCenterX:-.65, storageSpacing:1.3, storageZ:4.4, pitX:2.15, pitZ:4.4, beltZ:6.15 } as const;
+export const PORTRAIT_LAYOUT = { fieldWidthScale:.9, fieldDepthScale:.6, storageCenterX:-1.3, storageSpacing:1.3, storageZ:4.4, pitX:2.6, pitZ:4.4, beltZ:6.15 } as const;
 /** Compress only the covered transit, keeping the working belt spacing generous. */
 export function beltX(x:number,landscape:boolean):number{
   const a=Math.abs(x),inner=landscape?3.7:2.664,outer=landscape?4.5:3.4;
@@ -28,7 +28,7 @@ export function fitCamera(camera:THREE.PerspectiveCamera,width:number,height:num
   // Separate boxes avoid the empty upper corners of a full-room bounding box.
   const boxes=landscape?[
     [-7.5,5.5,-3.25,3.25,.65],[-4.3,4.75,3.65,4.9,1.7],[-7.6,7.6,5.05,6.65,1.65]
-  ]:[[-2.95,2.95,-4.6,3.4,.65],[-2.55,2.7,3.75,5.05,1.7],[-3.5,3.5,5.35,6.95,1.65]];
+  ]:[[-2.95,2.95,-4.6,3.4,.65],[-3.2,3.2,3.75,5.05,1.7],[-3.5,3.5,5.35,6.95,1.65]];
   for(const pad of CONFIG.pads){const p=mapPosition(pad,landscape);boxes.push([p.x-.5,p.x+.5,p.z-.5,p.z+.5,1.7]);}
   let fit=0;
   for(const [left,rightX,back,front,top] of boxes)for(const x of [left,rightX])for(const y of [0,top])for(const z of [back,front]){

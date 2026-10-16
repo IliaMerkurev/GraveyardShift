@@ -12,6 +12,7 @@ export class Hud {
   constructor(private shell:HTMLElement,actions:{restart:()=>void;pause:()=>void;resume:()=>void;upgrade:()=>void;toggleSound?:()=>boolean;audioSettings?:AudioSettings;logo?:string}){
     const ui=document.createElement('div');ui.innerHTML=`<header class="topbar"><div class="wordmark">GRAVEYARD SHIFT<small>UNDEAD MINING CO. · v0.4</small></div><div class="wallet" aria-label="Coins"><span class="coin">●</span><span data-coins>0</span></div><button class="icon-button sound-button" data-sound aria-label="Mute sound effects" aria-pressed="false" title="Mute sound effects">♪</button><button class="icon-button pause-button" data-pause aria-label="Pause game" aria-pressed="false" title="Pause game"><span aria-hidden="true">Ⅱ</span><small>Pause</small></button><button class="icon-button" aria-label="Restart" title="Restart">↻</button></header><footer class="footer"><button class="upgrade-button" data-worker-upgrade></button><span class="belt-status" hidden></span><button class="help-button" aria-label="Help">?</button></footer><div class="toast" role="status"></div><div class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title"><section class="card"><h1 id="modal-title"></h1><p></p><button data-continue>Keep mining</button><button data-restart class="secondary">Restart</button></section></div>`;
     if(actions.logo){const logo=document.createElement('img');logo.src=actions.logo;logo.alt='Graveyard Shift · Undead Mining Co.';logo.className='hud-logo';ui.querySelector('.wordmark')!.replaceChildren(logo);}
+    ui.querySelector('.topbar')!.append(ui.querySelector('.help-button')!);
     shell.append(ui);this.coin=ui.querySelector('[data-coins]')!;this.status=ui.querySelector('.belt-status')!;this.toastElement=ui.querySelector('.toast')!;this.overlay=ui.querySelector('.overlay')!;
     const sound=ui.querySelector<HTMLButtonElement>('[data-sound]')!;if(actions.audioSettings)attachAudioMenu(sound,actions.audioSettings);else sound.addEventListener('click',()=>{const muted=actions.toggleSound?.()??false;sound.textContent=muted?'♪̸':'♪';sound.dataset.muted=String(muted);sound.setAttribute('aria-pressed',String(muted));sound.title=muted?'Unmute sound effects':'Mute sound effects';sound.setAttribute('aria-label',sound.title);});
     this.pauseButton=ui.querySelector<HTMLButtonElement>('[data-pause]')!;
@@ -44,8 +45,8 @@ export class Hud {
     const price=workerUpgradePrice(state,CONFIG),range=workerBarrelRange(state),hasEffect=workerUpgradeHasEffect(state);
     this.upgrade.disabled=state.paused||state.gameOver||!!state.drag||price===null||!hasEffect||state.coins<price;
     const levelRange=range.lowest===range.highest?`${range.lowest}`:`${range.lowest}–${range.highest}`;
-    const action=!hasEffect?'MAX ON FIELD · MERGE TO RAISE':price===null?'PRICE LIMIT':`↑ UPGRADE · ${price.toLocaleString('en-US')} COINS`;
-    this.upgrade.textContent=`WORKER LEVELS ${levelRange}\n${action}`;
+    const action=!hasEffect?'MAX':price===null?'LIMIT':`↑${price.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})}`;
+    this.upgrade.textContent=`LV ${levelRange}\n${action}`;
     this.upgrade.title=`Worker barrels currently reveal levels ${levelRange}, never above your highest deployed worker. ${!hasEffect?'Deploy a stronger merged worker to unlock more upgrades.':price===null?'Numeric price limit reached.':`Raise the range for ${price} coins; the upper end stays capped. Next price doubles.`}`;
     this.upgrade.setAttribute('aria-label',this.upgrade.title);
     this.upgrade.dataset.boost=String(state.workerDropBoost);this.upgrade.dataset.price=price===null?'':String(price);
@@ -57,8 +58,8 @@ export class Hud {
       else if(this.onboarding===1&&t.opened&&performance.now()>this.toastUntil){this.onboarding=2;this.message('Drag workers to pads · merge matching levels',true);}
     }
     const slowing=state.slowRemaining>0&&!state.gameOver;
-    this.shell.dataset.slow=String(slowing);this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');
-    this.status.hidden=!slowing;this.status.textContent=slowing?`⏸ SNAKE PAUSED · ${(Math.ceil(state.slowRemaining*10)/10).toFixed(1)}s`:'';
+    this.shell.dataset.slow=String(slowing);this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');this.status.setAttribute('aria-label','Snake pause time remaining');
+    this.status.hidden=!slowing;this.status.textContent=slowing?`⏸ ${(Math.ceil(state.slowRemaining*10)/10).toFixed(1)}s`:'';
     if(performance.now()>this.toastUntil)this.toastElement.classList.remove('visible');
     const activeLabel=this.shell.querySelector('.pulse');activeLabel?.classList.remove('pulse');
     if(state.gameOver)return;
