@@ -27,22 +27,22 @@ export class Tutorial {
     const visible=(e:Entity)=>e.location.kind!=='slot'||(getEntityPosition(s,e)!.x>=-2.7&&getEntityPosition(s,e)!.x<=2.7);
     const position=(e:Entity)=>{const p=getEntityPosition(s,e);return p?project(p,e.kind==='worker'?.7:.65,e.location.kind==='slot'):null;};
     const find=(kind:string)=>entities.find(e=>e.kind===kind&&visible(e));
-    let from:{x:number;y:number}|null=null,to:{x:number;y:number}|null=null,label='Tap';
+    let from:{x:number;y:number}|null=null,to:{x:number;y:number}|null=null,label='TAP';
     const barrel=(kind:string)=>{const e=entities.find(e=>e.kind==='barrel'&&e.content===kind&&visible(e));if(e)from=position(e);};
     if(!t.merged){
       const workers=entities.filter(e=>e.kind==='worker').sort((a,b)=>Number(a.location.kind==='pad')-Number(b.location.kind==='pad'));
-      for(const a of workers){if(!visible(a))continue;const b=workers.find(b=>b.id!==a.id&&b.kind==='worker'&&a.kind==='worker'&&b.level===a.level&&visible(b));if(b){from=position(a);to=position(b);label='Drag to merge';break;}}
+      for(const a of workers){if(!visible(a))continue;const b=workers.find(b=>b.id!==a.id&&b.kind==='worker'&&a.kind==='worker'&&b.level===a.level&&visible(b));if(b){from=position(a);to=position(b);label='MERGE';break;}}
       if(!from)barrel('worker');
-    }else if(!t.rewound){const e=find('rewind');if(e){from=position(e);label='Tap to rewind';}else barrel('rewind');}
-    else if(!t.bombed){const e=find('bomb'),rock=s.stones.find(r=>r.distance>=0);if(e&&rock){from=position(e);to=project(samplePath(rock.frozenRenderDistance??rock.waitingRenderDistance??rock.distance),.3);label='Drag onto rocks';}else barrel('bomb');}
-    else if(!s.workerDropBoost){const price=workerUpgradePrice(s,CONFIG);if(price!==null&&s.coins>=price){const b=this.shell.querySelector('[data-worker-upgrade]')!.getBoundingClientRect(),r=this.shell.getBoundingClientRect();from={x:b.left+b.width/2-r.left,y:b.top-r.top};label='Upgrade workers';}}
-    else if(!t.bought){const pad=s.pads.find(p=>!p.unlocked&&!p.entityId&&!p.reserved&&s.coins>=p.price);if(pad){from=project(pad,.3);label='Add a work pad';}}
-    else if(!s.storage.some(p=>p.unlocked)){const pocket=s.storage.find(p=>!p.entityId&&!p.reserved&&s.coins>=p.price);if(pocket){from=project(pocket,.3);label='Add a bonus pocket';}}
+    }else if(!t.rewound){const e=find('rewind');if(e){from=position(e);label='REWIND';}else barrel('rewind');}
+    else if(!t.bombed){const e=find('bomb'),rock=s.stones.find(r=>r.distance>=0);if(e&&rock){from=position(e);to=project(samplePath(rock.frozenRenderDistance??rock.waitingRenderDistance??rock.distance),.3);label='DROP BOMB';}else barrel('bomb');}
+    else if(!s.workerDropBoost){const price=workerUpgradePrice(s,CONFIG);if(price!==null&&s.coins>=price){const b=this.shell.querySelector('[data-worker-upgrade]')!.getBoundingClientRect(),r=this.shell.getBoundingClientRect();from={x:b.left+b.width/2-r.left,y:b.top-r.top};label='UPGRADE';}}
+    else if(!t.bought){const pad=s.pads.find(p=>!p.unlocked&&!p.entityId&&!p.reserved&&s.coins>=p.price);if(pad){from=project(pad,.3);label='BUY';}}
+    else if(!s.storage.some(p=>p.unlocked)){const pocket=s.storage.find(p=>!p.entityId&&!p.reserved&&s.coins>=p.price);if(pocket){from=project(pocket,.3);label='BUY';}}
     else if(!t.storageUsed){
       const saved=entities.find(e=>e.location.kind==='storage');
-      if(saved){from=position(saved);label='Tap stored bonus';if(saved.kind==='bomb'){const rock=s.stones.find(r=>r.distance>=0);if(rock){to=project(samplePath(rock.distance),.3);label='Drag stored bomb';}else from=null;}}
+      if(saved){from=position(saved);label='USE';if(saved.kind==='bomb'){const rock=s.stones.find(r=>r.distance>=0);if(rock){to=project(samplePath(rock.distance),.3);label='DROP BOMB';}else from=null;}}
       else{const pocket=s.storage.find(p=>p.unlocked&&!p.entityId&&!p.reserved),bonus=entities.find(e=>e.kind!=='worker'&&e.kind!=='barrel'&&visible(e));
-        if(pocket&&bonus){from=position(bonus);to=project(pocket,.3);label='Save a bonus';}
+        if(pocket&&bonus){from=position(bonus);to=project(pocket,.3);label='STORE';}
         else{const b=entities.find(e=>e.kind==='barrel'&&e.content!=='worker'&&visible(e));if(b)from=position(b);}
       }
     }
@@ -59,6 +59,6 @@ export class Tutorial {
       ring.setAttribute('cx',String(b.x));ring.setAttribute('cy',String(b.y));
     }else{ring.setAttribute('cx',String(a.x));ring.setAttribute('cy',String(a.y));}
     arrow.setAttribute('transform',`translate(${x} ${y})`);
-    text.setAttribute('x',String(Math.max(72,Math.min(this.shell.clientWidth-72,a.x))));text.setAttribute('y',String(Math.max(22,a.y-60)));text.textContent=label;
+    text.setAttribute('x',String(Math.max(72,Math.min(this.shell.clientWidth-72,x))));text.setAttribute('y',String(Math.max(22,Math.min(this.shell.clientHeight-12,y-48))));text.textContent=label;
   }
 }
