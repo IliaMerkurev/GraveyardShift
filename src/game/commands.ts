@@ -266,7 +266,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (target.kind === 'pad' && !(place as Pad).unlocked) return canBuyPad(ctx, place as Pad);
   if (!place.entityId) return true;
   const other = ctx.state.entities[place.entityId];
-  return other?.kind === 'worker' && other.level === entity.level;
+  return other?.kind === 'worker' && (other.level === entity.level || target.kind === 'pad' && drag.source.kind === 'pad');
 }
 
 /** Single reward gate for mining and bombs. Removing the ID makes repeated damage inert. */
@@ -350,6 +350,10 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
       ctx.state.tutorial.merged = true;
       ctx.emit({ type: 'merge', x: destination.x, z: destination.z, entityId: occupant.id, level: occupant.level });
     } else {
+      if(occupant?.kind==='worker'){
+        if(target.kind==='pad'&&target.id===ctx.state.pads[0]?.id&&drag.source.kind==='pad'&&entity.kind==='worker'&&entity.level>occupant.level)ctx.state.tutorial.swapped=true;
+        source.entityId=occupant.id;occupant.location={...drag.source};occupant.mining=createMiningState();
+      }
       destination.entityId = entity.id;
       entity.location = { ...target };
       if (target.kind === 'pad' && entity.kind === 'worker') ctx.state.tutorial.placed = true;

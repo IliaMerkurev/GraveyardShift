@@ -9,19 +9,21 @@ export class Tutorial {
   private svg:SVGSVGElement;
   private done=false;
   private discarded=false;
+  private swapped=false;
   constructor(private shell:HTMLElement,private view:SceneView){
-    try{this.done=localStorage.getItem('graveyard-guide')==='storage';this.discarded=localStorage.getItem('graveyard-field-income')==='done';}catch{}
+    try{this.done=localStorage.getItem('graveyard-guide')==='storage';this.discarded=localStorage.getItem('graveyard-field-income')==='done';this.swapped=localStorage.getItem('graveyard-swap')==='done';}catch{}
     this.svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     this.svg.classList.add('live-guide');this.svg.setAttribute('aria-hidden','true');
     this.svg.innerHTML='<path class="guide-trail"/><circle r="17" class="guide-ring"/><path class="guide-arrow" d="M -8 -36 L 8 -36 L 8 -17 L 19 -17 L 0 3 L -19 -17 L -8 -17 Z"/><text class="guide-label" text-anchor="middle"/>';
     shell.append(this.svg);
   }
-  reset(){this.done=this.discarded=false;try{localStorage.removeItem('graveyard-guide');localStorage.removeItem('graveyard-field-income');}catch{}}
+  reset(){this.done=this.discarded=this.swapped=false;try{localStorage.removeItem('graveyard-guide');localStorage.removeItem('graveyard-field-income');localStorage.removeItem('graveyard-swap');}catch{}}
   render(s:GameState){
     if(s.tutorial.discarded&&!this.discarded){this.discarded=true;try{localStorage.setItem('graveyard-field-income','done');}catch{}}
+    if(s.tutorial.swapped&&!this.swapped){this.swapped=true;try{localStorage.setItem('graveyard-swap','done');}catch{}}
     s.tutorial.finished=this.done;
     this.svg.style.display='none';
-    if(this.done&&this.discarded||s.paused||s.gameOver||s.drag||this.shell.querySelector('.audio-menu:not([hidden])'))return;
+    if(this.done&&this.discarded&&this.swapped||s.paused||s.gameOver||s.drag||this.shell.querySelector('.audio-menu:not([hidden])'))return;
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     const rect=this.view.canvas.getBoundingClientRect(),shell=this.shell.getBoundingClientRect();
     const project=(p:Parameters<SceneView['project']>[0],y:number,belt=false,zone?:Parameters<SceneView['project']>[3])=>{const v=this.view.project(p,y,belt,zone);return{x:v.x+rect.left-shell.left,y:v.y+rect.top-shell.top};};
@@ -31,9 +33,11 @@ export class Tutorial {
     const find=(kind:string)=>entities.find(e=>e.kind===kind&&visible(e));
     let from:{x:number;y:number}|null=null,to:{x:number;y:number}|null=null,label='TAP';
     const barrel=(kind:string)=>{const e=entities.find(e=>e.kind==='barrel'&&e.content===kind&&visible(e));if(e)from=position(e);};
-    const field=entities.filter((e):e is Worker=>e.kind==='worker'&&s.pads.some(p=>p.unlocked&&p.entityId===e.id&&e.location.kind==='pad'&&p.id===e.location.id));
-    const spare=!this.discarded&&(this.done||t.merged&&t.rewound&&t.bombed)&&s.pads.every(p=>!p.unlocked||field.some(e=>e.id===p.entityId))&&field.sort((a,b)=>a.level-b.level)[0];
-    if(spare&&entities.some(e=>e.kind==='worker'&&e.level>spare.level&&e.location.kind==='slot'&&s.slots.some(p=>p.id===(e.location as {id:string}).id&&p.entityId===e.id&&!p.reserved)&&visible(e))){from=position(spare);to=project(CONFIG.discard,.1,false,'discard');label='Income +20%';}
+    const field=entities.filter((e):e is Worker=>e.kind==='worker'&&s.pads.some(p=>p.unlocked&&!p.reserved&&p.entityId===e.id&&e.location.kind==='pad'&&p.id===e.location.id));
+    const core=this.done||t.merged&&t.rewound&&t.bombed,first=field.find(e=>e.id===s.pads[0].entityId),swap=!this.swapped&&core&&first&&field.find(e=>e.level>first.level);
+    const spare=!this.discarded&&core&&s.pads.every(p=>!p.unlocked||field.some(e=>e.id===p.entityId))&&field.sort((a,b)=>a.level-b.level)[0];
+    if(swap&&first){from=position(swap);to=position(first);label='SWAP';}
+    else if(spare&&entities.some(e=>e.kind==='worker'&&e.level>spare.level&&e.location.kind==='slot'&&s.slots.some(p=>p.id===(e.location as {id:string}).id&&p.entityId===e.id&&!p.reserved)&&visible(e))){from=position(spare);to=project(CONFIG.discard,.1,false,'discard');label='Income +20%';}
     else if(this.done)return;
     else if(!t.merged){
       const workers=entities.filter(e=>e.kind==='worker').sort((a,b)=>Number(a.location.kind==='pad')-Number(b.location.kind==='pad'));

@@ -144,3 +144,5 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 
 .pad-label[data-empty-target]{outline:3px solid #6ccaff;outline-offset:5px;box-shadow:0 0 18px 8px #379fff70;background:#133f67;color:#e5f6ff}
 .pad-label[data-empty-target=active]{outline:4px solid #e5f6ff;box-shadow:0 0 22px 11px #6ccaffb0;background:#21669a}
+
+.entity-target[data-action=SWAP]{border-color:#bb99ff;box-shadow:0 0 0 4px #bb99ff88}.entity-target[data-action=SWAP]::after,.merge-target-label[data-action=SWAP]{background:#563982;color:#eee4ff;border-color:#bb99ff}

@@ -191,7 +191,7 @@ export class SceneView {
   private dropAction(entity?:Entity){
     const held=this.state?.drag?this.state.entities[this.state.drag.entityId]:null;
     if(held?.kind!=='worker'||entity?.kind!=='worker'||entity.location.kind==='drag'||!this.canDrop(entity.location))return '';
-    return held.level===entity.level?'MERGE':'';
+    return held.level===entity.level?'MERGE':'SWAP';
   }
   private emptyTargets(target:DropTarget,clear=false){
     for(const kind of ['pad','storage'] as const)for(const [id,v] of kind==='pad'?this.pads:this.storage){
@@ -204,7 +204,8 @@ export class SceneView {
     this.dropPreview=valid?target:null;this.emptyTargets(this.dropPreview);
     for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.dataset.action=v.label.dataset.action=this.dropAction(e);v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
     this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
-    const color=valid?0x8effb7:0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
+    const swap=target.kind==='pad'&&this.dropAction(this.state?.entities[this.state.pads.find(p=>p.id===target.id)?.entityId??''])==='SWAP';
+    const color=valid?(swap?0xbb99ff:0x8effb7):0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
     else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(valid&&!p.entityId?0x6ccaff:color);this.targetRing.visible=true;}}
   }
