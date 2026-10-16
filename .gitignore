@@ -21,3 +21,7 @@ rocksnake-v02-smoke-results/
 # User-approved external intro media
 !public/media/intro-portrait.mp4
 !public/media/intro-landscape.mp4
+
+# Local validation and iteration report (not publication sources)
+/tests/unit/coin-transfers.test.ts
+/docs/COIN_TRANSFERS.md

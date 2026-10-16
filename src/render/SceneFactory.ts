@@ -363,13 +363,11 @@ export class SceneView {
         this.stoneDebris.crumble(p.x,p.z,resourceColors[previous.resource],!!blast,budget);
       }
     }
-    let coinBursts=0;
     for(const e of events){
       if(state.paused||state.gameOver||document.hidden)break;
-      if(e.type==='coins'){if(coinBursts++<(blast?4:12))this.burst(e.x,e.z,0xffd26a,4,false,true);}
       // Destruction uses material-colored solid rubble; coins and hit feedback stay separate.
-      else if(e.type==='hit'&&!this.reducedMotion.matches){const p=this.mapped(e,false,'field');this.vfx.oreSparks(p.x,p.z,3);}
-      else if(e.type==='merge'||e.type==='purchase')this.burst(e.x,e.z,0x76ffc9,18,true);
+      if(e.type==='hit'&&!this.reducedMotion.matches){const p=this.mapped(e,false,'field');this.vfx.oreSparks(p.x,p.z,3);}
+      else if(e.type==='merge')this.burst(e.x,e.z,0x76ffc9,18,true);
       else if(e.type==='open')this.burst(e.x,e.z,0xdedbb5,5);
       else if(e.type==='rewind')this.burst(e.x,e.z,0x74f8f0,24,true);
       else if(e.type==='slow')this.burst(e.x,e.z,0xaaa1ff,18,true);
@@ -387,6 +385,7 @@ export class SceneView {
     for(const r of this.ripples){if(!r.mesh.visible)continue;r.age+=dt;const t=Math.min(1,r.age/r.life);r.mesh.visible=t<1;r.mesh.scale.setScalar(this.reducedMotion.matches?1:1+t*1.3);(r.mesh.material as THREE.MeshBasicMaterial).opacity=(1-t)*.65;}
     this.renderer.render(this.scene,this.camera);
   }
+  coinTransferPoint(event:GameEvent){const p=event.type==='destroy'&&event.stoneId?this.previousStonePositions.get(event.stoneId)??event:event;return this.project(p,event.type==='destroy'?.4:.15,false,event.type==='destroy'?'field':CONFIG.storage.some(s=>s.x===event.x&&s.z===event.z)?'storage':'field');}
   dispose(){this.clearWorkers();disposeSkeletonWorkerAsset();this.vfx.dispose();this.stoneDebris.dispose();}
   metrics(){return{...this.vfx.metrics(),...this.stoneDebris.metrics(),calls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,effects:this.particles.count+this.coins.count};}
 }
