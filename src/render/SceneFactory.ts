@@ -217,10 +217,10 @@ export class SceneView {
     this.camera.position.copy(this.cameraBase);
     if(state.paused||state.gameOver||this.reducedMotion.matches){this.shakeRemaining=0;}
     else{
-      if(events.some(event=>event.type==='bomb'||event.type==='tailBlast'))this.shakeRemaining=.28;
+      if(events.some(event=>event.type==='bomb'||event.type==='tailBlast'))this.shakeRemaining=.36;
       if(this.shakeRemaining>0){
         this.shakeRemaining=Math.max(0,this.shakeRemaining-dt);
-        const elapsed=.28-this.shakeRemaining,strength=.169*(this.shakeRemaining/.28)**2;
+        const elapsed=.36-this.shakeRemaining,strength=.19*(this.shakeRemaining/.36)**2;
         this.camera.position.x+=Math.sin(elapsed*113)*strength;
         this.camera.position.y+=Math.sin(elapsed*157+.8)*strength*.65;
       }
