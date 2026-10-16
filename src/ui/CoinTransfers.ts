@@ -7,12 +7,15 @@ export function coinTransferEvents(events:GameEvent[]){
   const rewards=events.filter(e=>e.type==='destroy'&&(e.amount??0)>0),count=Math.min(3,rewards.length);
   return [...events.filter(e=>e.type==='purchase'&&(e.amount??0)>0).slice(0,3),...Array.from({length:count},(_,i)=>rewards[Math.floor(i*rewards.length/count)])];
 }
-export function coinFlight(from:Point,to:Point,t:number,lane:number){
+export function coinFlight(from:Point,to:Point,t:number,lane:number,highArc=false){
   if(t>=1)return to;
   const u=t*t*(3-2*t),arc=Math.sin(Math.PI*t);
+  // Landscape rewards rise beside the rock, then flatten toward the high wallet.
+  // Cubic controls: (source.x, wallet.y), (source.x + .2 * dx, wallet.y).
+  if(highArc)return {x:from.x+(to.x-from.x)*(.6*u*u*(1-u)+u*u*u)+arc*lane*8,y:to.y+(from.y-to.y)*(1-u)**3};
   return {x:from.x+(to.x-from.x)*u+arc*lane*8,y:from.y+(to.y-from.y)*u-arc*Math.min(55,18+Math.abs(to.y-from.y)*.12)};
 }
-type Flight={node:HTMLElement;from:Point;to:Point;age:number;lane:number;ring:boolean};
+type Flight={node:HTMLElement;from:Point;to:Point;age:number;lane:number;ring:boolean;highArc:boolean};
 /** Visual only: the committed simulation remains the sole owner of every coin. */
 export class CoinTransfers {
   private layer:HTMLElement;private flights:Flight[]=[];
@@ -31,7 +34,7 @@ export class CoinTransfers {
     if(priority)while(this.flights.length>COIN_TRANSFER_LIMIT-count)this.flights.shift()!.node.remove();
     for(let i=0;i<count&&this.flights.length<COIN_TRANSFER_LIMIT;i++){
       const node=document.createElement('i');node.className='transfer-coin';node.style.opacity='0';this.layer.append(node);
-      this.flights.push({node,from,to,age:reduced?.58:-i*.045,lane:i-1,ring:reduced||i===count-1});
+      this.flights.push({node,from,to,age:reduced?.58:-i*.045,lane:i-1,ring:reduced||i===count-1,highArc:!priority&&this.shell.clientWidth>this.shell.clientHeight});
     }
   }
   tick(dt:number,blocked=false){
@@ -41,7 +44,7 @@ export class CoinTransfers {
       if(this.reduced.matches&&f.age<.58)f.age=.58;
       f.age+=dt;if(f.age<0)return true;
       if(f.age>=.76||f.age>=.58&&!f.ring){f.node.remove();return false;}
-      const arrived=f.age>=.58,t=Math.min(1,f.age/.58),p=coinFlight(f.from,f.to,t,f.lane);
+      const arrived=f.age>=.58,t=Math.min(1,f.age/.58),p=coinFlight(f.from,f.to,t,f.lane,f.highArc);
       f.node.classList.toggle('transfer-arrival',arrived);
       f.node.style.opacity=String(arrived?(1-(f.age-.58)/.18)*.65:Math.min(1,t*8));
       f.node.style.transform=`translate(${p.x}px,${p.y}px) translate(-50%,-50%) scale(${arrived?1:1-.25*t},${arrived?1:.75+.25*Math.abs(Math.cos(t*9))})`;
