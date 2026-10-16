@@ -33,7 +33,7 @@ export class Tutorial {
     const barrel=(kind:string)=>{const e=entities.find(e=>e.kind==='barrel'&&e.content===kind&&visible(e));if(e)from=position(e);};
     const field=entities.filter((e):e is Worker=>e.kind==='worker'&&s.pads.some(p=>p.unlocked&&p.entityId===e.id&&e.location.kind==='pad'&&p.id===e.location.id));
     const spare=!this.discarded&&(this.done||t.merged&&t.rewound&&t.bombed)&&s.pads.every(p=>!p.unlocked||field.some(e=>e.id===p.entityId))&&field.sort((a,b)=>a.level-b.level)[0];
-    if(spare){from=position(spare);to=project(CONFIG.discard,.1,false,'discard');label='Income +20%';}
+    if(spare&&entities.some(e=>e.kind==='worker'&&e.level>spare.level&&e.location.kind==='slot'&&s.slots.some(p=>p.id===(e.location as {id:string}).id&&p.entityId===e.id&&!p.reserved)&&visible(e))){from=position(spare);to=project(CONFIG.discard,.1,false,'discard');label='Income +20%';}
     else if(this.done)return;
     else if(!t.merged){
       const workers=entities.filter(e=>e.kind==='worker').sort((a,b)=>Number(a.location.kind==='pad')-Number(b.location.kind==='pad'));
