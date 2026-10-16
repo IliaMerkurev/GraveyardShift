@@ -66,7 +66,7 @@ export function workerUpgradeHasEffect(state: GameState): boolean {
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
-  const price = config.economy.workerUpgradeBaseCost * 2 ** state.workerDropBoost;
+  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 1.5 ** state.workerDropBoost);
   return Number.isSafeInteger(price) && price > 0 ? price : null;
 }
 
