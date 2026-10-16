@@ -227,9 +227,9 @@ export function conveyorSlotExposed(x:number):boolean { return Math.abs(x)<CONVE
  * Roof and camera-facing masonry occlude cargo before its spawn/wrap boundary.
  * Keep these in the belt group so the existing landscape X mapping also applies.
  */
-export function createConveyorTunnels():THREE.Group {
+export function createConveyorTunnels(inner=CONVEYOR_TUNNEL_MOUTH,outer=5.18):THREE.Group {
   const tunnels=new THREE.Group();tunnels.name='conveyor-end-tunnels';
-  const inner=CONVEYOR_TUNNEL_MOUTH,outer=5.18,length=outer-inner,center=(inner+outer)/2;
+  const length=outer-inner,center=(inner+outer)/2;
   for(const side of [-1,1]){
     const p:THREE.BufferGeometry[]=[];
     // Closed outer end, solid side walls and timber ceiling: no sightline to wrapping cargo.
@@ -270,6 +270,14 @@ export function createDungeonRoom(options:DungeonRoomOptions):THREE.Group {
     }
     g.traverse(o=>{if(o instanceof THREE.Mesh){const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld);(o.material===dungeonGlowMaterial?e:p).push(geometry);o.geometry.dispose();}});
   };
+  // Continue only the architecture beyond the view; the playable room and props stay fixed.
+  p.push(box(80,.18,80,P.mortar,cx,-.19,cz));
+  for(let z=back;z<cz+40;z+=2)for(let x=cx-40;x<cx+40;x+=2){
+    if(x>=cx-width/2&&x+2<=cx+width/2&&z>=cz-depth/2&&z+2<=cz+depth/2)continue;
+    p.push(box(1.98,.07,1.98,tint(P.stone,.68+seeded(x*17+z*31)*.22).getHex(),x+1,-.11,z+1));
+  }
+  // A recessed, tall rear wall closes the upper corners without adding a front wall.
+  for(let r=0;r<20;r++)for(let c=0;c<40;c++)p.push(box(1.98,1.98,.3,r%3?P.stoneDark:P.stone,cx-39+c*2+(r%2?.5:0),1+r*2,back-.38));
   p.push(box(width+.3,.19,depth+.3,P.mortar,cx,-.18,cz));
   const rows=Math.ceil(depth/.56),cols=Math.ceil(width/.78);
   for(let r=0;r<rows;r++){

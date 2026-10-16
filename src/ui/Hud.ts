@@ -1,33 +1,39 @@
+import {BONUS_HELP} from './BonusGuide';
+import {formatNumber,formatIncome} from './formatNumber';
 import {attachAudioMenu} from './AudioMenu';
+import {attachFullscreen} from './Fullscreen';
 import type {AudioSettings} from '../audio/AudioSettings';
 import type { GameEvent, GameState } from '../game/GameState';
-import { workerBarrelRange, workerUpgradeHasEffect, workerUpgradePrice } from '../game/commands';
+import { workerBarrelRange, workerUpgradePrice, workerUpgradeEligible } from '../game/commands';
 import { CONFIG } from '../game/config';
 export class Hud {
-  private coin:HTMLElement;private status:HTMLElement;private toastElement:HTMLElement;private overlay:HTMLElement;
+  private income:HTMLElement;private coin:HTMLElement;private status:HTMLElement;private toastElement:HTMLElement;private overlay:HTMLElement;
   private pauseButton:HTMLButtonElement;private paused=false;
   private upgrade:HTMLButtonElement;private popTimes=new WeakMap<HTMLElement,number>();
   private toastUntil=0;private goalShown=false;private ended=false;
-  private onboarding=0;private guidanceCounts=new Map<string,number>();
-  constructor(private shell:HTMLElement,actions:{restart:()=>void;pause:()=>void;resume:()=>void;upgrade:()=>void;toggleSound?:()=>boolean;audioSettings?:AudioSettings;logo?:string}){
-    const ui=document.createElement('div');ui.innerHTML=`<header class="topbar"><div class="wordmark">GRAVEYARD SHIFT<small>UNDEAD MINING CO. · v0.4</small></div><div class="wallet" aria-label="Coins"><span class="coin">●</span><span data-coins>0</span></div><button class="icon-button sound-button" data-sound aria-label="Mute sound effects" aria-pressed="false" title="Mute sound effects">♪</button><button class="icon-button pause-button" data-pause aria-label="Pause game" aria-pressed="false" title="Pause game"><span aria-hidden="true">Ⅱ</span><small>Pause</small></button><button class="icon-button" aria-label="Restart" title="Restart">↻</button></header><footer class="footer"><button class="upgrade-button" data-worker-upgrade></button><span class="belt-status" hidden></span><button class="help-button" aria-label="Help">?</button></footer><div class="toast" role="status"></div><div class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title"><section class="card"><h1 id="modal-title"></h1><p></p><button data-continue>Keep mining</button><button data-restart class="secondary">Restart</button></section></div>`;
+  private guidanceCounts=new Map<string,number>();
+  constructor(private shell:HTMLElement,actions:{guide?:()=>void;restart:()=>void;pause:()=>void;resume:()=>void;upgrade:()=>void;toggleSound?:()=>boolean;audioSettings?:AudioSettings;logo?:string}){
+    const ui=document.createElement('div');ui.innerHTML=`<header class="topbar"><div class="wordmark">GRAVEYARD SHIFT<small>UNDEAD MINING CO. · v0.4</small></div><div class="wallet" aria-label="Coins"><span class="coin">●</span><span><span data-coins>0</span><small data-income style="display:block;font-size:10px"></small></span></div><button class="icon-button sound-button" data-sound aria-label="Mute sound effects" aria-pressed="false" title="Mute sound effects">♪</button><button class="icon-button pause-button" data-pause aria-label="Pause game" aria-pressed="false" title="Pause game"><span aria-hidden="true">Ⅱ</span><small>Pause</small></button><button class="icon-button" aria-label="Restart" title="Restart">↻</button></header><footer class="footer"><button class="upgrade-button" data-worker-upgrade></button><span class="belt-status" hidden></span><button class="help-button" aria-label="Help">?</button></footer><div class="toast" role="status"></div><div class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title"><section class="card"><h1 id="modal-title"></h1><p></p><button data-guide class="secondary">Restart with guide</button><button data-continue>Keep mining</button><button data-restart class="secondary">Restart</button></section></div>`;
     if(actions.logo){const logo=document.createElement('img');logo.src=actions.logo;logo.alt='Graveyard Shift · Undead Mining Co.';logo.className='hud-logo';ui.querySelector('.wordmark')!.replaceChildren(logo);}
-    shell.append(ui);this.coin=ui.querySelector('[data-coins]')!;this.status=ui.querySelector('.belt-status')!;this.toastElement=ui.querySelector('.toast')!;this.overlay=ui.querySelector('.overlay')!;
+    ui.querySelector('.topbar')!.append(ui.querySelector('.help-button')!);
+    shell.append(ui);this.income=ui.querySelector('[data-income]')!;this.coin=ui.querySelector('[data-coins]')!;this.status=ui.querySelector('.belt-status')!;this.toastElement=ui.querySelector('.toast')!;this.overlay=ui.querySelector('.overlay')!;
+    attachFullscreen(ui.querySelector('.topbar')!,text=>{this.message(text,false,true);this.toastUntil+=4000;this.toastElement.dataset.fullscreen='';});
     const sound=ui.querySelector<HTMLButtonElement>('[data-sound]')!;if(actions.audioSettings)attachAudioMenu(sound,actions.audioSettings);else sound.addEventListener('click',()=>{const muted=actions.toggleSound?.()??false;sound.textContent=muted?'♪̸':'♪';sound.dataset.muted=String(muted);sound.setAttribute('aria-pressed',String(muted));sound.title=muted?'Unmute sound effects':'Mute sound effects';sound.setAttribute('aria-label',sound.title);});
     this.pauseButton=ui.querySelector<HTMLButtonElement>('[data-pause]')!;
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
     this.upgrade=ui.querySelector<HTMLButtonElement>('[data-worker-upgrade]')!;this.upgrade.addEventListener('click',actions.upgrade);
     ui.querySelector('[aria-label="Restart"]')!.addEventListener('click',actions.restart);
-    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','The head starts halfway along the track. It speeds up over time. Stop it before it reaches FINISH, or the run ends. Tap barrels, drag workers onto pads, and merge matching levels. Drop a worker onto an affordable locked pad to buy it and place the worker together. After rocks break, the front pauses briefly, then snaps back magnetically toward the continuously moving rear. Larger gaps pull faster; contact gives a small recoil. Drag bombs onto the rocks. Tap a cyan rewind token or drag it onto the field to move the head back to just before the first bend. Rewind never moves the head forward or resets its speed. Tap a purple pause token or drag it onto the field to freeze all snake motion for five full seconds, including recoil and rewind. Pending rewind resumes afterward. Acceleration also pauses, so the snake resumes without gaining speed during the pause. Workers and the belt keep their normal speed. Another pause token refreshes the timer. Amber ↓20% tokens permanently subtract 20% of the current forward speed, with a minimum of 10% of the starting speed. Acceleration continues at the same rate, and repeated tokens add more permanent reductions. During pause or rewind, speed bonuses reduce the underlying forward speed that resumes afterward. Green ↓50% tokens permanently halve the current forward speed exactly, even below the usual minimum. Future acceleration stays unchanged. Red tail-half blast tokens destroy half the current rocks, rounded up, starting from the tail, and award the usual rock coins. The surviving front stays still while new rocks advance from the start until they catch it. Rewind clears this wait. Both new tokens work by tapping or dragging onto the field. Drag an unwanted worker of any level into the orange-rimmed DISCARD WORKERS pit beside the storage stands, just above the belt. Release inside the hole to remove it without coins. Taps and canceled drags never discard. Every barrel reveals an item without awarding coins. After the fixed starter sequence, workers have a 50% chance. The six bonuses share the other 50% equally: bomb, rewind, pause, 20% slowdown, 50% slowdown and tail-half blast each have a 1-in-12 chance (about 8.33%). Earn coins by destroying rocks. The belt keeps moving. Uncollected items are lost at the left exit. Picked-up workers, bombs, and bonuses stay safe while held; canceled or invalid drops return them to their source. Buy the three bonus storage stands for 50, 150 and 300 coins by tapping or dropping a bonus when you can afford it. Each holds any one of the six bonuses indefinitely. Drag a stored bonus onto the field to use it; every bonus except the bomb also works by tapping. Workers and barrels cannot be stored. WORKER DROP upgrades cost 50, then 100, then 200 coins and keep doubling. Every purchase raises the worker barrel range, capped at your highest worker currently on a work pad. Once the whole range reaches that cap, upgrades stop and no coins are charged. Merge and deploy a stronger worker to raise the cap. The cap is recalculated for every reveal, including while dragging a worker. Empty pads use level 1. Only future reveals change. Restart clears storage purchases, upgrades and permanent speed reductions.',false);});
+    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Tap barrels; drag heroes to pads. Equal levels merge; unequal pad heroes swap. Pit: +20% income. Upgrade spawn range up to your highest pad hero; lower rolls favored. Price +20%: 50,60,72,87. Pockets store bonuses. Bad drops return. Restart resets income/upgrades.\n\n'+Object.values(BONUS_HELP).join('\n\n')+'\n\nTap any bonus or drop it off the conveyor. Pockets save them for later.',false);});
+    ui.querySelector('[data-guide]')!.addEventListener('click',()=>actions.guide?.());
     ui.querySelector('[data-continue]')!.addEventListener('click',()=>{if(this.ended)return;this.overlay.hidden=true;actions.resume();});
     ui.querySelector('[data-restart]')!.addEventListener('click',actions.restart);
   }
   private modal(title:string,text:string,defeat:boolean){this.overlay.querySelector('h1')!.textContent=title;this.overlay.querySelector('p')!.textContent=text;const resume=this.overlay.querySelector<HTMLButtonElement>('[data-continue]')!;resume.hidden=defeat;const restart=this.overlay.querySelector<HTMLButtonElement>('[data-restart]')!;restart.classList.toggle('secondary',!defeat);this.overlay.hidden=false;(defeat?restart:resume).focus();}
   goal(){if(this.goalShown||this.ended)return;this.goalShown=true;this.guidance('Level 3! Keep mining','goal');}
   defeat(){if(this.ended)return;this.ended=true;this.toastElement.classList.remove('visible');this.modal('Game over','The head reached the finish. Restart to try again. Mine and bomb rocks to push it back, and tap rewind tokens before they leave the belt.',true);}
-  message(text:string,guidance=false){if(this.ended)return;this.toastElement.dataset.guidance=String(guidance);this.toastElement.textContent=text;this.toastUntil=performance.now()+2400;this.toastElement.classList.add('visible');}
+  message(text:string,guidance=false,force=false){delete this.toastElement.dataset.fullscreen;if(this.ended&&!force)return;this.toastElement.dataset.guidance=String(guidance);this.toastElement.textContent=text;this.toastUntil=performance.now()+2400;this.toastElement.classList.add('visible');}
   guidance(text:string,key:string){const count=this.guidanceCounts.get(key)??0;if(count>=2||this.ended)return;this.guidanceCounts.set(key,count+1);this.message(text,true);}
-  reset(){this.onboarding=0;this.guidanceCounts.clear();this.goalShown=false;this.ended=false;this.overlay.hidden=true;this.toastUntil=0;this.toastElement.classList.remove('visible');}
+  reset(){this.guidanceCounts.clear();this.goalShown=false;this.ended=false;this.overlay.hidden=true;this.toastUntil=0;this.toastElement.classList.remove('visible');}
   private pop(element:HTMLElement){if(typeof element.animate!=='function')return;const now=performance.now();if(now-(this.popTimes.get(element)??-Infinity)<140)return;this.popTimes.set(element,now);for(const animation of element.getAnimations())animation.cancel();const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;element.animate(reduced?[{filter:'brightness(1.35)'},{filter:'brightness(1)'}]:[{transform:'scale(1)'},{transform:'scale(1.11)',offset:.25},{transform:'scale(.98)',offset:.65},{transform:'scale(1)'}],{duration:260,easing:'ease-out'});}
   feedback(events:GameEvent[]){if(events.some(e=>e.type==='coins'||e.type==='purchase'))this.pop(this.coin.parentElement!);}
   upgradeFeedback(){this.pop(this.upgrade);this.pop(this.coin.parentElement!);}
@@ -41,28 +47,22 @@ export class Hud {
       this.pauseButton.setAttribute('aria-pressed',String(this.paused));
     }
     this.pauseButton.disabled=state.gameOver||!this.overlay.hidden;
-    const price=workerUpgradePrice(state,CONFIG),range=workerBarrelRange(state),hasEffect=workerUpgradeHasEffect(state);
-    this.upgrade.disabled=state.paused||state.gameOver||!!state.drag||price===null||!hasEffect||state.coins<price;
-    const levelRange=range.lowest===range.highest?`${range.lowest}`:`${range.lowest}–${range.highest}`;
-    const action=!hasEffect?'MAX ON FIELD · MERGE TO RAISE':price===null?'PRICE LIMIT':`↑ UPGRADE · ${price.toLocaleString('en-US')} COINS`;
-    this.upgrade.textContent=`WORKER LEVELS ${levelRange}\n${action}`;
-    this.upgrade.title=`Worker barrels currently reveal levels ${levelRange}, never above your highest deployed worker. ${!hasEffect?'Deploy a stronger merged worker to unlock more upgrades.':price===null?'Numeric price limit reached.':`Raise the range for ${price} coins; the upper end stays capped. Next price doubles.`}`;
+    const price=workerUpgradePrice(state,CONFIG),range=workerBarrelRange(state),eligible=workerUpgradeEligible(state);
+    this.upgrade.disabled=state.paused||state.gameOver||!!state.drag||!eligible||price===null||state.coins<price;
+    const levelRange=range.lowest===range.highest?String(range.lowest):`${range.lowest}–${range.highest}`;
+    const action=!eligible?'MERGE':price===null?'LIMIT':`↑${formatNumber(price)}`;
+    this.upgrade.textContent=`LV ${levelRange}\n${action}`;
+    this.upgrade.title=`Spawn ${levelRange}. ${!eligible?`Need a level ${state.workerDropBoost+2} hero on a pad.`:price===null?'Numeric price limit.':`+1 level: ${price} coins; price +20%. Discards boost income.`}`;
     this.upgrade.setAttribute('aria-label',this.upgrade.title);
     this.upgrade.dataset.boost=String(state.workerDropBoost);this.upgrade.dataset.price=price===null?'':String(price);
-    this.upgrade.dataset.capped=String(!hasEffect);this.upgrade.dataset.ready=String(!this.upgrade.disabled);
-    this.coin.textContent=String(state.coins);const t=state.tutorial;
-    // Only two automatic action hints per run. Help remains available on demand.
-    if(!state.gameOver&&!state.paused){
-      if(this.onboarding===0){this.onboarding=1;this.message('Tap barrels · keep items off the belt exit',true);}
-      else if(this.onboarding===1&&t.opened&&performance.now()>this.toastUntil){this.onboarding=2;this.message('Drag workers to pads · merge matching levels',true);}
-    }
+    this.upgrade.dataset.ready=String(!this.upgrade.disabled);
+    this.coin.textContent=formatNumber(state.coins);
+    this.coin.title=String(state.coins);
+    this.income.textContent=`Income ×${formatIncome(state.incomeMultiplier)}`;
+    this.income.title=`Rock income ×${state.incomeMultiplier}`;
     const slowing=state.slowRemaining>0&&!state.gameOver;
-    this.shell.dataset.slow=String(slowing);this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');
-    this.status.hidden=!slowing;this.status.textContent=slowing?`⏸ SNAKE PAUSED · ${(Math.ceil(state.slowRemaining*10)/10).toFixed(1)}s`:'';
+    this.shell.dataset.slow=String(slowing);this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');this.status.setAttribute('aria-label','Snake pause time remaining');
+    this.status.hidden=!slowing;this.status.textContent=slowing?`⏸ ${(Math.ceil(state.slowRemaining*10)/10).toFixed(1)}s`:'';
     if(performance.now()>this.toastUntil)this.toastElement.classList.remove('visible');
-    const activeLabel=this.shell.querySelector('.pulse');activeLabel?.classList.remove('pulse');
-    if(state.gameOver)return;
-    if(!t.opened){const barrel=Object.values(state.entities).find(e=>e.kind==='barrel');if(barrel)this.shell.querySelector(`[data-entity="${barrel.id}"]`)?.classList.add('pulse');}
-    else if(t.merged&&!t.bought){const pad=state.pads.find(p=>!p.unlocked&&state.coins>=p.price);if(pad)this.shell.querySelector(`[data-pad="${pad.id}"]`)?.classList.add('pulse');}
   }
 }

@@ -1,3 +1,5 @@
+import {BONUS_TIP} from './BonusGuide';
+import {attachFullscreen} from './Fullscreen';
 import type {MusicAudio} from '../audio/MusicAudio';
 /** External intro files stay beside the HTML; only one orientation is requested. */
 export const introSource=(width:number,height:number)=>`./media/intro-${height>width?'portrait':'landscape'}.mp4`;
@@ -17,10 +19,14 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     const title=document.createElement(audio?.logo?'img':'h1');title.className='intro-start__logo';
     if(audio?.logo){(title as HTMLImageElement).src=audio.logo;(title as HTMLImageElement).alt='Graveyard Shift';}else title.textContent='GRAVEYARD SHIFT';
     const launch=document.createElement('button');launch.type='button';launch.className='intro-start__button';launch.textContent='PLAY';
-    startScreen.append(title,launch);overlay.append(frame,controls,startScreen);parent.append(overlay);
+    const rules=document.createElement('div');rules.className='intro-rules';rules.innerHTML='<span>▣ Tap barrels</span><span>↗ Drag miners to pads</span><span>＋ Merge equal levels</span><span>⛔ Stop the snake reaching EXIT</span>';
+    const bonuses=document.createElement('div');bonuses.className='intro-rules';bonuses.innerHTML=Object.values(BONUS_TIP).map(text=>`<span>${text}</span>`).join('');
+    const hint=document.createElement('p');hint.className='intro-fullscreen-hint';hint.setAttribute('role','status');hint.hidden=true;
+    const detachFullscreen=attachFullscreen(startScreen,text=>{hint.textContent=text;hint.hidden=false;});
+    startScreen.append(title,rules,bonuses,launch,hint);overlay.append(frame,controls,startScreen);parent.append(overlay);
     const gestures=['pointerdown','pointerup','touchend','click','keydown'];
     let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false,pending=false,policyMuted=false,requested=false;let timeout:ReturnType<typeof setTimeout>|undefined;
-    const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);for(const event of gestures)document.removeEventListener(event,gesture,true);video.pause();video.removeAttribute('src');video.load();overlay.remove();};
+    const cleanup=()=>{detachFullscreen();attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);for(const event of gestures)document.removeEventListener(event,gesture,true);video.pause();video.removeAttribute('src');video.load();overlay.remove();audio?.unlockSounds?.();void audio?.music.start().catch(()=>{});};
     const ready=prepared.then(begin=>({begin,error:null})).catch((error:unknown)=>({begin:null,error}));
     const finish=async()=>{
       if(!requested||finished||transitioning)return;transitioning=true;attempt++;video.pause();controls.hidden=true;
@@ -82,7 +88,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     document.addEventListener('visibilitychange',visibility);for(const event of gestures)document.addEventListener(event,gesture,{capture:true,passive:true});
     launch.addEventListener('click',(event)=>{
       if(!event.isTrusted||requested)return;
-      requested=true;audio?.onStart?.();audio?.unlockSounds?.();startScreen.remove();frame.hidden=false;
+      requested=true;audio?.onStart?.();audio?.unlockSounds?.();detachFullscreen();startScreen.remove();frame.hidden=false;
       video.src=introSource(window.innerWidth,window.innerHeight);
       timeout=setTimeout(()=>{if(!finished&&!started)failure();},12000);
       // Stay in this trusted click: no awaited load before video/music play.

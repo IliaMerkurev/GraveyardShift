@@ -67,9 +67,9 @@ export class Game {
     const c = this.config;
     const slotSpacing = (c.conveyor.right - c.conveyor.left) / c.conveyor.count;
     this.state = {
-      time: 0, difficultyTime: 0, coins: c.economy.initialCoins, workerDropBoost: 0, entities: {},
+      time: 0, difficultyTime: 0, coins: c.economy.initialCoins, workerDropBoost: 0, incomeMultiplier: 1, incomeRemainder: 0, entities: {},
       slots: Array.from({ length: c.conveyor.count }, (_, i) => ({
-        id: `slot-${i}`, x: c.conveyor.left + (((c.conveyor.initialLeft??c.conveyor.left)-c.conveyor.left+slotSpacing*(i+.5))%(c.conveyor.right-c.conveyor.left)), z: c.conveyor.z, entityId: null, reserved: false,
+        id: `slot-${i}`, x: c.conveyor.left + slotSpacing*i, z: c.conveyor.z, entityId: null, reserved: false,
       })),
       pads: c.pads.map((pad, i) => ({ ...pad, id: `pad-${i}`, unlocked: i === 0, entityId: null, reserved: false })),
       storage: c.storage.map((stand, i) => ({ ...stand, id: `storage-${i}`, unlocked: false, entityId: null, reserved: false })),
@@ -82,9 +82,8 @@ export class Game {
     const worker: Worker = { id: this.entityId(), kind: 'worker', location: { kind: 'pad', id: pad.id }, level: 1, mining: createMiningState() };
     this.state.entities[worker.id] = worker;
     pad.entityId = worker.id;
-    // Keep the six original starter positions/order; preload incoming transit only.
-    // Outgoing hidden slots start empty, so no rewards are discarded at reset.
-    for (const slot of this.state.slots) if(slot.x >= (c.conveyor.initialLeft??c.conveyor.left)) this.spawnBarrel(slot.id);
+    // The leading starter is centered; all carriers ahead are empty.
+    for (const slot of this.state.slots) if(slot.x >= 0) this.spawnBarrel(slot.id);
     const head = getPathLength(c.path) * c.stones.startFraction;
     for (let i = 0; i < c.stones.initialCount; i++) this.spawnStone(head - (c.stones.initialCount - 1 - i) * c.stones.spacing);
   }
@@ -102,12 +101,19 @@ export class Game {
     if (!slot || slot.reserved || slot.entityId) return;
     const starter = this.config.conveyor.starter[this.barrelIndex++];
     const roll = starter ? 0 : this.random();
-    const content = starter ?? (roll < this.config.conveyor.workerWeight ? 'worker' :
+    let content = starter ?? (roll < this.config.conveyor.workerWeight ? 'worker' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight ? 'bomb' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight ? 'rewind' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight ? 'brake' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight + this.config.conveyor.halfSpeedWeight ? 'halfSpeed' :
       roll < this.config.conveyor.workerWeight + this.config.conveyor.bombWeight + this.config.conveyor.rewindWeight + this.config.conveyor.brakeWeight + this.config.conveyor.halfSpeedWeight + this.config.conveyor.tailBlastWeight ? 'tailBlast' : 'slow');
+    // Replace a missed lesson with a normal incoming barrel, never pause the belt.
+    if (this.state.time > 0 && !this.state.tutorial.finished) {
+      const t=this.state.tutorial, entities=Object.values(this.state.entities);
+      const needed=!t.merged?'worker':!t.rewound?'rewind':!t.bombed?'bomb':!t.storageUsed&&this.state.storage.some(p=>p.unlocked)?'rewind':null;
+      if(needed&&!(needed==='rewind'&&t.rewound&&entities.some(e=>e.kind==='barrel'?e.content!=='worker':e.kind!=='worker'))&&!entities.some(e=>e.kind==='barrel'?e.content===needed:e.kind===needed&&(needed!=='worker'||entities.some(w=>w.kind==='worker'&&e.kind==='worker'&&w.id!==e.id&&w.level===e.level))))
+        content=needed;
+    }
     const entity: Entity = { id: this.entityId(), kind: 'barrel', content, location: { kind: 'slot', id: slot.id } };
     this.state.entities[entity.id] = entity;
     slot.entityId = entity.id;
@@ -126,6 +132,7 @@ export class Game {
   }
 
   emit = (event: GameEvent): void => {
+    if(event.type==='rewind')this.state.tutorial.rewound=true;
     if (this.state.events.length >= this.config.simulation.maxEvents) this.state.events.shift();
     this.state.events.push(event);
   };
@@ -185,16 +192,14 @@ export class Game {
 
   private tickStones(dt: number): void {
     const c = this.config.stones;
-    // Freeze every snake motion, including recoil and pending rewind. Mining,
+    // Freeze ordinary motion and recoil; explicit rewind remains active. Mining,
     // conveyor and effects still run; difficulty excludes the same frozen interval.
     const frozenDt = Math.min(dt, this.state.slowRemaining);
     if (frozenDt > 0) {
       for (const id of Object.keys(this.state.gapReadyAt)) this.state.gapReadyAt[id]! += frozenDt;
-      this.state.headSpeed = 0;
-      dt -= frozenDt;
-      if (dt <= 1e-9) return;
+      if(this.state.rewindTarget===null){this.state.headSpeed = 0;dt -= frozenDt;if(dt<=1e-9)return;}
     }
-    for (const stone of this.state.stones) delete stone.frozenRenderDistance;
+    if(!frozenDt||this.state.slowRemaining<=dt)for (const stone of this.state.stones) delete stone.frozenRenderDistance;
     const speed = effectiveForwardSpeed(this.state.difficultyTime, this.state.permanentSpeedReduction, this.config, this.state.minimumForwardSpeed);
     const travel = speed * dt;
     const end = getPathLength(this.config.path);
@@ -204,7 +209,7 @@ export class Game {
     if (this.state.rewindTarget !== null) {
       const head = ordered.at(-1)?.distance ?? this.state.rewindTarget;
       const shift = Math.min(Math.max(0, head - this.state.rewindTarget), this.state.rewindSpeed * dt);
-      for (const stone of ordered) { stone.distance -= shift; stone.bounceRemaining = 0; }
+      for (const stone of ordered) { stone.distance -= shift;if(stone.frozenRenderDistance!==undefined)stone.frozenRenderDistance-=shift; stone.bounceRemaining = 0; }
       this.state.headSpeed = -shift / dt;
       if (head - shift <= this.state.rewindTarget + 1e-9) {
         this.state.rewindTarget = null;

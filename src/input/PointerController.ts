@@ -1,3 +1,4 @@
+import {bombTarget} from '../game/commands';
 import type { Game } from '../game/Simulation';
 import type { SceneView, HitTarget } from '../render/SceneFactory';
 import { viewConfig, type Point } from '../render/Layout';
@@ -31,7 +32,7 @@ export class PointerController {
     // before movement or a release without a move sample.
     if(entity&&(entity.location.kind==='slot'||entity.location.kind==='storage')&&entity.kind!=='barrel'&&this.game.beginDrag(entity.id)){
       this.draggedEntityId=entity.id;this.view.impulse?.(entity.id,'pickup');
-      this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));
+      this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch&&this.game.state.entities[this.draggedEntityId??'']?.kind!=='bomb'?viewConfig.touchLiftPx:0));
     }
   };
   private move=(event:PointerEvent)=>{
@@ -39,18 +40,18 @@ export class PointerController {
     if(!this.moved&&Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx){
       this.moved=true;const target=this.start.target;if(this.draggedEntityId===null&&target?.kind==='entity'&&this.game.beginDrag(target.id)){this.draggedEntityId=target.id;this.view.impulse?.(target.id,'pickup');}
     }
-    if(this.game.state.drag){this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));const target=this.view.dropTarget(event.clientX,event.clientY);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
+    if(this.game.state.drag){this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch&&this.game.state.entities[this.draggedEntityId??'']?.kind!=='bomb'?viewConfig.touchLiftPx:0));this.resolveDrop(event.clientX,event.clientY);}
   };
   private up=(event:PointerEvent)=>{
     if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
     // A final release can arrive without the corresponding move sample.
     this.moved ||= Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx;
     if(this.moved&&this.draggedEntityId===null&&this.start.target?.kind==='entity'&&this.game.beginDrag(this.start.target.id)){this.draggedEntityId=this.start.target.id;this.view.impulse?.(this.start.target.id,'pickup');}
-    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.view.dropTarget(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
+    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.resolveDrop(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
     else if(!this.moved){
       if(this.draggedEntityId!==null)this.game.cancelDrag();
       const target=this.start.target;
-      if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='brake')this.game.useBrake(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='halfSpeed')this.game.useHalfSpeed(entity.id);else if(entity?.kind==='tailBlast')this.game.useTailBlast(entity.id);else if(entity?.kind==='worker')this.feedback('Drag to a pad or matching worker.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto rocks.');}
+      if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='brake')this.game.useBrake(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='halfSpeed')this.game.useHalfSpeed(entity.id);else if(entity?.kind==='tailBlast')this.game.useTailBlast(entity.id);else if(entity?.kind==='worker')this.feedback('Drag to a pad or matching worker.');else if(entity?.kind==='bomb'){const point=this.view.world(event.clientX,event.clientY)??{x:0,z:0};if(this.game.beginDrag(entity.id))this.game.drop(bombTarget(this.game.state,point,CONFIG));}}
       else if(target?.kind==='storage'){const stand=this.game.state.storage.find(p=>p.id===target.id);if(stand&&!stand.unlocked&&!this.game.buyStorage(stand.id)){this.tactile('reject');this.feedback(`Need ${Math.max(0,stand.price-this.game.state.coins)} more coins for storage.`);}else if(stand?.unlocked)this.feedback('Drag a bonus here to store it.');}
       else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id)){this.tactile('reject');this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}}
     }
@@ -65,7 +66,8 @@ export class PointerController {
     const missingTarget=target?.kind==='entity'&&!this.game.state.entities[target.id];
     const endedDrag=this.draggedEntityId!==null&&this.game.state.drag?.entityId!==this.draggedEntityId;
     if(missingTarget||endedDrag){this.finish();if(missingTarget)this.feedback('That item is no longer available.');return;}
-    if(this.game.state.drag&&this.lastPoint){const target=this.view.dropTarget(this.lastPoint.x,this.lastPoint.y);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
+    if(this.game.state.drag&&this.lastPoint){this.resolveDrop(this.lastPoint.x,this.lastPoint.y);}
   }
+  private resolveDrop(x:number,y:number){const target=this.view.dropTarget(x,y,this.touch);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);return target;}
   cancel(){const id=this.draggedEntityId;this.game.cancelDrag();if(id)this.view.impulse?.(id,'return');this.finish();}
 }

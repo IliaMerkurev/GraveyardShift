@@ -46,7 +46,7 @@ export const CONFIG: GameConfig = {
     count: 10, left: -2.9*5/3, right: 2.9*5/3, initialLeft: -2.9, z: 8, speed: 0.32,
     spawnInterval: 2.5,
     // Seven guaranteed workers in the starter sequence allow level three without RNG.
-    starter: ['worker', 'worker', 'rewind', 'bomb', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake', 'halfSpeed', 'tailBlast'],
+    starter: ['worker', 'rewind', 'bomb', 'worker', 'worker', 'worker', 'rewind', 'slow', 'worker', 'worker', 'worker', 'brake', 'halfSpeed', 'tailBlast'],
     // Six bonuses share half the pool equally; pause uses the remaining sixth.
     workerWeight: 0.50, bombWeight: 0.5 / 6, rewindWeight: 0.5 / 6, brakeWeight: 0.5 / 6, halfSpeedWeight: 0.5 / 6, tailBlastWeight: 0.5 / 6,
   },

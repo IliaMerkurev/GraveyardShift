@@ -5,7 +5,7 @@ import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
   type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow, type Brake, type HalfSpeed, type TailBlast,
 } from './GameState';
-import { distanceToPath, samplePath, getPathLength } from './path';
+import { samplePath, getPathLength } from './path';
 
 export interface CommandContext {
   state: GameState;
@@ -28,8 +28,15 @@ function samePlace(a: PlaceRef, b: PlaceRef): boolean { return a.kind === b.kind
 
 function reward(ctx: CommandContext, amount: number, point: Point): void {
   ctx.state.coins += amount;
-  ctx.state.stats.coinsEarned += amount;
+  ctx.state.stats.coinsEarned = Math.min(Number.MAX_SAFE_INTEGER,ctx.state.stats.coinsEarned+amount);
   ctx.emit({ type: 'coins', x: point.x, z: point.z, amount });
+}
+
+function discardWorker(ctx:CommandContext,id:string){
+  if(ctx.state.drag?.source.kind==='pad')ctx.state.tutorial.discarded=true;
+  ctx.state.incomeMultiplier=Math.min(Number.MAX_SAFE_INTEGER,ctx.state.incomeMultiplier*1.2);
+  delete ctx.state.entities[id];
+  ctx.emit({type:'discard',x:ctx.config.discard.x,z:ctx.config.discard.z,entityId:id,amount:ctx.state.incomeMultiplier});
 }
 
 export function checkGoal(ctx: CommandContext): void {
@@ -40,53 +47,31 @@ export function checkGoal(ctx: CommandContext): void {
   }
 }
 
-/** Read occupied work pads at reveal time, never belt cargo or a held worker. */
+/** Future worker levels depend only on purchased upgrades, never deployed heroes. */
 export function workerBarrelRange(state: GameState, boost = state.workerDropBoost): { lowest: number; highest: number } {
-  let maxLevel = 1;
-  for (const pad of state.pads) {
-    if (!pad.unlocked || pad.reserved || !pad.entityId) continue;
-    const worker = state.entities[pad.entityId];
-    if (worker?.kind !== 'worker' || worker.id !== pad.entityId ||
-        worker.location.kind !== 'pad' || worker.location.id !== pad.id ||
-        !Number.isSafeInteger(worker.level) || worker.level < 1) continue;
-    maxLevel = Math.max(maxLevel, worker.level);
-  }
-  // Clamp at reveal time too: lifting/removing the strongest worker can lower the cap.
-  // Clamp the increment before adding it to avoid safe-integer overflow.
-  const addBoost = (level: number) => level + Math.min(boost, maxLevel - level);
-  return { lowest: addBoost(Math.max(1, maxLevel - 10)), highest: addBoost(Math.max(1, maxLevel - 1)) };
-}
-
-/** A capped upper bound can still leave room to improve the lower bound. */
-export function workerUpgradeHasEffect(state: GameState): boolean {
-  if (!Number.isSafeInteger(state.workerDropBoost + 1)) return false;
-  const current = workerBarrelRange(state);
-  const next = workerBarrelRange(state, state.workerDropBoost + 1);
-  return next.lowest > current.lowest || next.highest > current.highest;
+  const level = 1 + Math.min(boost, Number.MAX_SAFE_INTEGER - 1);
+  return { lowest: Math.max(1, level - 2), highest: level };
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
-  const price = config.economy.workerUpgradeBaseCost * 2 ** state.workerDropBoost;
+  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 1.2 ** state.workerDropBoost);
   return Number.isSafeInteger(price) && price > 0 ? price : null;
 }
 
+export function workerUpgradeEligible(state: GameState): boolean {
+  return state.pads.some(p => {
+    const e = p.entityId && state.entities[p.entityId];
+    return p.unlocked && !p.reserved && e && e.kind === 'worker' && e.location.kind === 'pad' && e.location.id === p.id && e.level >= 2 + state.workerDropBoost;
+  });
+}
+
 export function buyWorkerUpgrade(ctx: CommandContext): boolean {
-  if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
+  if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag || !workerUpgradeEligible(ctx.state)) return false;
   const price = workerUpgradePrice(ctx.state, ctx.config);
-  if (price === null || !workerUpgradeHasEffect(ctx.state) || ctx.state.coins < price) return false;
+  if (price === null || ctx.state.coins < price) return false;
   ctx.state.coins -= price;
   ctx.state.workerDropBoost++;
   return true;
-}
-
-function barrelWorkerLevel(state: GameState, random: () => number): number {
-  const { lowest, highest } = workerBarrelRange(state);
-  const count = highest - lowest + 1;
-  if (count === 1) return lowest;
-  const roll = random();
-  // Squared uniform roll favors low levels without an exponentially rare top tier.
-  // The rolling window stays at most ten levels wide, even at safe-integer limits.
-  return Math.min(highest, lowest + Math.floor(count * roll * roll));
 }
 
 export function openBarrel(ctx: CommandContext, slotId: string, random: () => number): boolean {
@@ -96,7 +81,9 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
   const barrel = ctx.state.entities[slot.entityId];
   if (!barrel || barrel.kind !== 'barrel') return false;
   if (barrel.content === 'worker') {
-    const level = barrelWorkerLevel(ctx.state, random);
+    const { lowest, highest } = workerBarrelRange(ctx.state);
+    const roll = lowest === highest ? 0 : random();
+    const level = Math.min(highest, lowest + Math.floor((highest - lowest + 1) * roll * roll));
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level, mining: createMiningState() };
   } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake' || barrel.content === 'halfSpeed' || barrel.content === 'tailBlast') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
@@ -110,16 +97,18 @@ export function openBarrel(ctx: CommandContext, slotId: string, random: () => nu
   return true;
 }
 
+const liveRock=(s:GameState['stones'][number])=>s.hp>0&&s.distance>=0;
+
 /** Both gestures share one consumption/effect gate. Call only after ownership validation. */
 function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake | HalfSpeed | TailBlast, point: Point): void {
+  if(entity.location.kind==='storage'||entity.location.kind==='drag'&&ctx.state.drag?.source.kind==='storage')ctx.state.tutorial.storageUsed=true;
   delete ctx.state.entities[entity.id];
   if (entity.kind === 'tailBlast') {
     const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
     const rendered = recoilDistances(ordered, getPathLength(ctx.config.path), ctx.config.stones);
-    const victims = ordered.slice(0, Math.ceil(ordered.length / 2));
-    const survivors = ordered.slice(victims.length);
+    const live=ordered.filter(liveRock),victims=live.slice(0,Math.ceil(live.length/2)),survivors=live.slice(victims.length);
     // Snapshot visible poses before removals change recoil constraints.
-    for (const [i, stone] of ordered.entries()) {
+    for (const stone of survivors) {const i=ordered.indexOf(stone);
       stone.waitingRenderDistance = stone.frozenRenderDistance ?? stone.waitingRenderDistance ?? rendered[i];
     }
     for (const stone of victims) damageStone(ctx, stone.id, Number.MAX_VALUE);
@@ -173,7 +162,7 @@ function usePlacedBonus(ctx: CommandContext, entityId: string, kind: 'rewind' | 
   const entity = ctx.state.entities[entityId];
   if (!entity || (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') || entity.kind !== kind || (entity.location.kind !== 'slot' && entity.location.kind !== 'storage')) return false;
   const slot = getPlace(ctx.state, entity.location);
-  if (!slot || slot.reserved || slot.entityId !== entityId) return false;
+  if (!slot || slot.reserved || slot.entityId !== entityId || kind==='tailBlast'&&!ctx.state.stones.some(liveRock)) return false;
   slot.entityId = null;
   activateBonus(ctx, entity, { x: slot.x, z: slot.z });
   return true;
@@ -185,14 +174,12 @@ export function useBrake(ctx: CommandContext, entityId: string): boolean { retur
 export function useSlow(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'slow'); }
 export function useRewind(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'rewind'); }
 
-/** Route-and-ground footprint in field coordinates, excluding worker/purchase pads.
- * The conveyor and UI are rejected separately by the pointer view. */
-export function isBonusFieldPoint(point: Point, config: GameConfig): boolean {
-  const { path } = config;
-  return Number.isFinite(point.x) && Number.isFinite(point.z) &&
-    point.x >= path.left - path.bendRadius - .5 && point.x <= path.right + path.bendRadius + .5 &&
-    point.z >= Math.min(...path.runs) - .5 && point.z <= Math.max(...path.runs) + .5 &&
-    ![...config.pads, ...config.storage].some(pad => Math.abs(point.x - pad.x) <= .62 && Math.abs(point.z - pad.z) <= .57);
+/** Pointer routing excludes the conveyor; all other finite releases activate. */
+export function isBonusFieldPoint(point: Point, _config: GameConfig): boolean {
+  return Number.isFinite(point.x)&&Number.isFinite(point.z);
+}
+export function bombTarget(_state:GameState,point:Point,_config:GameConfig):DropTarget{
+  return Number.isFinite(point.x)&&Number.isFinite(point.z)?{kind:'track',...point}:null;
 }
 
 function canBuyPad(ctx: CommandContext, pad: Pad | undefined): pad is Pad {
@@ -262,16 +249,10 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   const entity = ctx.state.entities[drag.entityId];
   const source = getPlace(ctx.state, drag.source);
   if (!entity || entity.location.kind !== 'drag' || !source?.reserved || source.entityId !== null) return false;
+  if(entity.kind==='tailBlast'&&target.kind==='field'&&!ctx.state.stones.some(liveRock))return false;
   if (target.kind === 'discard') return entity.kind === 'worker';
   if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow' || entity.kind === 'brake' || entity.kind === 'halfSpeed' || entity.kind === 'tailBlast') && isBonusFieldPoint(target, ctx.config);
-  if (target.kind === 'track') {
-    if (entity.kind !== 'bomb' || !Number.isFinite(target.x) || !Number.isFinite(target.z)) return false;
-    if (distanceToPath(target, ctx.config.path) > ctx.config.bomb.trackTolerance) return false;
-    return ctx.state.stones.some((stone) => {
-      const point = samplePath(stone.distance, ctx.config.path);
-      return stone.distance >= 0 && stone.hp > 0 && Math.hypot(point.x - target.x, point.z - target.z) <= ctx.config.bomb.radius;
-    });
-  }
+  if (target.kind === 'track') return entity.kind==='bomb'&&Number.isFinite(target.x)&&Number.isFinite(target.z);
   const place = getPlace(ctx.state, target);
   if (!place) return false;
   if (place.reserved && !samePlace(target, drag.source)) return false;
@@ -285,7 +266,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if (target.kind === 'pad' && !(place as Pad).unlocked) return canBuyPad(ctx, place as Pad);
   if (!place.entityId) return true;
   const other = ctx.state.entities[place.entityId];
-  return other?.kind === 'worker' && other.level === entity.level;
+  return other?.kind === 'worker' && (other.level === entity.level || target.kind === 'pad' && drag.source.kind === 'pad');
 }
 
 /** Single reward gate for mining and bombs. Removing the ID makes repeated damage inert. */
@@ -311,8 +292,11 @@ export function damageStone(ctx: CommandContext, stoneId: string, damage: number
     ctx.state.gapRecoveryRemaining = Math.max(0, readyAt - ctx.state.time);
   }
   ctx.state.stats.destroyed++;
-  reward(ctx, stone.reward, point);
-  ctx.emit({ type: 'destroy', x: point.x, z: point.z, stoneId: stone.id, amount: stone.reward });
+  const total=Math.min(Number.MAX_SAFE_INTEGER-ctx.state.coins,stone.reward*ctx.state.incomeMultiplier+ctx.state.incomeRemainder);
+  const amount=Math.floor(total+1e-9);
+  ctx.state.incomeRemainder=Math.max(0,total-amount);
+  reward(ctx, amount, point);
+  ctx.emit({ type: 'destroy', x: point.x, z: point.z, stoneId: stone.id, amount });
   return true;
 }
 
@@ -324,11 +308,9 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   const source = getPlace(ctx.state, drag.source)!;
   let purchasedPad: Pad | undefined;
   if (target.kind === 'discard') {
-    // Only an owned drag can reach this branch. Never reward or merge a discard.
+    // Only a completed, owned discard raises income; it pays no coins immediately.
     if (entity.kind !== 'worker') { cancelDrag(ctx); return false; }
-    entity.mining = createMiningState();
-    delete ctx.state.entities[entity.id];
-    ctx.emit({ type: 'discard', x: ctx.config.discard.x, z: ctx.config.discard.z, entityId: entity.id });
+    discardWorker(ctx,entity.id);
   } else if (target.kind === 'field') {
     if (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') { cancelDrag(ctx); return false; }
     activateBonus(ctx, entity, { x: target.x, z: target.z });
@@ -343,6 +325,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
     delete ctx.state.entities[entity.id];
     ctx.state.stats.bombsUsed++;
     ctx.state.tutorial.bombed = true;
+    if(drag.source.kind==='storage')ctx.state.tutorial.storageUsed=true;
     ctx.emit({ type: 'bomb', x: target.x, z: target.z, entityId: entity.id, amount: victims.length });
   } else {
     const destination = getPlace(ctx.state, target)!;
@@ -359,7 +342,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
       purchasePad(ctx, purchasedPad);
     }
     const occupant = destination.entityId ? ctx.state.entities[destination.entityId] : undefined;
-    if (occupant?.kind === 'worker' && entity.kind === 'worker') {
+    if (occupant?.kind === 'worker' && entity.kind === 'worker' && occupant.level === entity.level) {
       occupant.level = nextWorkerLevel(occupant.level);
       occupant.mining = createMiningState();
       delete ctx.state.entities[entity.id];
@@ -367,6 +350,10 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
       ctx.state.tutorial.merged = true;
       ctx.emit({ type: 'merge', x: destination.x, z: destination.z, entityId: occupant.id, level: occupant.level });
     } else {
+      if(occupant?.kind==='worker'){
+        if(target.kind==='pad'&&target.id===ctx.state.pads[0]?.id&&drag.source.kind==='pad'&&entity.kind==='worker'&&entity.level>occupant.level)ctx.state.tutorial.swapped=true;
+        source.entityId=occupant.id;occupant.location={...drag.source};occupant.mining=createMiningState();
+      }
       destination.entityId = entity.id;
       entity.location = { ...target };
       if (target.kind === 'pad' && entity.kind === 'worker') ctx.state.tutorial.placed = true;

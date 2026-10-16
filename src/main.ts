@@ -1,3 +1,5 @@
+import {BonusGuide} from './ui/BonusGuide';
+import {formatIncome} from './ui/formatNumber';
 import introLogo from './assets/GraveyardShiftLogo.webp?inline';
 import soundtrack from './assets/GraveyardShift.mp3?inline';
 import {MusicAudio} from './audio/MusicAudio';
@@ -10,7 +12,9 @@ import { soundForEvents } from './audio/eventSounds';
 import { Game } from './game/Simulation';
 import { SceneView } from './render/SceneFactory';
 import { PointerController } from './input/PointerController';
+import { Tutorial } from './ui/Tutorial';
 import { Hud } from './ui/Hud';
+import { CoinTransfers } from './ui/CoinTransfers';
 import { PlayableBridge } from './platform/PlayableBridge';
 
 const app=document.querySelector<HTMLElement>('#app')!;
@@ -31,26 +35,30 @@ shell.addEventListener('change',event=>{if((event.target as HTMLElement).matches
 async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   await loadSkeletonWorker();
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;let active=false;let introProgress=1;
-  const pause=()=>{sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
+  const transfers=new CoinTransfers(shell);const bonuses=new BonusGuide(shell,view);
+  const pause=()=>{transfers.clear();sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(!active||game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);sfx.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
-  const restart=()=>{sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();}else sfx.play('reject');},audioSettings,logo:introLogo});
+  const restart=()=>{transfers.clear();sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();bonuses.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();transfers.upgrade();}else sfx.play('reject');},audioSettings,logo:introLogo,guide:()=>{tutorial.reset();bonuses.reset(true);restart();}});
+  const tutorial=new Tutorial(shell,view);
   const input=new PointerController(view.canvas,game,view,text=>{if(text.startsWith('Drag '))hud.guidance(text,text);else hud.message(text);},event=>sfx.play(event));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});
   window.addEventListener('focus',()=>{if(lostFocus&&!modalPaused)resume();});
-  window.addEventListener('resize',()=>{input.cancel();if(!active)view.canvas.style.transform='';view.resize();if(!active){view.sync(game.state,0,null,[]);hud.render(game.state);zoom(introProgress);}});
+  window.addEventListener('resize',()=>{transfers.clear();input.cancel();if(!active)view.canvas.style.transform='';view.resize();if(!active){view.sync(game.state,0,null,[]);hud.render(game.state);zoom(introProgress);}});
   let lastTime=performance.now(),frames=0,fps=0,fpsAt=lastTime;let diagnostics:HTMLElement|null=null;
   if(import.meta.env.DEV&&new URLSearchParams(location.search).has('debug')){diagnostics=document.createElement('div');diagnostics.className='diagnostics';shell.append(diagnostics);}
   view.sync(game.state,0,null,[]);hud.render(game.state);
   const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
-    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
+    if(!game.state.paused&&!game.state.gameOver)transfers.events(events,e=>view.coinTransferPoint(e));
+    transfers.tick(dt,game.state.paused||game.state.gameOver);
+    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);tutorial.render(game.state);bonuses.render(game.state,events,dt);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
     if(events.some(e=>e.type==='goal'))hud.goal();
     const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
     if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');
     const tailBlast=events.find(e=>e.type==='tailBlast');if(tailBlast)hud.guidance(tailBlast.amount?(game.state.tailWaitingIds.length>0?'Tail half blasted · front waits for new rocks':'Tail half blasted · new rocks are coming'):'No rocks to blast','tailBlast');
-    if(events.some(e=>e.type==='discard'))hud.guidance('Worker discarded · no coins','discard');
-    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until pause ends':'Rewound to the first bend'):'Already before the rewind point','rewind');
+    if(events.some(e=>e.type==='discard'))hud.message(`Income +20% · ×${formatIncome(game.state.incomeMultiplier)}`);
+    const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?'Rewound to the first bend':'Already before the rewind point','rewind');
     if(events.some(e=>e.type==='gameover')){input.cancel();hud.defeat();modalPaused=true;bridge.end();}
     frames++;if(now-fpsAt>=1000){fps=frames*1000/(now-fpsAt);frames=0;fpsAt=now;}
     if(diagnostics){const m=view.metrics();diagnostics.textContent=`${fps.toFixed(1)} fps · ${m.calls} calls · ${m.triangles} tris\n${game.state.stones.length} rocks · ${m.effects} effects`;}
