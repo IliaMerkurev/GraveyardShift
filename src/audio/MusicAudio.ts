@@ -11,7 +11,7 @@ export class MusicAudio {
   }
   start():Promise<void>{
     this.started=true;
-    if(!this.enabled||this.background)return Promise.resolve();
+    if(!this.enabled||this.background||!this.audio.paused)return Promise.resolve();
     return this.audio.play();
   }
   cancelStart(){this.started=false;this.audio.pause();this.audio.currentTime=0;}

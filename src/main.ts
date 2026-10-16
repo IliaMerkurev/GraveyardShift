@@ -20,8 +20,9 @@ audioSettings.subscribe(value=>music.setEnabled(value.music));
 const sfx=createRockSnakeAudio();
 audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
 // The first real gesture unlocks audio even if the silent intro already ended.
-const unlockAudio=()=>{sfx.unlock();void music.start().catch(()=>{});document.removeEventListener('pointerdown',unlockAudio);document.removeEventListener('keydown',unlockAudio);};
-document.addEventListener('pointerdown',unlockAudio);document.addEventListener('keydown',unlockAudio);
+const unlockAudio=(event:Event)=>{if(!event.isTrusted)return;sfx.unlock();void music.start().catch(()=>{});};
+// Touch activation can arrive on release, not pointerdown. Keep retries after denial.
+for(const event of ['pointerdown','pointerup','touchend','click','keydown'])document.addEventListener(event,unlockAudio,{capture:true,passive:true});
 
 shell.addEventListener('click',event=>{if((event.target as HTMLElement).closest('button'))sfx.play('ui',.7);});
 shell.addEventListener('change',event=>{if((event.target as HTMLElement).matches('input[type=checkbox]'))sfx.play('ui',.7);});
