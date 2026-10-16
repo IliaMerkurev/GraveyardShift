@@ -52,7 +52,7 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
     if(!game.state.paused&&!game.state.gameOver)transfers.events(events,e=>view.coinTransferPoint(e));
     transfers.tick(dt,game.state.paused||game.state.gameOver);
-    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);bonuses.render(game.state,events,dt);tutorial.render(game.state);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
+    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);tutorial.render(game.state);bonuses.render(game.state,events,dt);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
     if(events.some(e=>e.type==='goal'))hud.goal();
     const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
     if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');

@@ -32,9 +32,10 @@ export class BonusGuide{
     if(!this.left){this.left=7;this.tip.textContent=BONUS_TIP[kind];this.seen.push(kind);try{localStorage.setItem('graveyard-bonuses',JSON.stringify(this.seen));}catch{}}
     const w=this.tip.offsetWidth,h=this.tip.offsetHeight,clamp=(v:number,max:number)=>Math.max(8,Math.min(v,max));
     const left=clamp(x-w/2,box.width-w-8),above=y-h-32,below=y+38;
-    const obstacles=[...this.shell.querySelectorAll('.topbar button,.wallet,.upgrade-button')].map(e=>e.getBoundingClientRect());
+    const obstacles=[...this.shell.querySelectorAll('.topbar button,.wallet,.upgrade-button,.guide-label')].map(e=>e.getBoundingClientRect());
     const clear=(top:number)=>top>=8&&top+h<=box.height-8&&!obstacles.some(r=>left+box.left<r.right&&left+w+box.left>r.left&&top+box.top<r.bottom&&top+h+box.top>r.top);
-    const down=!clear(above)&&clear(below),top=clamp(down?below:above,box.height-h-8);
+    const top=clamp([above,below,above-48].find(clear)??above,box.height-h-8),down=top>y;
+    if(!clear(top)){this.tip.hidden=true;return;}
     this.tip.style.left=`${left}px`;this.tip.style.top=`${top}px`;this.tip.dataset.below=String(down);
     this.tip.style.setProperty('--tip-x',`${Math.max(12,Math.min(w-12,x-left))}px`);
     this.left=Math.max(0,this.left-dt);this.tip.style.opacity=String(Math.min(1,this.left/.4));
