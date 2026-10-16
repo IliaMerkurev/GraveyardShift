@@ -67,7 +67,7 @@ export class Game {
     const c = this.config;
     const slotSpacing = (c.conveyor.right - c.conveyor.left) / c.conveyor.count;
     this.state = {
-      time: 0, difficultyTime: 0, coins: c.economy.initialCoins, workerDropBoost: 0, incomeMultiplier: 1, entities: {},
+      time: 0, difficultyTime: 0, coins: c.economy.initialCoins, workerDropBoost: 0, incomeMultiplier: 1, incomeRemainder: 0, entities: {},
       slots: Array.from({ length: c.conveyor.count }, (_, i) => ({
         id: `slot-${i}`, x: c.conveyor.left + slotSpacing*i, z: c.conveyor.z, entityId: null, reserved: false,
       })),

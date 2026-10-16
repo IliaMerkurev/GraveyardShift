@@ -33,7 +33,7 @@ function reward(ctx: CommandContext, amount: number, point: Point): void {
 }
 
 function discardWorker(ctx:CommandContext,id:string,replaced=false){
-  ctx.state.incomeMultiplier=Math.min(Number.MAX_SAFE_INTEGER,ctx.state.incomeMultiplier*2);
+  ctx.state.incomeMultiplier=Math.min(Number.MAX_SAFE_INTEGER,ctx.state.incomeMultiplier*1.2);
   delete ctx.state.entities[id];
   ctx.emit({type:'discard',x:ctx.config.discard.x,z:ctx.config.discard.z,entityId:id,replaced,amount:ctx.state.incomeMultiplier});
 }
@@ -53,7 +53,7 @@ export function workerBarrelRange(state: GameState, boost = state.workerDropBoos
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
-  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 2 ** state.workerDropBoost);
+  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 1.2 ** state.workerDropBoost);
   return Number.isSafeInteger(price) && price > 0 ? price : null;
 }
 
@@ -291,7 +291,9 @@ export function damageStone(ctx: CommandContext, stoneId: string, damage: number
     ctx.state.gapRecoveryRemaining = Math.max(0, readyAt - ctx.state.time);
   }
   ctx.state.stats.destroyed++;
-  const amount=Math.min(Number.MAX_SAFE_INTEGER-ctx.state.coins,stone.reward*ctx.state.incomeMultiplier);
+  const total=Math.min(Number.MAX_SAFE_INTEGER-ctx.state.coins,stone.reward*ctx.state.incomeMultiplier+ctx.state.incomeRemainder);
+  const amount=Math.floor(total+1e-9);
+  ctx.state.incomeRemainder=Math.max(0,total-amount);
   reward(ctx, amount, point);
   ctx.emit({ type: 'destroy', x: point.x, z: point.z, stoneId: stone.id, amount });
   return true;

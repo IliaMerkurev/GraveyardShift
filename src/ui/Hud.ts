@@ -1,4 +1,4 @@
-import {formatNumber} from './formatNumber';
+import {formatNumber,formatIncome} from './formatNumber';
 import {attachAudioMenu} from './AudioMenu';
 import type {AudioSettings} from '../audio/AudioSettings';
 import type { GameEvent, GameState } from '../game/GameState';
@@ -20,7 +20,7 @@ export class Hud {
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
     this.upgrade=ui.querySelector<HTMLButtonElement>('[data-worker-upgrade]')!;this.upgrade.addEventListener('click',actions.upgrade);
     ui.querySelector('[aria-label="Restart"]')!.addEventListener('click',actions.restart);
-    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop the rock snake before FINISH. Tap barrels; drag workers onto pads. Locked pads charge their price. Equal workers merge; stronger workers replace weaker pad workers, sending them to the pit. Weaker workers cannot replace stronger ones. Each worker discarded or replaced doubles rock income for this run (up to the numeric limit). Merging and canceled drops do not. Drag bombs onto rocks. Tap other bonuses or drag them onto the field: rewind returns the snake before the first bend, pause freezes it for five seconds, ↓20% reduces current speed (10% starting-speed floor), ↓50% halves it without that floor, and tail blast destroys half its rocks. Acceleration continues; rewind never resets speed. WORKER DROP upgrades raise the upper spawn level by one; rolls favor lower levels within the latest three. Upgrade prices double per purchase: 50, 100, 200, 400. Discards do not change prices; upgrades do not change income. Existing workers level up only by merging. Buy storage for bonuses. Belt items exit left; held items are safe and canceled drags return them. Drop unwanted workers into the pit to boost income. Restart resets income to ×1 and upgrades to 50. Arrows are optional: play freely.',false);});
+    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop the snake before FINISH. Tap barrels; drag workers onto pads, paying for locked pads. Equal levels merge; stronger workers replace weaker pad workers. Each manual discard or replacement gives +20% rock income this run (numeric limits apply); merges and canceled drops do not. Drag bombs onto rocks. Tap other bonuses or drop them on the field: rewind moves the snake before bend one; pause lasts 5s; ↓20% slows it with a 10% starting-speed floor; ↓50% halves speed without that floor; tail blast destroys half the rocks. Acceleration continues through rewinds. Upgrades raise the spawn range by one; rolls favor lower levels within the latest three. Prices rise 20% per purchase, rounded up: 50, 60, 72, 87. Discards affect only income; upgrades affect only future spawns and prices. Buy storage for bonuses. Belt items exit left; held items are safe; canceled drags return them. Restart resets income to ×1 and upgrades to 50. Guide optional.',false);});
     ui.querySelector('[data-guide]')!.addEventListener('click',()=>actions.guide?.());
     ui.querySelector('[data-continue]')!.addEventListener('click',()=>{if(this.ended)return;this.overlay.hidden=true;actions.resume();});
     ui.querySelector('[data-restart]')!.addEventListener('click',actions.restart);
@@ -49,13 +49,13 @@ export class Hud {
     const levelRange=range.lowest===range.highest?String(range.lowest):`${range.lowest}–${range.highest}`;
     const action=price===null?'LIMIT':`↑${formatNumber(price)}`;
     this.upgrade.textContent=`LV ${levelRange}\n${action}`;
-    this.upgrade.title=`Worker barrels currently reveal level ${levelRange}. ${price===null?'Numeric price limit reached.':`Raise the spawn range by 1 for ${price} coins. Prices double per purchase; discards do not affect prices.`}`;
+    this.upgrade.title=`Worker barrels: level ${levelRange}. ${price===null?'Numeric price limit reached.':`Raise spawn range for ${price} coins. Price +20% per purchase; discards affect only income.`}`;
     this.upgrade.setAttribute('aria-label',this.upgrade.title);
     this.upgrade.dataset.boost=String(state.workerDropBoost);this.upgrade.dataset.price=price===null?'':String(price);
     this.upgrade.dataset.ready=String(!this.upgrade.disabled);
     this.coin.textContent=formatNumber(state.coins);
     this.coin.title=String(state.coins);
-    this.income.textContent=`Income ×${formatNumber(state.incomeMultiplier)}`;
+    this.income.textContent=`Income ×${formatIncome(state.incomeMultiplier)}`;
     this.income.title=`Rock income ×${state.incomeMultiplier}`;
     const slowing=state.slowRemaining>0&&!state.gameOver;
     this.shell.dataset.slow=String(slowing);this.status.dataset.slow=String(slowing);this.status.dataset.remaining=state.slowRemaining.toFixed(3);this.status.style.background=slowing?'#51418fe8':'';this.status.setAttribute('role',slowing?'timer':'status');this.status.setAttribute('aria-label','Snake pause time remaining');

@@ -1,4 +1,4 @@
-import {formatNumber} from './ui/formatNumber';
+import {formatIncome} from './ui/formatNumber';
 import introLogo from './assets/GraveyardShiftLogo.webp?inline';
 import soundtrack from './assets/GraveyardShift.mp3?inline';
 import {MusicAudio} from './audio/MusicAudio';
@@ -56,7 +56,7 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
     const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
     if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');
     const tailBlast=events.find(e=>e.type==='tailBlast');if(tailBlast)hud.guidance(tailBlast.amount?(game.state.tailWaitingIds.length>0?'Tail half blasted · front waits for new rocks':'Tail half blasted · new rocks are coming'):'No rocks to blast','tailBlast');
-    if(events.some(e=>e.type==='discard'))hud.message(`Income ×${formatNumber(game.state.incomeMultiplier)}`);
+    if(events.some(e=>e.type==='discard'))hud.message(`Income +20% · ×${formatIncome(game.state.incomeMultiplier)}`);
     const rewind=events.find(e=>e.type==='rewind');if(rewind)hud.guidance(rewind.amount?(game.state.slowRemaining>0?'Rewind queued until pause ends':'Rewound to the first bend'):'Already before the rewind point','rewind');
     if(events.some(e=>e.type==='gameover')){input.cancel();hud.defeat();modalPaused=true;bridge.end();}
     frames++;if(now-fpsAt>=1000){fps=frames*1000/(now-fpsAt);frames=0;fpsAt=now;}

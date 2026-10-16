@@ -31,6 +31,7 @@ export interface GameState {
   difficultyTime: number;
   coins: number;
   incomeMultiplier: number;
+  incomeRemainder: number;
   workerDropBoost: number;
   entities: Record<string, Entity>;
   slots: Slot[];
