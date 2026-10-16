@@ -47,7 +47,7 @@ export function workerBarrelRange(state: GameState, boost = state.workerDropBoos
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
-  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 1.5 ** state.workerDropBoost);
+  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 1.2 ** state.workerDropBoost);
   return Number.isSafeInteger(price) && price > 0 ? price : null;
 }
 
