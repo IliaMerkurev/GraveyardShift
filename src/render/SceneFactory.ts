@@ -191,7 +191,7 @@ export class SceneView {
   private dropAction(entity?:Entity){
     const held=this.state?.drag?this.state.entities[this.state.drag.entityId]:null;
     if(held?.kind!=='worker'||entity?.kind!=='worker'||entity.location.kind==='drag'||!this.canDrop(entity.location))return '';
-    return held.level===entity.level?'MERGE':entity.location.kind==='pad'&&held.level>entity.level?'REPLACE':'';
+    return held.level===entity.level?'MERGE':'';
   }
   private emptyTargets(target:DropTarget,clear=false){
     for(const kind of ['pad','storage'] as const)for(const [id,v] of kind==='pad'?this.pads:this.storage){
@@ -204,8 +204,7 @@ export class SceneView {
     this.dropPreview=valid?target:null;this.emptyTargets(this.dropPreview);
     for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.dataset.action=v.label.dataset.action=this.dropAction(e);v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
     this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
-    const replacing=target.kind==='pad'&&this.dropAction(this.state?.entities[this.state.pads.find(p=>p.id===target.id)?.entityId??''])==='REPLACE';
-    const color=valid?(replacing?0xffa544:0x8effb7):0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
+    const color=valid?0x8effb7:0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
     else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(valid&&!p.entityId?0x6ccaff:color);this.targetRing.visible=true;}}
   }
@@ -254,7 +253,6 @@ export class SceneView {
   reset(){this.clearWorkers();this.vfx.reset();this.stoneDebris.reset();this.previousStonePositions.clear();this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
   sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.tactile.tick(dt);
     for(const e of events){
-      if(e.type==='replace'&&e.entityId)this.tactile.trigger(e.entityId,'return');
       if((e.type==='open'||e.type==='merge')&&e.entityId)this.tactile.trigger(e.entityId,e.type);
       if(e.type==='hit'&&e.entityId)this.tactile.trigger(e.entityId,'hit');
       if(e.type==='purchase'){const place=[...state.pads,...state.storage].find(p=>p.x===e.x&&p.z===e.z);if(place)this.tactile.trigger(place.id,'purchase');}

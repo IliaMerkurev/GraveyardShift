@@ -22,7 +22,7 @@ export interface Stone {
 }
 export interface DragState { entityId: string; source: PlaceRef }
 export interface GameEvent extends Point {
-  type: 'hit' | 'destroy' | 'coins' | 'merge' | 'bomb' | 'open' | 'purchase' | 'goal' | 'gameover' | 'rewind' | 'slow' | 'brake' | 'halfSpeed' | 'tailBlast' | 'discard' | 'expired' | 'replace';
+  type: 'hit' | 'destroy' | 'coins' | 'merge' | 'bomb' | 'open' | 'purchase' | 'goal' | 'gameover' | 'rewind' | 'slow' | 'brake' | 'halfSpeed' | 'tailBlast' | 'discard' | 'expired';
   entityId?: string; stoneId?: string; amount?: number; level?: number;
 }
 export interface GameState {
@@ -54,7 +54,7 @@ export interface GameState {
   gapReadyAt: Record<string, number>;
   rewindTarget: number | null;
   rewindSpeed: number;
-  tutorial: { discarded?: boolean; returnedId?: string; storageUsed?: boolean; finished?: boolean; rewound?: boolean; opened: boolean; placed: boolean; merged: boolean; bought: boolean; bombed: boolean };
+  tutorial: { discarded?: boolean; storageUsed?: boolean; finished?: boolean; rewound?: boolean; opened: boolean; placed: boolean; merged: boolean; bought: boolean; bombed: boolean };
   stats: { opened: number; merged: number; purchased: number; destroyed: number; bombsUsed: number; coinsEarned: number };
 }
 export const createMiningState = (): MiningState => ({ phase: 0, targetId: null, hit: false });

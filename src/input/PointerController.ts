@@ -46,7 +46,7 @@ export class PointerController {
     // A final release can arrive without the corresponding move sample.
     this.moved ||= Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx;
     if(this.moved&&this.draggedEntityId===null&&this.start.target?.kind==='entity'&&this.game.beginDrag(this.start.target.id)){this.draggedEntityId=this.start.target.id;this.view.impulse?.(this.start.target.id,'pickup');}
-    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.resolveDrop(event.clientX,event.clientY),full=target?.kind==='pad'&&this.game.state.drag?.source.kind==='pad'&&this.game.state.slots.every(s=>s.entityId||s.reserved),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback(full?'Belt full. Returned safely.':'Not a match. Returned safely.');}
+    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.resolveDrop(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
     else if(!this.moved){
       if(this.draggedEntityId!==null)this.game.cancelDrag();
       const target=this.start.target;

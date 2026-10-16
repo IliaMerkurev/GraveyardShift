@@ -1,4 +1,4 @@
-import type {GameState,Entity} from '../game/GameState';
+import type {GameState,Entity,Worker} from '../game/GameState';
 import {getEntityPosition,workerUpgradePrice} from '../game/commands';
 import {CONFIG} from '../game/config';
 import {samplePath} from '../game/path';
@@ -10,15 +10,15 @@ export class Tutorial {
   private done=false;
   private discarded=false;
   constructor(private shell:HTMLElement,private view:SceneView){
-    try{this.done=localStorage.getItem('graveyard-guide')==='storage';this.discarded=localStorage.getItem('graveyard-income')==='done';}catch{}
+    try{this.done=localStorage.getItem('graveyard-guide')==='storage';this.discarded=localStorage.getItem('graveyard-field-income')==='done';}catch{}
     this.svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     this.svg.classList.add('live-guide');this.svg.setAttribute('aria-hidden','true');
     this.svg.innerHTML='<path class="guide-trail"/><circle r="17" class="guide-ring"/><path class="guide-arrow" d="M -8 -36 L 8 -36 L 8 -17 L 19 -17 L 0 3 L -19 -17 L -8 -17 Z"/><text class="guide-label" text-anchor="middle"/>';
     shell.append(this.svg);
   }
-  reset(){this.done=this.discarded=false;try{localStorage.removeItem('graveyard-guide');localStorage.removeItem('graveyard-income');}catch{}}
+  reset(){this.done=this.discarded=false;try{localStorage.removeItem('graveyard-guide');localStorage.removeItem('graveyard-field-income');}catch{}}
   render(s:GameState){
-    if(s.tutorial.discarded&&!this.discarded){this.discarded=true;try{localStorage.setItem('graveyard-income','done');}catch{}}
+    if(s.tutorial.discarded&&!this.discarded){this.discarded=true;try{localStorage.setItem('graveyard-field-income','done');}catch{}}
     s.tutorial.finished=this.done;
     this.svg.style.display='none';
     if(this.done&&this.discarded||s.paused||s.gameOver||s.drag||this.shell.querySelector('.audio-menu:not([hidden])'))return;
@@ -31,7 +31,8 @@ export class Tutorial {
     const find=(kind:string)=>entities.find(e=>e.kind===kind&&visible(e));
     let from:{x:number;y:number}|null=null,to:{x:number;y:number}|null=null,label='TAP';
     const barrel=(kind:string)=>{const e=entities.find(e=>e.kind==='barrel'&&e.content===kind&&visible(e));if(e)from=position(e);};
-    const spare=!this.discarded&&entities.find(e=>e.kind==='worker'&&e.location.kind==='slot'&&visible(e)&&(e.id===t.returnedId||entities.some(w=>w.kind==='worker'&&w.location.kind==='pad'&&w.level>e.level)));
+    const field=entities.filter((e):e is Worker=>e.kind==='worker'&&s.pads.some(p=>p.unlocked&&p.entityId===e.id&&e.location.kind==='pad'&&p.id===e.location.id));
+    const spare=!this.discarded&&(this.done||t.merged&&t.rewound&&t.bombed)&&s.pads.every(p=>!p.unlocked||field.some(e=>e.id===p.entityId))&&field.sort((a,b)=>a.level-b.level)[0];
     if(spare){from=position(spare);to=project(CONFIG.discard,.1,false,'discard');label='Income +20%';}
     else if(this.done)return;
     else if(!t.merged){
