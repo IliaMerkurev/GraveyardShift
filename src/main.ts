@@ -1,3 +1,4 @@
+import {BonusGuide} from './ui/BonusGuide';
 import {formatIncome} from './ui/formatNumber';
 import introLogo from './assets/GraveyardShiftLogo.webp?inline';
 import soundtrack from './assets/GraveyardShift.mp3?inline';
@@ -34,11 +35,11 @@ shell.addEventListener('change',event=>{if((event.target as HTMLElement).matches
 async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   await loadSkeletonWorker();
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;let active=false;let introProgress=1;
-  const transfers=new CoinTransfers(shell);
+  const transfers=new CoinTransfers(shell);const bonuses=new BonusGuide(shell);
   const pause=()=>{transfers.clear();sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(!active||game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);sfx.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
-  const restart=()=>{transfers.clear();sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();transfers.upgrade();}else sfx.play('reject');},audioSettings,logo:introLogo,guide:()=>{tutorial.reset();restart();}});
+  const restart=()=>{transfers.clear();sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();bonuses.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();transfers.upgrade();}else sfx.play('reject');},audioSettings,logo:introLogo,guide:()=>{tutorial.reset();bonuses.reset(true);restart();}});
   const tutorial=new Tutorial(shell,view);
   const input=new PointerController(view.canvas,game,view,text=>{if(text.startsWith('Drag '))hud.guidance(text,text);else hud.message(text);},event=>sfx.play(event));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
@@ -51,7 +52,7 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
     if(!game.state.paused&&!game.state.gameOver)transfers.events(events,e=>view.coinTransferPoint(e));
     transfers.tick(dt,game.state.paused||game.state.gameOver);
-    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);tutorial.render(game.state);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
+    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);bonuses.render(game.state,events,dt);tutorial.render(game.state);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
     if(events.some(e=>e.type==='goal'))hud.goal();
     const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
     if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');

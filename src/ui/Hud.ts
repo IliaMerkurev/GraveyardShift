@@ -1,3 +1,4 @@
+import {BONUS_HELP} from './BonusGuide';
 import {formatNumber,formatIncome} from './formatNumber';
 import {attachAudioMenu} from './AudioMenu';
 import {attachFullscreen} from './Fullscreen';
@@ -22,7 +23,7 @@ export class Hud {
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
     this.upgrade=ui.querySelector<HTMLButtonElement>('[data-worker-upgrade]')!;this.upgrade.addEventListener('click',actions.upgrade);
     ui.querySelector('[aria-label="Restart"]')!.addEventListener('click',actions.restart);
-    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop before FINISH. Tap barrels; drag heroes to pads. Locks cost coins. Equal levels merge; unequal heroes SWAP on pads. Unequal belt-to-pad drops return. Pit discards: +20% income/run. Bombs drop on rocks; other bonuses tap/drop: rewind to bend one (speed unchanged), pause 5s, ↓20% speed (10% floor), ↓50% speed (no floor), destroy half the tail. Upgrades raise the 3-level spawn range; lower rolls favored. Price +20%: 50,60,72,87 (rounded up). Independent income/prices; numeric limits. Pockets store bonuses. Belt items exit; held items stay; bad drops return. Restart: income ×1, upgrade 50. Optional guide.',false);});
+    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop before FINISH. Tap barrels; drag heroes to pads. Locks cost coins. Equal levels merge; unequal heroes SWAP on pads. Unequal belt-to-pad drops return. Pit discards: +20% income/run. Upgrades raise the 3-level spawn range; lower rolls favored. Price +20%: 50,60,72,87 (rounded up). Independent income/prices; numeric limits. Pockets store bonuses. Belt items exit; held items stay; bad drops return. Restart: income ×1, upgrade 50. Optional guide.\n\n'+Object.values(BONUS_HELP).join('\n\n')+'\n\nTap non-bomb bonuses or drop them on the field. Pockets save them for later.',false);});
     ui.querySelector('[data-guide]')!.addEventListener('click',()=>actions.guide?.());
     ui.querySelector('[data-continue]')!.addEventListener('click',()=>{if(this.ended)return;this.overlay.hidden=true;actions.resume();});
     ui.querySelector('[data-restart]')!.addEventListener('click',actions.restart);
