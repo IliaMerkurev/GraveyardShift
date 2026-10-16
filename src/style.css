@@ -108,3 +108,19 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 
 /* Reuse the start-screen artwork inside the existing header footprint. */
 .topbar .wordmark{min-width:0;overflow:hidden}.hud-logo{display:block;width:180px;max-width:100%;height:auto;max-height:50px;object-fit:contain;object-position:left center}.topbar .wallet{flex-shrink:0}
+
+/* Give the compact board the full phone width and reserve actual control rails. */
+@media(max-aspect-ratio:1/1){
+  .game-shell{width:100vw;--top-rail:calc(96px + env(safe-area-inset-top));--upgrade-rail:calc(82px + env(safe-area-inset-bottom))}
+  .game-shell .footer{grid-template-rows:12px 48px;gap:4px 10px;padding-top:5px}
+  .footer .upgrade-button{height:48px;font-size:12px;line-height:1.35}
+  .game-shell .toast{top:calc(64px + env(safe-area-inset-top));height:28px}
+  .storage-label,.storage-label.open{font-size:11px;padding:3px 5px}
+}
+@media(min-aspect-ratio:1/1){
+  .game-shell{--top-rail:calc(36px + env(safe-area-inset-top))}
+  .game-shell canvas{top:var(--top-rail);height:calc(100% - var(--upgrade-rail) - var(--top-rail))}
+  .game-shell .labels{top:var(--top-rail)}
+}
+
+@media(max-aspect-ratio:1/1){.barrel-label[title]{font-size:12px;line-height:16px}}

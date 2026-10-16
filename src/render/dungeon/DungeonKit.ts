@@ -227,9 +227,9 @@ export function conveyorSlotExposed(x:number):boolean { return Math.abs(x)<CONVE
  * Roof and camera-facing masonry occlude cargo before its spawn/wrap boundary.
  * Keep these in the belt group so the existing landscape X mapping also applies.
  */
-export function createConveyorTunnels():THREE.Group {
+export function createConveyorTunnels(inner=CONVEYOR_TUNNEL_MOUTH,outer=5.18):THREE.Group {
   const tunnels=new THREE.Group();tunnels.name='conveyor-end-tunnels';
-  const inner=CONVEYOR_TUNNEL_MOUTH,outer=5.18,length=outer-inner,center=(inner+outer)/2;
+  const length=outer-inner,center=(inner+outer)/2;
   for(const side of [-1,1]){
     const p:THREE.BufferGeometry[]=[];
     // Closed outer end, solid side walls and timber ceiling: no sightline to wrapping cargo.
