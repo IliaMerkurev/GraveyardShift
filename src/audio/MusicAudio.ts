@@ -9,13 +9,20 @@ export class MusicAudio {
   private enabled=true;
   private dead=false;
   private background=document.hidden;
+  private recoveryAttempted=false;
+  private recover=()=>{if(this.started&&!this.dead&&!document.hidden){this.background=false;this.sync();}};
+  private stateChanged=()=>{
+    const state=this.context?.state;
+    if(state==='running'){this.recoveryAttempted=false;return;}
+    if(state!=='closed'&&!this.recoveryAttempted&&this.started&&this.enabled&&!this.background&&!document.hidden){this.recoveryAttempted=true;this.recover();}
+  };
   private visibility=()=>{this.background=document.hidden;this.sync();};
   constructor(source:string){
     const C=window.AudioContext||(window as Window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
     if(C){
       try{
         let ctx:AudioContext;try{ctx=new C({sampleRate:32000});}catch{ctx=new C();}
-        this.context=ctx;this.gain=ctx.createGain();this.gain.gain.value=.65;this.gain.connect(ctx.destination);
+        this.context=ctx;ctx.onstatechange=this.stateChanged;this.gain=ctx.createGain();this.gain.gain.value=.65;this.gain.connect(ctx.destination);
         // Decode before PLAY where possible; resume is still called in the actual gesture.
         const raw=atob(source.slice(source.indexOf(',')+1)),bytes=new Uint8Array(raw.length);
         for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
@@ -24,7 +31,7 @@ export class MusicAudio {
       }catch{void this.context?.close().catch(()=>{});this.context=null;this.gain=null;}
     }
     if(!this.context){this.audio=new Audio(source);this.audio.loop=true;this.audio.preload='auto';this.audio.volume=.65;}
-    document.addEventListener('visibilitychange',this.visibility);
+    document.addEventListener('visibilitychange',this.visibility);window.addEventListener('pageshow',this.recover);
   }
   start():Promise<void>{
     if(this.dead)return Promise.resolve();
@@ -48,5 +55,5 @@ export class MusicAudio {
     if(!this.enabled){this.audio?.pause();return;}
     if(this.started)void this.start().catch(()=>{});
   }
-  destroy(){this.dead=true;document.removeEventListener('visibilitychange',this.visibility);this.cancelStart();if(this.audio){this.audio.removeAttribute('src');this.audio.load();}this.decoded=null;void this.context?.close().catch(()=>{});}
+  destroy(){this.dead=true;document.removeEventListener('visibilitychange',this.visibility);window.removeEventListener('pageshow',this.recover);if(this.context)this.context.onstatechange=null;this.cancelStart();if(this.audio){this.audio.removeAttribute('src');this.audio.load();}this.decoded=null;void this.context?.close().catch(()=>{});}
 }

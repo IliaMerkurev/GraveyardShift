@@ -20,7 +20,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     startScreen.append(title,launch);overlay.append(frame,controls,startScreen);parent.append(overlay);
     const gestures=['pointerdown','pointerup','touchend','click','keydown'];
     let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false,pending=false,policyMuted=false,requested=false;let timeout:ReturnType<typeof setTimeout>|undefined;
-    const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);for(const event of gestures)document.removeEventListener(event,gesture,true);video.pause();video.removeAttribute('src');video.load();overlay.remove();};
+    const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);for(const event of gestures)document.removeEventListener(event,gesture,true);video.pause();video.removeAttribute('src');video.load();overlay.remove();audio?.unlockSounds?.();void audio?.music.start().catch(()=>{});};
     const ready=prepared.then(begin=>({begin,error:null})).catch((error:unknown)=>({begin:null,error}));
     const finish=async()=>{
       if(!requested||finished||transitioning)return;transitioning=true;attempt++;video.pause();controls.hidden=true;

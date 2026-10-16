@@ -7,7 +7,7 @@ import {synthesizeImpact, type ImpactKind} from './ImpactSound';
  */
 export function createRockSnakeAudio() {
   let ctx: AudioContext | null = null, master: GainNode | null = null, muted = false, dead = false;
-  let paused = false, background = document.hidden;
+  let paused = false, background = document.hidden, recoveryAttempted = false;
   const active = new Set<AudioScheduledSourceNode>();
   let pending: {event: string; intensity: number; at: number} | null = null;
   const last: Record<string, number> = Object.create(null), voices: number[] = [], buffers = new Map<string, AudioBuffer>();
@@ -32,10 +32,16 @@ export function createRockSnakeAudio() {
     }
   }
   function onBlur() { background = true; applyGate(); }
-  function onFocus() { background = document.hidden; applyGate(); }
-  function onVisibility() { background = document.hidden || !document.hasFocus(); applyGate(); }
+  function recover() { if(ctx && !gated()) unlock(); }
+  function onStateChange() {
+    if(ctx?.state==='running'){recoveryAttempted=false;return;}
+    if(ctx?.state!=='closed'&&!recoveryAttempted&&!gated()){recoveryAttempted=true;recover();}
+  }
+  function onFocus() { background = document.hidden; applyGate(); recover(); }
+  function onVisibility() { background = document.hidden || !document.hasFocus(); applyGate(); recover(); }
   window.addEventListener('blur', onBlur);
   window.addEventListener('focus', onFocus);
+  window.addEventListener('pageshow', onFocus);
   document.addEventListener('visibilitychange', onVisibility);
   function unlock() {
     if (dead || background || document.hidden) return;
@@ -43,13 +49,13 @@ export function createRockSnakeAudio() {
       if (!ctx) {
         const C = window.AudioContext || (window as Window & {webkitAudioContext?: typeof AudioContext}).webkitAudioContext;
         if (!C) return;
-        ctx = new C(); master = ctx.createGain(); master.gain.value = gated() ? 0 : .16;
+        ctx = new C(); ctx.onstatechange=onStateChange; master = ctx.createGain(); master.gain.value = gated() ? 0 : .16;
         const limiter = ctx.createDynamicsCompressor();
         limiter.threshold.value = -18; limiter.knee.value = 8;
         limiter.ratio.value = 6; limiter.attack.value = .003; limiter.release.value = .08;
         master.connect(limiter); limiter.connect(ctx.destination);
       }
-      if (ctx.state === 'suspended') ctx.resume().then(()=>{ const q=pending; pending=null; if(q && !gated() && performance.now()-q.at<180) play(q.event,q.intensity); }).catch(()=>{pending=null;});
+      if (!muted && ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().then(()=>{ const q=pending; pending=null; if(q && !gated() && performance.now()-q.at<180) play(q.event,q.intensity); }).catch(()=>{pending=null;});
     } catch (_) { /* Audio is optional; gameplay must survive unavailable audio. */ }
   }
   for (const name of listeners) window.addEventListener(name,unlock,{passive:true,capture:true});
@@ -144,6 +150,8 @@ export function createRockSnakeAudio() {
       for (const name of listeners) window.removeEventListener(name, unlock, true);
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onFocus);
+      if(ctx)ctx.onstatechange=null;
       document.removeEventListener('visibilitychange', onVisibility);
       if (ctx) ctx.close().catch(() => {});
       buffers.clear();

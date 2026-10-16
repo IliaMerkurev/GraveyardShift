@@ -35,7 +35,18 @@ export function fitCamera(camera:THREE.PerspectiveCamera,width:number,height:num
     const p=new THREE.Vector3(x,y,z).sub(target),depth=p.dot(direction);
     fit=Math.max(fit,Math.abs(p.dot(right))/tanX+depth,Math.abs(p.dot(up))/tanY+depth);
   }
+  camera.clearViewOffset();camera.zoom=1;
   camera.fov=fov;camera.far=Math.max(100,fit+30);camera.aspect=width/height;camera.position.copy(target).addScaledVector(direction,fit);camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+  if(landscape){
+    // Actual rear arch bounds: height 2.18, rear Z -4.5725. Keep its lower half
+    // visible, using spare floor below the belt before reducing scale at all.
+    const gate=new THREE.Vector3(0,1.09,-4.5725),front=new THREE.Vector3(0,0,6.65);
+    const screenY=(p:THREE.Vector3)=>(1-p.clone().project(camera).y)*height/2;
+    camera.zoom=Math.min(1,(height-2*padding)/(screenY(front)-screenY(gate)));
+    camera.updateProjectionMatrix();
+    const shift=Math.max(0,Math.min(height-padding-screenY(front),padding-screenY(gate)));
+    camera.setViewOffset(width,height,0,-shift,width,height);
+  }
 }
 export function mapPosition(point:Point,landscape:boolean,zone:ViewZone='field'):Point{
   if(zone==='belt')return{x:beltX(point.x,landscape),z:landscape?LANDSCAPE_LAYOUT.beltZ:PORTRAIT_LAYOUT.beltZ};
