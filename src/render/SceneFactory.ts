@@ -34,6 +34,7 @@ export class SceneView {
   private oreCracks:THREE.InstancedMesh[]=[];private rooms:THREE.Group[]=[];private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   private vfx:ParticleVfx;private stoneDebris:StoneDebrisVfx;private previousStonePositions=new Map<string,Point & {resource:number}>();
+  private flights:{view:EntityView;from:THREE.Vector3;scale:THREE.Vector3;age:number}[]=[];
   private tactile=new TactileMotion();private pressed:HitTarget|null=null;
   private ripples:{mesh:THREE.Mesh;age:number;life:number}[]=[];private rippleCursor=0;
   private cameraBase=new THREE.Vector3();private shakeRemaining=0;private reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -227,24 +228,34 @@ export class SceneView {
     if(state.paused||state.gameOver||held?.kind!=='worker')return targets;
     for(const kind of ['pad','slot'] as const)for(const place of kind==='pad'?state.pads:state.slots){
       const other=place.entityId?state.entities[place.entityId]:undefined;
-      if(place.reserved||!other||other.id===held.id||other.kind!=='worker'||other.level!==held.level)continue;
+      if(place.reserved||!other||other.id===held.id||other.kind!=='worker')continue;
       if(other.location.kind!==kind||other.location.id!==place.id)continue;
       // Use the command's live legality, including source ownership and pad locks.
       if(this.canDrop({kind,id:place.id}))targets.add(other.id);
     }
     return targets;
   }
-  private clearWorkers(){for(const [id,view] of this.entities)if(view.worker){view.worker.dispose();view.label.remove();view.hit.remove();this.entities.delete(id);}}
+  private updateFlights(dt:number){
+    const pit=this.mapped(CONFIG.discard,false,'discard');
+    this.flights=this.flights.filter(f=>{
+      f.age+=dt;const t=Math.min(1,f.age/(this.reducedMotion.matches?.15:.75)),g=f.view.group;
+      g.position.set(f.from.x+(pit.x-f.from.x)*t,f.from.y*(1-t)+(this.reducedMotion.matches?0:Math.sin(t*Math.PI)*2),f.from.z+(pit.z-f.from.z)*t);
+      g.scale.copy(f.scale).multiplyScalar(1-t*t);if(!this.reducedMotion.matches)g.rotation.z=t*Math.PI*2;
+      if(t<1)return true;f.view.worker!.dispose();return false;
+    });
+  }
+  private clearWorkers(){this.updateFlights(1);for(const [id,view] of this.entities)if(view.worker){view.worker.dispose();view.label.remove();view.hit.remove();this.entities.delete(id);}}
   reset(){this.clearWorkers();this.vfx.reset();this.stoneDebris.reset();this.previousStonePositions.clear();this.tactile.clear();this.pressed=null;for(const r of this.ripples)r.mesh.visible=false;this.shakeRemaining=0;this.camera.position.copy(this.cameraBase);this.camera.updateMatrixWorld();this.clearMergeTargets();this.beltPhase=0;this.flashes.clear();for(const e of this.effects)e.active=false;this.ring.visible=false;this.targetRing.visible=false;}
   sync(state:GameState,dt:number,dragPosition:Point|null,events:GameEvent[]){this.state=state;this.tactile.tick(dt);
     for(const e of events){
+      if(e.replaced&&e.entityId){const v=this.entities.get(e.entityId);if(v?.worker){this.flights.push({view:v,from:v.group.position.clone(),scale:v.group.scale.clone(),age:0});v.label.remove();v.hit.remove();this.entities.delete(e.entityId);}}
       if((e.type==='open'||e.type==='merge')&&e.entityId)this.tactile.trigger(e.entityId,e.type);
       if(e.type==='hit'&&e.entityId)this.tactile.trigger(e.entityId,'hit');
       if(e.type==='purchase'){const place=[...state.pads,...state.storage].find(p=>p.x===e.x&&p.z===e.z);if(place)this.tactile.trigger(place.id,'purchase');}
       const colors:Partial<Record<GameEvent['type'],number>>={merge:0x8effc5,purchase:0xffd26a,bomb:0xffc05d,rewind:0x74f8f0,slow:0xaaa1ff,brake:0xffc260,halfSpeed:0x83ec94,tailBlast:0xff667b};
       if(colors[e.type])this.ripple(e,colors[e.type]!,e.type==='merge'?.5:.4);
     }
-    this.updateCameraShake(state,dt,events);for(const[id,time]of this.flashes){if(time<=dt)this.flashes.delete(id);else this.flashes.set(id,time-dt);}for(const e of events)if(e.type==='hit'&&e.stoneId)this.flashes.set(e.stoneId,.16);
+    this.updateFlights(dt);this.updateCameraShake(state,dt,events);for(const[id,time]of this.flashes){if(time<=dt)this.flashes.delete(id);else this.flashes.set(id,time-dt);}for(const e of events)if(e.type==='hit'&&e.stoneId)this.flashes.set(e.stoneId,.16);
     // Read-only render mirrors support browser verification without a game-control hook.
     const ordered=[...state.stones].sort((a,b)=>a.distance-b.distance);
     const hasGap=ordered.some((stone,i)=>i>0&&stone.distance-ordered[i-1].distance>CONFIG.stones.spacing+1e-9);
@@ -300,6 +311,7 @@ export class SceneView {
         this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);
       }
       const mergeTarget=mergeTargets.has(entity.id);
+      v.hit.dataset.action=state.drag&&entity.kind==='worker'&&(state.entities[state.drag.entityId] as Entity & {level:number})?.level>entity.level?'REPLACE':'MERGE';
       v.hit.classList.toggle('merge-target',mergeTarget);v.label.classList.toggle('merge-target-label',mergeTarget);
       if(mergeTarget)v.hit.dataset.mergeTarget='true';else delete v.hit.dataset.mergeTarget;
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;

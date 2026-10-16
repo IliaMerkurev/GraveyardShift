@@ -10,6 +10,7 @@ import { soundForEvents } from './audio/eventSounds';
 import { Game } from './game/Simulation';
 import { SceneView } from './render/SceneFactory';
 import { PointerController } from './input/PointerController';
+import { Tutorial } from './ui/Tutorial';
 import { Hud } from './ui/Hud';
 import { PlayableBridge } from './platform/PlayableBridge';
 
@@ -34,7 +35,8 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   const pause=()=>{sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(!active||game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);sfx.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
-  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();}else sfx.play('reject');},audioSettings,logo:introLogo});
+  const hud=new Hud(shell,{restart,pause:()=>{modalPaused=true;pause();},resume,upgrade:()=>{if(game.buyWorkerUpgrade()){sfx.play('upgrade');hud.upgradeFeedback();}else sfx.play('reject');},audioSettings,logo:introLogo,guide:()=>{tutorial.reset();restart();}});
+  const tutorial=new Tutorial(shell,view);
   const input=new PointerController(view.canvas,game,view,text=>{if(text.startsWith('Drag '))hud.guidance(text,text);else hud.message(text);},event=>sfx.play(event));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(!modalPaused)resume();});
   window.addEventListener('blur',()=>{lostFocus=true;pause();});
@@ -44,7 +46,7 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   if(import.meta.env.DEV&&new URLSearchParams(location.search).has('debug')){diagnostics=document.createElement('div');diagnostics.className='diagnostics';shell.append(diagnostics);}
   view.sync(game.state,0,null,[]);hud.render(game.state);
   const frame=(now:number)=>{const dt=Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;game.tick(dt);input.refreshDrop();const events=game.drainEvents();
-    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
+    view.sync(game.state,game.state.paused||game.state.gameOver?0:dt,input.dragPosition,events);hud.render(game.state);hud.feedback(events);tutorial.render(game.state);const sound=soundForEvents(events);if(sound)sfx.play(sound,sound==='hit'?.45:1);
     if(events.some(e=>e.type==='goal'))hud.goal();
     const brake=events.find(e=>e.type==='brake');if(brake)hud.guidance(brake.amount?'Speed reduced · acceleration continues':'Minimum speed reached','brake');
     if(events.some(e=>e.type==='halfSpeed'))hud.guidance('Speed halved · acceleration continues','halfSpeed');
