@@ -30,6 +30,7 @@ export interface GameState {
   /** Snake acceleration time; excludes bonus freeze and global pause. */
   difficultyTime: number;
   coins: number;
+  incomeMultiplier: number;
   workerDropBoost: number;
   entities: Record<string, Entity>;
   slots: Slot[];

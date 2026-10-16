@@ -28,8 +28,14 @@ function samePlace(a: PlaceRef, b: PlaceRef): boolean { return a.kind === b.kind
 
 function reward(ctx: CommandContext, amount: number, point: Point): void {
   ctx.state.coins += amount;
-  ctx.state.stats.coinsEarned += amount;
+  ctx.state.stats.coinsEarned = Math.min(Number.MAX_SAFE_INTEGER,ctx.state.stats.coinsEarned+amount);
   ctx.emit({ type: 'coins', x: point.x, z: point.z, amount });
+}
+
+function discardWorker(ctx:CommandContext,id:string,replaced=false){
+  ctx.state.incomeMultiplier=Math.min(Number.MAX_SAFE_INTEGER,ctx.state.incomeMultiplier*2);
+  delete ctx.state.entities[id];
+  ctx.emit({type:'discard',x:ctx.config.discard.x,z:ctx.config.discard.z,entityId:id,replaced,amount:ctx.state.incomeMultiplier});
 }
 
 export function checkGoal(ctx: CommandContext): void {
@@ -47,7 +53,7 @@ export function workerBarrelRange(state: GameState, boost = state.workerDropBoos
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
-  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 1.2 ** state.workerDropBoost);
+  const price = Math.ceil(config.economy.workerUpgradeBaseCost * 2 ** state.workerDropBoost);
   return Number.isSafeInteger(price) && price > 0 ? price : null;
 }
 
@@ -285,8 +291,9 @@ export function damageStone(ctx: CommandContext, stoneId: string, damage: number
     ctx.state.gapRecoveryRemaining = Math.max(0, readyAt - ctx.state.time);
   }
   ctx.state.stats.destroyed++;
-  reward(ctx, stone.reward, point);
-  ctx.emit({ type: 'destroy', x: point.x, z: point.z, stoneId: stone.id, amount: stone.reward });
+  const amount=Math.min(Number.MAX_SAFE_INTEGER-ctx.state.coins,stone.reward*ctx.state.incomeMultiplier);
+  reward(ctx, amount, point);
+  ctx.emit({ type: 'destroy', x: point.x, z: point.z, stoneId: stone.id, amount });
   return true;
 }
 
@@ -298,11 +305,9 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
   const source = getPlace(ctx.state, drag.source)!;
   let purchasedPad: Pad | undefined;
   if (target.kind === 'discard') {
-    // Only an owned drag can reach this branch. Never reward or merge a discard.
+    // Only a completed, owned discard raises income; it pays no coins immediately.
     if (entity.kind !== 'worker') { cancelDrag(ctx); return false; }
-    entity.mining = createMiningState();
-    delete ctx.state.entities[entity.id];
-    ctx.emit({ type: 'discard', x: ctx.config.discard.x, z: ctx.config.discard.z, entityId: entity.id });
+    discardWorker(ctx,entity.id);
   } else if (target.kind === 'field') {
     if (entity.kind !== 'rewind' && entity.kind !== 'slow' && entity.kind !== 'brake' && entity.kind !== 'halfSpeed' && entity.kind !== 'tailBlast') { cancelDrag(ctx); return false; }
     activateBonus(ctx, entity, { x: target.x, z: target.z });
@@ -342,10 +347,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
       ctx.state.tutorial.merged = true;
       ctx.emit({ type: 'merge', x: destination.x, z: destination.z, entityId: occupant.id, level: occupant.level });
     } else {
-      if (occupant?.kind === 'worker') {
-        delete ctx.state.entities[occupant.id];
-        ctx.emit({ type: 'discard', x: ctx.config.discard.x, z: ctx.config.discard.z, entityId: occupant.id, replaced: true });
-      }
+      if (occupant?.kind === 'worker') discardWorker(ctx,occupant.id,true);
       destination.entityId = entity.id;
       entity.location = { ...target };
       if (target.kind === 'pad' && entity.kind === 'worker') ctx.state.tutorial.placed = true;
