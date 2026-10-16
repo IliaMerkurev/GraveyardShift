@@ -1,4 +1,4 @@
-*{box-sizing:border-box}html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overscroll-behavior:none;-webkit-user-select:none;user-select:none}button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}button:focus-visible{outline:3px solid #77e6df;outline-offset:4px}#app{display:grid;place-items:center}.game-shell{position:relative;width:min(100vw,calc(100dvh * .65));height:100dvh;max-height:100dvh;overflow:hidden;isolation:isolate}canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}.topbar{position:absolute;z-index:3;top:max(13px,env(safe-area-inset-top));left:16px;right:16px;display:flex;align-items:center;gap:8px;pointer-events:none}.wordmark{flex:1;font-weight:900}.wordmark small{display:block;font-weight:650;margin-top:4px}.wallet{display:flex;align-items:center;gap:7px;background:#201c35ed;border:1px solid #8f839c66;padding:9px 13px;font-size:23px;font-weight:850;min-width:83px;box-shadow:0 3px 0 #221e37}.coin{display:inline-grid;place-items:center;width:25px;height:25px;border:3px solid #ffe895;border-radius:50%;font-size:13px;font-weight:900}.icon-button{pointer-events:auto;width:44px;height:44px;border:1px solid #98899e77;background:#2b2640db;color:white;font-size:23px}.footer{position:absolute;bottom:max(12px,env(safe-area-inset-bottom));left:16px;right:16px;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:12px;pointer-events:none}.belt-status{font-size:10px;font-weight:800;letter-spacing:1.2px;background:#231e35c9;border:1px solid #8c809a55;border-radius:10px;padding:7px 9px}.help-button{pointer-events:auto;width:44px;height:44px;background:#2a253bd4;color:#ece6f4;border:1px solid #8f829c77;border-radius:50%;font-weight:800}.labels{position:absolute;inset:0;pointer-events:none;z-index:2}.entity-label,.pad-label,.barrel-label{position:absolute;transform:translate(-50%,-50%);font-weight:900;white-space:nowrap;pointer-events:none}.entity-label{min-width:23px;height:23px;display:grid;place-items:center;border:2px solid #f7eede;border-radius:50%;font-size:12px}.pad-label{padding:5px 7px;font-size:12px}.pad-label.affordable{border:1px solid #ffe7a0}.pad-label.open{font-size:10px}.barrel-label{font-size:16px}.toast{position:absolute;left:50%;bottom:25%;transform:translateX(-50%);max-width:86%;text-align:center;background:#211c35ee;border:1px solid #a18aad;border-radius:13px;padding:10px 15px;font-size:13px;opacity:0;transition:opacity .15s;pointer-events:none}.toast.visible{opacity:1}.overlay{position:absolute;z-index:8;inset:0;display:grid;place-items:center;padding:24px}.overlay[hidden]{display:none}.card{padding:25px;max-width:350px;text-align:center}.card h1{font-size:25px;margin:0 0 12px}.card p{font-size:14px;line-height:1.55;margin:10px 0 18px}.card button{display:block;width:100%;min-height:45px;border:0;border-radius:12px;padding:10px;font-weight:800;margin-top:9px}.diagnostics{position:absolute;left:5px;bottom:55px;z-index:9;font:10px monospace;background:#000a;white-space:pre;pointer-events:none}.fatal{max-width:380px;padding:30px;text-align:center;line-height:1.6}@media(min-aspect-ratio:1/1){.game-shell{width:min(100vw,1180px);height:100dvh}.topbar{top:18px;left:22px;right:22px}.wordmark{font-size:19px}.footer{left:24px;right:24px}.wallet{margin-left:auto}.card{max-width:430px}.toast{bottom:14%}.pad-label{font-size:13px}}
+*{box-sizing:border-box}html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overscroll-behavior:none;-webkit-user-select:none;user-select:none}button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}button:focus-visible{outline:3px solid #77e6df;outline-offset:4px}#app{display:grid;place-items:center}.game-shell{position:relative;width:100vw;height:100dvh;max-height:100dvh;overflow:hidden;isolation:isolate}canvas{position:absolute;display:block;touch-action:pinch-zoom}.topbar{position:absolute;z-index:3;top:max(13px,env(safe-area-inset-top));display:flex;align-items:center;gap:8px;}.wordmark{flex:1;font-weight:900}.wordmark small{display:block;font-weight:650;margin-top:4px}.wallet{display:flex;align-items:center;gap:7px;border:1px solid #8f839c66;padding:9px 13px;font-size:23px;font-weight:850;min-width:83px;}.coin{display:inline-grid;place-items:center;width:25px;height:25px;border:3px solid #ffe895;border-radius:50%;font-size:13px;font-weight:900}.icon-button{pointer-events:auto;width:44px;height:44px;border:1px solid #98899e77;font-size:23px}.footer{position:absolute;bottom:max(12px,env(safe-area-inset-bottom));left:16px;right:16px;z-index:3;justify-content:space-between;align-items:center;gap:12px;}.belt-status{font-size:10px;font-weight:800;letter-spacing:1.2px;background:#231e35c9;border:1px solid #8c809a55;border-radius:10px;padding:7px 9px}.help-button{pointer-events:auto;width:44px;height:44px;border:1px solid #8f829c77;border-radius:50%;font-weight:800}.labels{position:absolute;pointer-events:none;z-index:2}.entity-label,.pad-label,.barrel-label{position:absolute;transform:translate(-50%,-50%);font-weight:900;white-space:nowrap;pointer-events:none}.entity-label{min-width:23px;height:23px;display:grid;place-items:center;border:2px solid #f7eede;border-radius:50%;font-size:12px}.pad-label{padding:5px 7px;font-size:12px}.pad-label.affordable{border:1px solid #ffe7a0}.pad-label.open{font-size:10px}.barrel-label{font-size:16px}.toast{position:absolute;text-align:center;opacity:0;transition:opacity .15s;pointer-events:none}.toast.visible{opacity:1}.overlay{position:absolute;z-index:8;inset:0;display:grid;place-items:center;padding:24px}.overlay[hidden]{display:none}.card{padding:25px;max-width:350px;text-align:center}.card h1{font-size:25px;margin:0 0 12px}.card p{font-size:14px;line-height:1.55;margin:10px 0 18px}.card button{display:block;width:100%;min-height:45px;border:0;border-radius:12px;padding:10px;font-weight:800;margin-top:9px}.diagnostics{position:absolute;left:5px;bottom:55px;z-index:9;font:10px monospace;background:#000a;white-space:pre;pointer-events:none}.fatal{max-width:380px;padding:30px;text-align:center;line-height:1.6}@media(min-aspect-ratio:1/1){.game-shell{height:100dvh}.topbar{top:18px;}.wordmark{}.footer{left:24px;right:24px}.wallet{margin-left:auto}.card{max-width:430px}.toast{}.pad-label{font-size:13px}}
 
 .entity-target{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;pointer-events:none}
 
@@ -8,13 +8,13 @@
 
 .slot-label{position:absolute;transform:translate(-50%,-50%);font-size:20px;font-weight:800;pointer-events:none}
 
-.overlay{overflow:auto}.card{max-height:calc(100dvh - 40px);overflow:auto;touch-action:pan-y}
+.overlay{overflow:auto}.card{max-height:calc(100dvh - 40px);overflow:auto;touch-action:pan-y pinch-zoom}
 
 .storage-label,.storage-label.open{font-size:9px;padding:3px 5px;border:1px solid #8da7bb;border-radius:5px;letter-spacing:.2px}
 
 /* A dedicated bottom rail keeps the upgrade visible without covering play targets. */
-.footer .belt-status{grid-column:1/-1;grid-row:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0;border:0;background:transparent;font-size:10px;line-height:16px;letter-spacing:.6px}
-.upgrade-button{grid-column:1;grid-row:2;pointer-events:auto;min-width:0;width:100%;height:54px;border:2px solid #fff0ac;border-radius:12px;padding:4px 6px;white-space:pre-line;font-size:clamp(10px,2.8vw,14px);line-height:1.55;font-weight:900}
+.footer .belt-status{grid-column:1/-1;grid-row:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0;border:0;background:transparent;font-size:10px;letter-spacing:.6px}
+.upgrade-button{grid-column:1;grid-row:2;border:2px solid #fff0ac;font-weight:900}
 .upgrade-button[data-ready="true"]:not(:disabled){border-color:#fff8d6;box-shadow:0 3px 0 #956323,0 0 17px #ffcf5277;transform-origin:50% 100%;animation:upgrade-ready-bounce 1.35s ease-in-out infinite}
 .upgrade-button:disabled{cursor:default}
 
@@ -33,12 +33,12 @@
 /* Compact feedback occupies a fixed HUD row, never storage or conveyor targets. */
 .game-shell .toast{max-width:none;transform:none;display:flex;align-items:center;justify-content:center;padding:3px 6px;border:0;border-radius:8px;font-size:11px;line-height:1.2}
 @media(max-aspect-ratio:1/1){
-  .game-shell .toast{top:calc(72px + env(safe-area-inset-top))}
+  .game-shell .toast{}
 }
 
 /* Landscape has no automatic tip strip over the rotated track or discard pit. */
 @media(min-aspect-ratio:1/1){
-  .game-shell .toast{top:18px;left:180px;right:180px;height:44px;font-size:10px}
+  .game-shell .toast{font-size:10px}
   .game-shell .toast[data-guidance="true"]{display:none}
 }
 /* Very narrow landscape has no safe text gap between its header controls. */
@@ -50,13 +50,13 @@
 
 /* Landscape follows the portrait stack: track, storage/pit row, then conveyor. */
 @media(min-aspect-ratio:1/1){
-  .footer .upgrade-button{grid-row:1;height:44px}
-  .footer .upgrade-button{line-height:1.3}
+  .footer .upgrade-button{grid-row:1;}
+  .footer .upgrade-button{}
   .game-shell .topbar{top:8px}
   .topbar .wallet{padding:5px 10px;font-size:20px}
   .topbar .icon-button{height:40px;width:40px}
-  .game-shell .toast{top:8px;height:26px}
-  .game-shell .footer .belt-status{position:absolute;left:180px;right:180px;bottom:calc(100dvh - 34px);height:20px;line-height:20px}
+  .game-shell .toast{}
+  .game-shell .footer .belt-status{}
   .game-shell[data-slow="true"] .toast{display:none}
 }
 
@@ -64,7 +64,6 @@
 button:not(:disabled){transition:filter 90ms ease-out,box-shadow 90ms ease-out}
 button:not(:disabled):active{box-shadow:inset 0 3px 6px #08061880;filter:brightness(1.14)}
 .sound-button{font-size:20px;flex-shrink:0}
-@media(max-width:380px){.topbar{left:10px;right:10px;gap:5px}.wordmark{font-size:12px;letter-spacing:1px}.wordmark small{font-size:8px;letter-spacing:.7px}.wallet{min-width:67px;padding:8px;font-size:20px;gap:4px}}
 @media(prefers-reduced-motion:reduce){button:not(:disabled){transition:none}button:not(:disabled):active{transform:none;filter:brightness(1.2)}.pulse,.merge-target,.merge-target-label{animation:none!important}}
 
 /* Graveyard Shift: local system type, dark stone and aged bronze. Geometry and HUD rails are unchanged. */
@@ -75,7 +74,6 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 .pad-label{background:#232722ed;color:#f2e4c6;border:1px solid #88704b;border-radius:4px;box-shadow:inset 0 1px #e9d3a51c,0 2px 0 #141a16}.pad-label.affordable{background:#be9a55;color:#19241a;border-color:#f0d293}.pad-label.open{background:#253f33d9;color:#d7ead1;border-color:#527657}.entity-label{background:#1b2620;border-color:#e7dec4;box-shadow:0 2px 3px #060b0999}.barrel-label{color:#ffe5ad;text-shadow:0 2px #1b2019}.storage-label,.storage-label.open{border-color:#88704b}.storage-label.open{background:#24372ce8;color:#dfebce}.slot-label{color:#a3bea0;text-shadow:0 1px #15241a}
 .game-shell .toast{background:#1c2722f2;color:#f2e8cf}.overlay{background:#0b1210c9}.card{background:linear-gradient(135deg,#343b32,#202a24);color:#e9e4d3;border:1px solid #8a7653;box-shadow:0 15px 70px #020805cc;border-radius:15px}.card h1{font-family:Georgia,'Times New Roman',serif;color:#f1dfb5}.card button{background:#527459;color:#fff8e3}.card button.secondary{background:#5d5947;color:#f4e8c8}.sound-button[data-muted="true"]{color:#a7a58e;background:#1b221e}.discard-label{background:transparent;border:0;color:#efbd78;box-shadow:none}
 @media(min-aspect-ratio:1/1){.wordmark{font-size:18px}}
-@media(max-width:380px){.wordmark{font-size:11px;letter-spacing:0}.wordmark small{font-size:7px;letter-spacing:.4px}}
 
 /* Full-game pause is separate from the purple snake-only bonus. */
 .topbar .icon-button{flex-shrink:0}
@@ -83,7 +81,7 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 .pause-button span{font-size:18px;font-weight:900}.pause-button small{font-size:9px;font-weight:800}
 .pause-button[aria-pressed="true"]{background:#527459;border-color:#d5e7ab;color:#fff8e3}
 .pause-button:disabled{opacity:.55;cursor:default}
-@media(max-width:480px){.topbar{left:12px;right:12px;gap:5px}.wordmark{min-width:0;font-size:11px;letter-spacing:0}.wordmark small{font-size:7px;letter-spacing:.1px}.topbar .wallet{min-width:65px;padding:8px 6px;font-size:19px;gap:4px}.topbar .coin{width:21px;height:21px;font-size:10px}}
+@media(max-width:480px){.topbar{gap:5px}.wordmark{min-width:0;font-size:11px;letter-spacing:0}.wordmark small{font-size:7px;letter-spacing:.1px}.topbar .wallet{min-width:65px;padding:8px 6px;font-size:19px;gap:4px}.topbar .coin{width:21px;height:21px;font-size:10px}}
 @media(min-aspect-ratio:1/1){.game-shell .toast,.game-shell .footer .belt-status{left:240px;right:270px}}
 
 .video-intro{position:fixed;inset:0;z-index:1000;background:#0b0b0d;display:flex;align-items:center;justify-content:center}.video-intro__video{display:block;width:100%;height:100%;object-fit:contain}.video-intro__controls{position:absolute;left:0;right:0;bottom:max(16px,env(safe-area-inset-bottom));display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:8px;padding:0 12px}.video-intro__controls button{min-height:44px;padding:9px 16px;border:1px solid #ad9e7f;border-radius:10px;background:#171820df;color:#fff;font:600 14px system-ui;cursor:pointer}.video-intro__controls button[hidden]{display:none}.video-intro__status{flex-basis:100%;margin:0;text-align:center;color:white;text-shadow:0 2px 5px #000;font:14px system-ui}.video-intro__status:empty{display:none}
@@ -102,16 +100,13 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 
 /* Give the compact board the full phone width and reserve actual control rails. */
 @media(max-aspect-ratio:1/1){
-  .game-shell{width:100vw}
   .game-shell .topbar{top:calc(8px + env(safe-area-inset-top))}
-  .footer .upgrade-button{height:48px;font-size:12px;line-height:1.35}
-  .game-shell .toast{top:auto;bottom:calc(59px + env(safe-area-inset-bottom));height:18px;font-size:10px;white-space:nowrap}
-  .game-stage[data-slow="true"] .toast{display:none}
+  .footer .upgrade-button{}
+  .game-shell .toast{font-size:10px;white-space:nowrap}
+  .game-stage[data-slow="true"] .toast{}
   .storage-label,.storage-label.open{font-size:11px;padding:3px 5px}
 }
-@media(min-aspect-ratio:1/1){
-  .game-shell{width:100vw}
-}
+
 
 @media(max-aspect-ratio:1/1){.barrel-label[title]{font-size:12px;line-height:16px}}
 
@@ -146,3 +141,5 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 .pad-label[data-empty-target=active]{outline:4px solid #e5f6ff;box-shadow:0 0 22px 11px #6ccaffb0;background:#21669a}
 
 .entity-target[data-action=SWAP]{border-color:#bb99ff;box-shadow:0 0 0 4px #bb99ff88}.entity-target[data-action=SWAP]::after,.merge-target-label[data-action=SWAP]{background:#563982;color:#eee4ff;border-color:#bb99ff}
+
+.game-shell{touch-action:manipulation}@media(max-aspect-ratio:1/1){.topbar .fullscreen-button{position:absolute;left:50px;top:50px}.game-shell .toast,.game-shell .footer .belt-status{left:116px}}.game-shell .toast[data-fullscreen]{display:flex!important;top:calc(106px + env(safe-area-inset-top));left:12px;right:12px;height:auto;white-space:normal;padding:8px}

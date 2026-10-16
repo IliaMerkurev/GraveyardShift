@@ -1,5 +1,6 @@
 import {formatNumber,formatIncome} from './formatNumber';
 import {attachAudioMenu} from './AudioMenu';
+import {attachFullscreen} from './Fullscreen';
 import type {AudioSettings} from '../audio/AudioSettings';
 import type { GameEvent, GameState } from '../game/GameState';
 import { workerBarrelRange, workerUpgradePrice } from '../game/commands';
@@ -15,6 +16,7 @@ export class Hud {
     if(actions.logo){const logo=document.createElement('img');logo.src=actions.logo;logo.alt='Graveyard Shift · Undead Mining Co.';logo.className='hud-logo';ui.querySelector('.wordmark')!.replaceChildren(logo);}
     ui.querySelector('.topbar')!.append(ui.querySelector('.help-button')!);
     shell.append(ui);this.income=ui.querySelector('[data-income]')!;this.coin=ui.querySelector('[data-coins]')!;this.status=ui.querySelector('.belt-status')!;this.toastElement=ui.querySelector('.toast')!;this.overlay=ui.querySelector('.overlay')!;
+    attachFullscreen(ui.querySelector('.topbar')!,text=>{this.message(text,false,true);this.toastUntil+=4000;this.toastElement.dataset.fullscreen='';});
     const sound=ui.querySelector<HTMLButtonElement>('[data-sound]')!;if(actions.audioSettings)attachAudioMenu(sound,actions.audioSettings);else sound.addEventListener('click',()=>{const muted=actions.toggleSound?.()??false;sound.textContent=muted?'♪̸':'♪';sound.dataset.muted=String(muted);sound.setAttribute('aria-pressed',String(muted));sound.title=muted?'Unmute sound effects':'Mute sound effects';sound.setAttribute('aria-label',sound.title);});
     this.pauseButton=ui.querySelector<HTMLButtonElement>('[data-pause]')!;
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
@@ -28,7 +30,7 @@ export class Hud {
   private modal(title:string,text:string,defeat:boolean){this.overlay.querySelector('h1')!.textContent=title;this.overlay.querySelector('p')!.textContent=text;const resume=this.overlay.querySelector<HTMLButtonElement>('[data-continue]')!;resume.hidden=defeat;const restart=this.overlay.querySelector<HTMLButtonElement>('[data-restart]')!;restart.classList.toggle('secondary',!defeat);this.overlay.hidden=false;(defeat?restart:resume).focus();}
   goal(){if(this.goalShown||this.ended)return;this.goalShown=true;this.guidance('Level 3! Keep mining','goal');}
   defeat(){if(this.ended)return;this.ended=true;this.toastElement.classList.remove('visible');this.modal('Game over','The head reached the finish. Restart to try again. Mine and bomb rocks to push it back, and tap rewind tokens before they leave the belt.',true);}
-  message(text:string,guidance=false){if(this.ended)return;this.toastElement.dataset.guidance=String(guidance);this.toastElement.textContent=text;this.toastUntil=performance.now()+2400;this.toastElement.classList.add('visible');}
+  message(text:string,guidance=false,force=false){delete this.toastElement.dataset.fullscreen;if(this.ended&&!force)return;this.toastElement.dataset.guidance=String(guidance);this.toastElement.textContent=text;this.toastUntil=performance.now()+2400;this.toastElement.classList.add('visible');}
   guidance(text:string,key:string){const count=this.guidanceCounts.get(key)??0;if(count>=2||this.ended)return;this.guidanceCounts.set(key,count+1);this.message(text,true);}
   reset(){this.guidanceCounts.clear();this.goalShown=false;this.ended=false;this.overlay.hidden=true;this.toastUntil=0;this.toastElement.classList.remove('visible');}
   private pop(element:HTMLElement){if(typeof element.animate!=='function')return;const now=performance.now();if(now-(this.popTimes.get(element)??-Infinity)<140)return;this.popTimes.set(element,now);for(const animation of element.getAnimations())animation.cancel();const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;element.animate(reduced?[{filter:'brightness(1.35)'},{filter:'brightness(1)'}]:[{transform:'scale(1)'},{transform:'scale(1.11)',offset:.25},{transform:'scale(.98)',offset:.65},{transform:'scale(1)'}],{duration:260,easing:'ease-out'});}
