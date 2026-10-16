@@ -5,7 +5,7 @@ import {
   createMiningState, type DropTarget, type Entity, type GameEvent, type GameState,
   type Pad, type PlaceRef, type Point, type Slot, type Rewind, type Slow, type Brake, type HalfSpeed, type TailBlast,
 } from './GameState';
-import { distanceToPath, samplePath, getPathLength } from './path';
+import { samplePath, getPathLength } from './path';
 
 export interface CommandContext {
   state: GameState;
@@ -178,10 +178,8 @@ export function useRewind(ctx: CommandContext, entityId: string): boolean { retu
 export function isBonusFieldPoint(point: Point, _config: GameConfig): boolean {
   return Number.isFinite(point.x)&&Number.isFinite(point.z);
 }
-export function bombTarget(state:GameState,point:Point,config:GameConfig):DropTarget{
-  const rocks=state.stones.filter(s=>s.distance>=0&&s.hp>0).map(s=>samplePath(s.distance,config.path));
-  rocks.sort((a,b)=>Math.hypot(a.x-point.x,a.z-point.z)-Math.hypot(b.x-point.x,b.z-point.z));
-  return rocks[0]?{kind:'track',x:rocks[0].x,z:rocks[0].z}:null;
+export function bombTarget(_state:GameState,point:Point,_config:GameConfig):DropTarget{
+  return Number.isFinite(point.x)&&Number.isFinite(point.z)?{kind:'track',...point}:null;
 }
 
 function canBuyPad(ctx: CommandContext, pad: Pad | undefined): pad is Pad {
@@ -254,14 +252,7 @@ export function canDrop(ctx: CommandContext, target: DropTarget): boolean {
   if(entity.kind==='tailBlast'&&target.kind==='field'&&!ctx.state.stones.some(liveRock))return false;
   if (target.kind === 'discard') return entity.kind === 'worker';
   if (target.kind === 'field') return (entity.kind === 'rewind' || entity.kind === 'slow' || entity.kind === 'brake' || entity.kind === 'halfSpeed' || entity.kind === 'tailBlast') && isBonusFieldPoint(target, ctx.config);
-  if (target.kind === 'track') {
-    if (entity.kind !== 'bomb' || !Number.isFinite(target.x) || !Number.isFinite(target.z)) return false;
-    if (distanceToPath(target, ctx.config.path) > ctx.config.bomb.trackTolerance) return false;
-    return ctx.state.stones.some((stone) => {
-      const point = samplePath(stone.distance, ctx.config.path);
-      return stone.distance >= 0 && stone.hp > 0 && Math.hypot(point.x - target.x, point.z - target.z) <= ctx.config.bomb.radius;
-    });
-  }
+  if (target.kind === 'track') return entity.kind==='bomb'&&Number.isFinite(target.x)&&Number.isFinite(target.z);
   const place = getPlace(ctx.state, target);
   if (!place) return false;
   if (place.reserved && !samePlace(target, drag.source)) return false;

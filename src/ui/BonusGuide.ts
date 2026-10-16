@@ -2,7 +2,7 @@ import {getEntityPosition} from '../game/commands';
 import type {SceneView} from '../render/SceneFactory';
 import type {GameEvent,GameState} from '../game/GameState';
 export const BONUS_HELP:Record<string,string>={
-  bomb:'💣 Bomb — Tap or drop off the belt to blast the nearest rocks.',
+  bomb:'💣 Bomb — Tap or drop off the belt; blast rocks at that spot.',
   rewind:'⏪ Rewind — Return before the first bend; speed unchanged.',
   slow:'Ⅱ Pause — Stop the snake for 5s (refreshes); miners and belt keep moving.',
   brake:'↓20% Brake — Permanent −20% current speed; minimum 10% of starting speed; acceleration continues.',
