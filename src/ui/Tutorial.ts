@@ -9,7 +9,7 @@ export class Tutorial {
   private svg:SVGSVGElement;
   private done=false;
   constructor(private shell:HTMLElement,private view:SceneView){
-    try{this.done=localStorage.getItem('graveyard-guide')==='done';}catch{}
+    try{this.done=localStorage.getItem('graveyard-guide')==='storage';}catch{}
     this.svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     this.svg.classList.add('live-guide');this.svg.setAttribute('aria-hidden','true');
     this.svg.innerHTML='<path class="guide-trail"/><circle r="17" class="guide-ring"/><path class="guide-arrow" d="M -8 -36 L 8 -36 L 8 -17 L 19 -17 L 0 3 L -19 -17 L -8 -17 Z"/><text class="guide-label" text-anchor="middle"/>';
@@ -36,8 +36,17 @@ export class Tutorial {
     }else if(!t.rewound){const e=find('rewind');if(e){from=position(e);label='Tap to rewind';}else barrel('rewind');}
     else if(!t.bombed){const e=find('bomb'),rock=s.stones.find(r=>r.distance>=0);if(e&&rock){from=position(e);to=project(samplePath(rock.frozenRenderDistance??rock.waitingRenderDistance??rock.distance),.3);label='Drag onto rocks';}else barrel('bomb');}
     else if(!s.workerDropBoost){const price=workerUpgradePrice(s,CONFIG);if(price!==null&&s.coins>=price){const b=this.shell.querySelector('[data-worker-upgrade]')!.getBoundingClientRect(),r=this.shell.getBoundingClientRect();from={x:b.left+b.width/2-r.left,y:b.top-r.top};label='Upgrade workers';}}
-    else if(!t.bought){const pad=s.pads.find(p=>!p.unlocked&&s.coins>=p.price);if(pad){from=project(pad,.3);label='Add a work pad';}}
-    else{this.done=true;s.tutorial.finished=true;try{localStorage.setItem('graveyard-guide','done');}catch{}return;}
+    else if(!t.bought){const pad=s.pads.find(p=>!p.unlocked&&!p.entityId&&!p.reserved&&s.coins>=p.price);if(pad){from=project(pad,.3);label='Add a work pad';}}
+    else if(!s.storage.some(p=>p.unlocked)){const pocket=s.storage.find(p=>!p.entityId&&!p.reserved&&s.coins>=p.price);if(pocket){from=project(pocket,.3);label='Add a bonus pocket';}}
+    else if(!t.storageUsed){
+      const saved=entities.find(e=>e.location.kind==='storage');
+      if(saved){from=position(saved);label='Tap stored bonus';if(saved.kind==='bomb'){const rock=s.stones.find(r=>r.distance>=0);if(rock){to=project(samplePath(rock.distance),.3);label='Drag stored bomb';}else from=null;}}
+      else{const pocket=s.storage.find(p=>p.unlocked&&!p.entityId&&!p.reserved),bonus=entities.find(e=>e.kind!=='worker'&&e.kind!=='barrel'&&visible(e));
+        if(pocket&&bonus){from=position(bonus);to=project(pocket,.3);label='Save a bonus';}
+        else{const b=entities.find(e=>e.kind==='barrel'&&e.content!=='worker'&&visible(e));if(b)from=position(b);}
+      }
+    }
+    else{this.done=true;s.tutorial.finished=true;try{localStorage.setItem('graveyard-guide','storage');}catch{}return;}
     if(!from)return;
     this.svg.style.display='';
     const a=from as unknown as {x:number;y:number},b=to as unknown as {x:number;y:number}|null;

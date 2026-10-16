@@ -52,7 +52,7 @@ export interface GameState {
   gapReadyAt: Record<string, number>;
   rewindTarget: number | null;
   rewindSpeed: number;
-  tutorial: { finished?: boolean; rewound?: boolean; opened: boolean; placed: boolean; merged: boolean; bought: boolean; bombed: boolean };
+  tutorial: { storageUsed?: boolean; finished?: boolean; rewound?: boolean; opened: boolean; placed: boolean; merged: boolean; bought: boolean; bombed: boolean };
   stats: { opened: number; merged: number; purchased: number; destroyed: number; bombsUsed: number; coinsEarned: number };
 }
 export const createMiningState = (): MiningState => ({ phase: 0, targetId: null, hit: false });

@@ -110,8 +110,8 @@ export class Game {
     // Replace a missed lesson with a normal incoming barrel, never pause the belt.
     if (this.state.time > 0 && !this.state.tutorial.finished) {
       const t=this.state.tutorial, entities=Object.values(this.state.entities);
-      const needed=!t.merged?'worker':!t.rewound?'rewind':!t.bombed?'bomb':null;
-      if(needed&&!entities.some(e=>e.kind==='barrel'?e.content===needed:e.kind===needed&&(needed!=='worker'||entities.filter(w=>w.kind==='worker'&&w.level===1+this.state.workerDropBoost).length>=2)))
+      const needed=!t.merged?'worker':!t.rewound?'rewind':!t.bombed?'bomb':!t.storageUsed&&this.state.storage.some(p=>p.unlocked)?'rewind':null;
+      if(needed&&!(needed==='rewind'&&t.rewound&&entities.some(e=>e.kind==='barrel'?e.content!=='worker':e.kind!=='worker'))&&!entities.some(e=>e.kind==='barrel'?e.content===needed:e.kind===needed&&(needed!=='worker'||entities.some(w=>w.kind==='worker'&&e.kind==='worker'&&w.id!==e.id&&w.level===e.level))))
         content=needed;
     }
     const entity: Entity = { id: this.entityId(), kind: 'barrel', content, location: { kind: 'slot', id: slot.id } };

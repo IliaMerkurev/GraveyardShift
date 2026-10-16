@@ -43,7 +43,7 @@ export function checkGoal(ctx: CommandContext): void {
 /** Future worker levels depend only on purchased upgrades, never deployed heroes. */
 export function workerBarrelRange(state: GameState, boost = state.workerDropBoost): { lowest: number; highest: number } {
   const level = 1 + Math.min(boost, Number.MAX_SAFE_INTEGER - 1);
-  return { lowest: level, highest: level };
+  return { lowest: Math.max(1, level - 4), highest: level };
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
@@ -60,14 +60,16 @@ export function buyWorkerUpgrade(ctx: CommandContext): boolean {
   return true;
 }
 
-export function openBarrel(ctx: CommandContext, slotId: string, _random: () => number): boolean {
+export function openBarrel(ctx: CommandContext, slotId: string, random: () => number): boolean {
   if (ctx.state.paused || ctx.state.gameOver) return false;
   const slot = ctx.state.slots.find((candidate) => candidate.id === slotId);
   if (!slot || slot.reserved || !slot.entityId) return false;
   const barrel = ctx.state.entities[slot.entityId];
   if (!barrel || barrel.kind !== 'barrel') return false;
   if (barrel.content === 'worker') {
-    const level = workerBarrelRange(ctx.state).lowest;
+    const { lowest, highest } = workerBarrelRange(ctx.state);
+    const roll = lowest === highest ? 0 : random();
+    const level = Math.min(highest, lowest + Math.floor((highest - lowest + 1) * roll * roll));
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level, mining: createMiningState() };
   } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake' || barrel.content === 'halfSpeed' || barrel.content === 'tailBlast') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
@@ -83,6 +85,7 @@ export function openBarrel(ctx: CommandContext, slotId: string, _random: () => n
 
 /** Both gestures share one consumption/effect gate. Call only after ownership validation. */
 function activateBonus(ctx: CommandContext, entity: Rewind | Slow | Brake | HalfSpeed | TailBlast, point: Point): void {
+  if(entity.location.kind==='storage'||entity.location.kind==='drag'&&ctx.state.drag?.source.kind==='storage')ctx.state.tutorial.storageUsed=true;
   delete ctx.state.entities[entity.id];
   if (entity.kind === 'tailBlast') {
     const ordered = [...ctx.state.stones].sort((a, b) => a.distance - b.distance);
@@ -314,6 +317,7 @@ export function drop(ctx: CommandContext, target: DropTarget): boolean {
     delete ctx.state.entities[entity.id];
     ctx.state.stats.bombsUsed++;
     ctx.state.tutorial.bombed = true;
+    if(drag.source.kind==='storage')ctx.state.tutorial.storageUsed=true;
     ctx.emit({ type: 'bomb', x: target.x, z: target.z, entityId: entity.id, amount: victims.length });
   } else {
     const destination = getPlace(ctx.state, target)!;
