@@ -43,7 +43,7 @@ export function checkGoal(ctx: CommandContext): void {
 /** Future worker levels depend only on purchased upgrades, never deployed heroes. */
 export function workerBarrelRange(state: GameState, boost = state.workerDropBoost): { lowest: number; highest: number } {
   const level = 1 + Math.min(boost, Number.MAX_SAFE_INTEGER - 1);
-  return { lowest: Math.max(1, level - 4), highest: level };
+  return { lowest: Math.max(1, level - 2), highest: level };
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {

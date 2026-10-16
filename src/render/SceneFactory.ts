@@ -188,10 +188,15 @@ export class SceneView {
     }
     return (direct.length?direct:candidates).sort((a,b)=>a.d-b.d)[0]?.target??null;
   }
+  private dropAction(entity?:Entity){
+    const held=this.state?.drag?this.state.entities[this.state.drag.entityId]:null;
+    if(held?.kind!=='worker'||entity?.kind!=='worker'||entity.location.kind==='drag'||!this.canDrop(entity.location))return '';
+    return held.level===entity.level?'MERGE':entity.location.kind==='pad'&&held.level>entity.level?'REPLACE':'';
+  }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){
-    for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
+    for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.dataset.action=v.label.dataset.action=this.dropAction(e);v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
     this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
-    const replacing=target.kind==='pad'&&this.entities.get(this.state?.pads.find(p=>p.id===target.id)?.entityId??'')?.hit.dataset.action==='REPLACE';
+    const replacing=target.kind==='pad'&&this.dropAction(this.state?.entities[this.state.pads.find(p=>p.id===target.id)?.entityId??''])==='REPLACE';
     const color=valid?(replacing?0xffa544:0x8effb7):0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
     else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
@@ -220,7 +225,7 @@ export class SceneView {
   clearMergeTargets(){
     for(const view of this.entities.values()){
       view.hit.classList.remove('merge-target','merge-ready');view.label.classList.remove('merge-target-label');
-      delete view.hit.dataset.mergeTarget;
+      delete view.hit.dataset.mergeTarget;delete view.hit.dataset.action;delete view.label.dataset.action;
     }
   }
   private mergeTargets(state:GameState):Set<string>{
@@ -312,8 +317,7 @@ export class SceneView {
         this.labels.append(label,hit);this.scene.add(group);v={kind:entity.kind,group,worker,label,hit};this.entities.set(entity.id,v);
       }
       const mergeTarget=mergeTargets.has(entity.id);
-      v.hit.dataset.action=state.drag&&entity.kind==='worker'&&(state.entities[state.drag.entityId] as Entity & {level:number})?.level>entity.level?'REPLACE':'MERGE';
-      v.label.dataset.action=v.hit.dataset.action;
+      v.hit.dataset.action=v.label.dataset.action=this.dropAction(entity);
       v.hit.classList.toggle('merge-target',mergeTarget);v.label.classList.toggle('merge-target-label',mergeTarget);
       if(mergeTarget)v.hit.dataset.mergeTarget='true';else delete v.hit.dataset.mergeTarget;
       v.hit.dataset.locationKind=entity.location.kind;v.hit.dataset.locationId=entity.location.kind==='drag'?'':entity.location.id;
