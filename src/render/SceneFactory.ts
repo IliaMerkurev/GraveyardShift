@@ -103,6 +103,14 @@ export class SceneView {
   private overUI(clientX:number,clientY:number):boolean{
     return [...this.shell.querySelectorAll<HTMLElement>(overlayTargets)].some(ui=>{const r=ui.getBoundingClientRect();return clientX>=r.left&&clientX<=r.right&&clientY>=r.top&&clientY<=r.bottom;});
   }
+  // Screen-space capsule follows the whole figure, including its animated lift.
+  private figureDistance(x:number,y:number,loc:Point,entity:Entity):number{
+    const belt=entity.location.kind==='slot',view=this.entities.get(entity.id);
+    const bottom=this.project(loc,view?.group.position.y??.14,belt);
+    const top=this.project(loc,(view?.group.position.y??.14)+1.38*(view?.group.scale.y??(this.landscape?1:viewConfig.portraitHeroScale)),belt);
+    const dx=top.x-bottom.x,dy=top.y-bottom.y,t=Math.max(0,Math.min(1,((x-bottom.x)*dx+(y-bottom.y)*dy)/(dx*dx+dy*dy||1)));
+    return Math.hypot(x-bottom.x-t*dx,y-bottom.y-t*dy);
+  }
   hit(clientX:number,clientY:number):HitTarget|null{
     if(!this.state||this.overUI(clientX,clientY))return null;
     const rect=this.canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;
@@ -111,7 +119,7 @@ export class SceneView {
     for(const e of Object.values(this.state.entities)){
       const loc=this.location(e.id);if(!loc||(e.location.kind==='slot'&&!conveyorSlotExposed(loc.x)))continue;
       const p=this.project(loc,e.kind==='worker'?.40:e.location.kind==='storage'?.39:.27,e.location.kind==='slot');
-      const d=Math.hypot(x-p.x,y-p.y),candidate={target:{kind:'entity' as const,id:e.id},d};
+      const d=e.kind==='worker'?this.figureDistance(x,y,loc,e):Math.hypot(x-p.x,y-p.y),candidate={target:{kind:'entity' as const,id:e.id},d};
       if(d<=viewConfig.hitRadiusPx)core.push(candidate);
       else if(d<=viewConfig.pickupRadiusPx)halo.push(candidate);
     }
@@ -132,7 +140,7 @@ export class SceneView {
     for(const p of this.state.slots){if(p.entityId||p.reserved||!conveyorSlotExposed(p.x))continue;const screen=this.project(p,.1,true),d=Math.hypot(x-screen.x,y-screen.y);if(d<=viewConfig.hitRadiusPx)slots.push({target:{kind:'slot',id:p.id},d});}
     return nearest(slots);
   }
-  dropTarget(clientX:number,clientY:number,touch=false):DropTarget{
+  dropTarget(clientX:number,clientY:number,_touch=false):DropTarget{
     if(!this.state?.drag)return null;const bounds=this.canvas.getBoundingClientRect();if(clientX<bounds.left||clientX>bounds.right||clientY<bounds.top||clientY>bounds.bottom)return null;const entity=this.state.entities[this.state.drag.entityId];
     // UI and every storage stand take precedence over bonus activation. In
     // particular, an occupied/unaffordable stand returns an invalid storage
@@ -158,12 +166,6 @@ export class SceneView {
     const closestStorage=storageCandidates.sort((a,b)=>a.distance-b.distance)[0];
     if(closestStorage)return{kind:'storage',id:closestStorage.id};
     if(entity&&fieldBonusVisuals[entity.kind]){
-      // Pointer capture still delivers releases over HTML controls. Those are
-      // never part of the playfield, even if ground lies behind them.
-      for(const ui of this.shell.querySelectorAll<HTMLElement>(overlayTargets)){
-        const rect=ui.getBoundingClientRect();
-        if(clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return null;
-      }
       const rect=this.canvas.getBoundingClientRect();
       for(const pad of this.state.pads){const screen=this.project(pad,.1);if(Math.hypot(clientX-rect.left-screen.x,clientY-rect.top-screen.y)<=viewConfig.hitRadiusPx)return{kind:'pad',id:pad.id};}
       const point=this.world(clientX,clientY);if(!point)return null;
@@ -172,15 +174,18 @@ export class SceneView {
       return{kind:'field',...point};
     }
     if(entity?.kind==='bomb'){const rect=this.canvas.getBoundingClientRect();for(const slot of this.state.slots){if(!conveyorSlotExposed(slot.x))continue;const p=this.project(slot,.1,true);if(!slot.entityId&&Math.hypot(clientX-rect.left-p.x,clientY-rect.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}const p=this.world(clientX,clientY);return p?{kind:'track',...p}:null;}
-    const rect=this.canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;const candidates:{target:DropTarget,d:number}[]=[];
-    for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){if(kind==='slot'&&!conveyorSlotExposed(p.x))continue;const s=this.project(p,p.entityId && this.state.entities[p.entityId]?.kind==='worker' ? .4 : .10,kind==='slot');const d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.hitRadiusPx+5)candidates.push({target:{kind,id:p.id},d});}
-    // Forgiving touch merges never override a direct target or buy an empty pad.
-    if(!candidates.length&&touch&&entity?.kind==='worker')for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){
-      const other=p.entityId?this.state.entities[p.entityId]:null,target={kind,id:p.id};
-      if(other?.kind!=='worker'||other.level!==entity.level||('unlocked' in p&&!p.unlocked)||!this.canDrop(target)||(kind==='slot'&&!conveyorSlotExposed(p.x)))continue;
-      const s=this.project(p,.4,kind==='slot'),d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.mergeRadiusPx)candidates.push({target,d});
+    const rect=this.canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;const candidates:{target:DropTarget,d:number}[]=[],direct:typeof candidates=[];
+    for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){
+      if(kind==='slot'&&!conveyorSlotExposed(p.x))continue;
+      const target={kind,id:p.id},other=p.entityId?this.state.entities[p.entityId]:null;
+      const s=this.project(p,.1,kind==='slot');
+      const d=other?.kind==='worker'?this.figureDistance(x,y,p,other):Math.hypot(x-s.x,y-s.y);
+      // Purchase targets keep their original small core. Magnetism never spends coins.
+      if(d<=viewConfig.hitRadiusPx+5)direct.push({target,d});
+      if('unlocked' in p&&!p.unlocked)continue;
+      if(d<=viewConfig.dropRadiusPx&&this.canDrop(target))candidates.push({target,d});
     }
-    return candidates.sort((a,b)=>a.d-b.d)[0]?.target??null;
+    return (direct.length?direct:candidates).sort((a,b)=>a.d-b.d)[0]?.target??null;
   }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){
     for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
