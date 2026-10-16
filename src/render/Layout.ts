@@ -3,6 +3,7 @@ import { CONFIG } from '../game/config';
 // Camera and input settings are prototype assumptions, not measurements of the reference.
 export const viewConfig = {
   camera: { fov: CONFIG.camera.fov, target:CONFIG.camera.target, direction:CONFIG.camera.position, margin:CONFIG.camera.margin },
+  portraitHeroScale:1.1, mergeRadiusPx:44,
   dprLimit: CONFIG.visual.pixelRatio, dragThresholdPx:CONFIG.input.dragThreshold, hitRadiusPx:CONFIG.input.hitRadiusPx, pickupRadiusPx:CONFIG.input.pickupRadiusPx, touchLiftPx:CONFIG.input.touchLiftPx,
   floor: { width: 7.8, depth: 19.8 }, maxEffects: CONFIG.visual.maxEffects
 } as const;

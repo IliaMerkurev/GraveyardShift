@@ -131,7 +131,7 @@ export class SceneView {
     for(const p of this.state.slots){if(p.entityId||p.reserved||!conveyorSlotExposed(p.x))continue;const screen=this.project(p,.1,true),d=Math.hypot(x-screen.x,y-screen.y);if(d<=viewConfig.hitRadiusPx)slots.push({target:{kind:'slot',id:p.id},d});}
     return nearest(slots);
   }
-  dropTarget(clientX:number,clientY:number):DropTarget{
+  dropTarget(clientX:number,clientY:number,touch=false):DropTarget{
     if(!this.state?.drag)return null;const bounds=this.canvas.getBoundingClientRect();if(clientX<bounds.left||clientX>bounds.right||clientY<bounds.top||clientY>bounds.bottom)return null;const entity=this.state.entities[this.state.drag.entityId];
     // UI and every storage stand take precedence over bonus activation. In
     // particular, an occupied/unaffordable stand returns an invalid storage
@@ -173,9 +173,17 @@ export class SceneView {
     if(entity?.kind==='bomb'){const rect=this.canvas.getBoundingClientRect();for(const slot of this.state.slots){if(!conveyorSlotExposed(slot.x))continue;const p=this.project(slot,.1,true);if(!slot.entityId&&Math.hypot(clientX-rect.left-p.x,clientY-rect.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}const p=this.world(clientX,clientY);return p?{kind:'track',...p}:null;}
     const rect=this.canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;const candidates:{target:DropTarget,d:number}[]=[];
     for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){if(kind==='slot'&&!conveyorSlotExposed(p.x))continue;const s=this.project(p,p.entityId && this.state.entities[p.entityId]?.kind==='worker' ? .4 : .10,kind==='slot');const d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.hitRadiusPx+5)candidates.push({target:{kind,id:p.id},d});}
+    // Forgiving touch merges never override a direct target or buy an empty pad.
+    if(!candidates.length&&touch&&entity?.kind==='worker')for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){
+      const other=p.entityId?this.state.entities[p.entityId]:null,target={kind,id:p.id};
+      if(other?.kind!=='worker'||other.level!==entity.level||('unlocked' in p&&!p.unlocked)||!this.canDrop(target)||(kind==='slot'&&!conveyorSlotExposed(p.x)))continue;
+      const s=this.project(p,.4,kind==='slot'),d=Math.hypot(x-s.x,y-s.y);if(d<=viewConfig.mergeRadiusPx)candidates.push({target,d});
+    }
     return candidates.sort((a,b)=>a.d-b.d)[0]?.target??null;
   }
-  showDrop(target:DropTarget,valid:boolean,bombRadius:number){this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
+  showDrop(target:DropTarget,valid:boolean,bombRadius:number){
+    for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
+    this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
     const color=valid?0x8effb7:0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
     else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
     else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
@@ -203,7 +211,7 @@ export class SceneView {
   }
   clearMergeTargets(){
     for(const view of this.entities.values()){
-      view.hit.classList.remove('merge-target');view.label.classList.remove('merge-target-label');
+      view.hit.classList.remove('merge-target','merge-ready');view.label.classList.remove('merge-target-label');
       delete view.hit.dataset.mergeTarget;
     }
   }
@@ -293,7 +301,7 @@ export class SceneView {
       if(entity.kind==='worker'){v.worker!.setLevel(entity.level);v.worker!.setAction(entity.mining.phase,entity.location.kind==='pad'&&(entity.mining.phase>0||entity.mining.targetId!==null),dt,this.reducedMotion.matches);v.label.textContent=String(entity.level);v.hit.dataset.level=String(entity.level);const stone=entity.mining.targetId?state.stones.find(s=>s.id===entity.mining.targetId):null;const target=stone?samplePath(stone.distance):null;const aim=target?this.mapped(target):null;v.group.rotation.y=aim?Math.atan2(aim.x-mapped.x,aim.z-mapped.z):0;}
       else if(entity.kind==='barrel'){v.label.textContent=entity.content==='worker'?'✦':'?';}else v.label.textContent=bonus?.label??'';
       const pose=this.tactile.pose(entity.id,this.reducedMotion.matches),held=entity.location.kind==='drag',pressed=this.pressed?.id===entity.id&&!held;
-      const holdScale=held?1.09:1;v.group.scale.set(pose.x*holdScale,pose.y*holdScale*(pressed&&!this.reducedMotion.matches?.94:1),pose.x*holdScale);
+      const holdScale=(held?1.09:1)*(entity.kind==='worker'&&!this.landscape?viewConfig.portraitHeroScale:1);v.group.scale.set(pose.x*holdScale,pose.y*holdScale*(pressed&&!this.reducedMotion.matches?.94:1),pose.x*holdScale);
       v.group.position.y+=pose.lift;v.group.rotation.z=pose.tilt;
       v.hit.dataset.feedback=this.tactile.kind(entity.id)??(held?'held':'');
       // Keep worker level badges above the helmet through pickup scale and drag lift.

@@ -39,14 +39,14 @@ export class PointerController {
     if(!this.moved&&Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx){
       this.moved=true;const target=this.start.target;if(this.draggedEntityId===null&&target?.kind==='entity'&&this.game.beginDrag(target.id)){this.draggedEntityId=target.id;this.view.impulse?.(target.id,'pickup');}
     }
-    if(this.game.state.drag){this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));const target=this.view.dropTarget(event.clientX,event.clientY);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
+    if(this.game.state.drag){this.dragPosition=this.view.world(event.clientX,event.clientY-(this.touch?viewConfig.touchLiftPx:0));this.resolveDrop(event.clientX,event.clientY);}
   };
   private up=(event:PointerEvent)=>{
     if(event.pointerId!==this.activePointerId||!this.start)return;this.refreshDrop();if(event.pointerId!==this.activePointerId||!this.start)return;event.preventDefault();
     // A final release can arrive without the corresponding move sample.
     this.moved ||= Math.hypot(event.clientX-this.start.x,event.clientY-this.start.y)>=viewConfig.dragThresholdPx;
     if(this.moved&&this.draggedEntityId===null&&this.start.target?.kind==='entity'&&this.game.beginDrag(this.start.target.id)){this.draggedEntityId=this.start.target.id;this.view.impulse?.(this.start.target.id,'pickup');}
-    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.view.dropTarget(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
+    if(this.draggedEntityId!==null&&this.moved){const id=this.draggedEntityId,target=this.resolveDrop(event.clientX,event.clientY),accepted=this.game.drop(target);if(this.game.state.entities[id]){this.view.impulse?.(id,accepted?'drop':'return');this.tactile(accepted?(target?.kind==='storage'?'store':'drop'):'reject');}if(!accepted)this.feedback('Not a match. Returned safely.');}
     else if(!this.moved){
       if(this.draggedEntityId!==null)this.game.cancelDrag();
       const target=this.start.target;
@@ -65,7 +65,8 @@ export class PointerController {
     const missingTarget=target?.kind==='entity'&&!this.game.state.entities[target.id];
     const endedDrag=this.draggedEntityId!==null&&this.game.state.drag?.entityId!==this.draggedEntityId;
     if(missingTarget||endedDrag){this.finish();if(missingTarget)this.feedback('That item is no longer available.');return;}
-    if(this.game.state.drag&&this.lastPoint){const target=this.view.dropTarget(this.lastPoint.x,this.lastPoint.y);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);}
+    if(this.game.state.drag&&this.lastPoint){this.resolveDrop(this.lastPoint.x,this.lastPoint.y);}
   }
+  private resolveDrop(x:number,y:number){const target=this.view.dropTarget(x,y,this.touch);this.view.showDrop(target,this.game.canDrop(target),CONFIG.bomb.radius);return target;}
   cancel(){const id=this.draggedEntityId;this.game.cancelDrag();if(id)this.view.impulse?.(id,'return');this.finish();}
 }

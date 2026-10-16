@@ -147,3 +147,5 @@ body{background:#101514;color:#eee7d5}#app{background:radial-gradient(ellipse at
 @media(min-aspect-ratio:1/1) and (max-width:700px){.game-shell .footer .belt-status{left:auto;right:12px;top:54px;width:80px;font-size:10px}}
 
 .topbar .icon-button{min-width:44px;min-height:44px}
+
+.entity-target.merge-ready{border-color:#ffe98a;background:#ffdc6040;box-shadow:0 0 0 5px #ffd85d99,0 0 26px #ffe98a}.entity-target.merge-ready::after{content:"RELEASE";background:#654b13;color:#fff4b7;border-color:#ffe98a}
