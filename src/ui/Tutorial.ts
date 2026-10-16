@@ -1,5 +1,5 @@
 import type {GameState,Entity,Worker} from '../game/GameState';
-import {getEntityPosition,workerUpgradePrice} from '../game/commands';
+import {getEntityPosition,workerUpgradePrice,workerUpgradeEligible} from '../game/commands';
 import {CONFIG} from '../game/config';
 import {samplePath} from '../game/path';
 import type {SceneView} from '../render/SceneFactory';
@@ -45,7 +45,7 @@ export class Tutorial {
       if(!from)barrel('worker');
     }else if(!t.rewound){const e=find('rewind');if(e){from=position(e);label='REWIND';}else barrel('rewind');}
     else if(!t.bombed){const e=find('bomb'),rock=s.stones.find(r=>r.distance>=0);if(e&&rock){from=position(e);to=project(samplePath(rock.frozenRenderDistance??rock.waitingRenderDistance??rock.distance),.3);label='DROP BOMB';}else barrel('bomb');}
-    else if(!s.workerDropBoost){const price=workerUpgradePrice(s,CONFIG);if(price!==null&&s.coins>=price){const b=this.shell.querySelector('[data-worker-upgrade]')!.getBoundingClientRect(),r=this.shell.getBoundingClientRect();from={x:b.left+b.width/2-r.left,y:b.top-r.top};label='UPGRADE';}}
+    else if(!s.workerDropBoost){const price=workerUpgradePrice(s,CONFIG);if(workerUpgradeEligible(s)&&price!==null&&s.coins>=price){const b=this.shell.querySelector('[data-worker-upgrade]')!.getBoundingClientRect(),r=this.shell.getBoundingClientRect();from={x:b.left+b.width/2-r.left,y:b.top-r.top};label='UPGRADE';}}
     else if(!t.bought){const pad=s.pads.find(p=>!p.unlocked&&!p.entityId&&!p.reserved&&s.coins>=p.price);if(pad){from=project(pad,.3);label='BUY';}}
     else if(!s.storage.some(p=>p.unlocked)){const pocket=s.storage.find(p=>!p.entityId&&!p.reserved&&s.coins>=p.price);if(pocket){from=project(pocket,.3);label='BUY';}}
     else if(!t.storageUsed){

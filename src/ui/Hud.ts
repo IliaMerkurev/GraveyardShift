@@ -4,7 +4,7 @@ import {attachAudioMenu} from './AudioMenu';
 import {attachFullscreen} from './Fullscreen';
 import type {AudioSettings} from '../audio/AudioSettings';
 import type { GameEvent, GameState } from '../game/GameState';
-import { workerBarrelRange, workerUpgradePrice } from '../game/commands';
+import { workerBarrelRange, workerUpgradePrice, workerUpgradeEligible } from '../game/commands';
 import { CONFIG } from '../game/config';
 export class Hud {
   private income:HTMLElement;private coin:HTMLElement;private status:HTMLElement;private toastElement:HTMLElement;private overlay:HTMLElement;
@@ -23,7 +23,7 @@ export class Hud {
     this.pauseButton.addEventListener('click',()=>{if(this.ended||!this.overlay.hidden)return;if(this.paused)actions.resume();else actions.pause();});
     this.upgrade=ui.querySelector<HTMLButtonElement>('[data-worker-upgrade]')!;this.upgrade.addEventListener('click',actions.upgrade);
     ui.querySelector('[aria-label="Restart"]')!.addEventListener('click',actions.restart);
-    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Stop before FINISH. Tap barrels; drag heroes to pads. Locks cost coins. Equal levels merge; unequal heroes SWAP on pads. Unequal belt-to-pad drops return. Pit discards: +20% income/run. Upgrades raise the 3-level spawn range; lower rolls favored. Price +20%: 50,60,72,87 (rounded up). Independent income/prices; numeric limits. Pockets store bonuses. Belt items exit; held items stay; bad drops return. Restart: income ×1, upgrade 50. Optional guide.\n\n'+Object.values(BONUS_HELP).join('\n\n')+'\n\nTap non-bomb bonuses or drop them on the field. Pockets save them for later.',false);});
+    ui.querySelector('[aria-label="Help"]')!.addEventListener('click',()=>{if(this.ended)return;actions.pause();this.modal('Stop the rock snake','Tap barrels; drag heroes to pads. Equal levels merge; unequal pad heroes swap. Pit: +20% income. Upgrade spawn range up to your highest pad hero; lower rolls favored. Price +20%: 50,60,72,87. Pockets store bonuses. Bad drops return. Restart resets income/upgrades.\n\n'+Object.values(BONUS_HELP).join('\n\n')+'\n\nTap any bonus or drop it off the conveyor. Pockets save them for later.',false);});
     ui.querySelector('[data-guide]')!.addEventListener('click',()=>actions.guide?.());
     ui.querySelector('[data-continue]')!.addEventListener('click',()=>{if(this.ended)return;this.overlay.hidden=true;actions.resume();});
     ui.querySelector('[data-restart]')!.addEventListener('click',actions.restart);
@@ -47,12 +47,12 @@ export class Hud {
       this.pauseButton.setAttribute('aria-pressed',String(this.paused));
     }
     this.pauseButton.disabled=state.gameOver||!this.overlay.hidden;
-    const price=workerUpgradePrice(state,CONFIG),range=workerBarrelRange(state);
-    this.upgrade.disabled=state.paused||state.gameOver||!!state.drag||price===null||state.coins<price;
+    const price=workerUpgradePrice(state,CONFIG),range=workerBarrelRange(state),eligible=workerUpgradeEligible(state);
+    this.upgrade.disabled=state.paused||state.gameOver||!!state.drag||!eligible||price===null||state.coins<price;
     const levelRange=range.lowest===range.highest?String(range.lowest):`${range.lowest}–${range.highest}`;
-    const action=price===null?'LIMIT':`↑${formatNumber(price)}`;
+    const action=!eligible?'MERGE':price===null?'LIMIT':`↑${formatNumber(price)}`;
     this.upgrade.textContent=`LV ${levelRange}\n${action}`;
-    this.upgrade.title=`Spawn ${levelRange}. ${price===null?'Numeric price limit.':`+1 level: ${price} coins; price +20%. Discards boost income.`}`;
+    this.upgrade.title=`Spawn ${levelRange}. ${!eligible?`Need a level ${state.workerDropBoost+2} hero on a pad.`:price===null?'Numeric price limit.':`+1 level: ${price} coins; price +20%. Discards boost income.`}`;
     this.upgrade.setAttribute('aria-label',this.upgrade.title);
     this.upgrade.dataset.boost=String(state.workerDropBoost);this.upgrade.dataset.price=price===null?'':String(price);
     this.upgrade.dataset.ready=String(!this.upgrade.disabled);

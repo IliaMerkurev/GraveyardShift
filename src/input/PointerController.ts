@@ -1,3 +1,4 @@
+import {bombTarget,getEntityPosition} from '../game/commands';
 import type { Game } from '../game/Simulation';
 import type { SceneView, HitTarget } from '../render/SceneFactory';
 import { viewConfig, type Point } from '../render/Layout';
@@ -50,7 +51,7 @@ export class PointerController {
     else if(!this.moved){
       if(this.draggedEntityId!==null)this.game.cancelDrag();
       const target=this.start.target;
-      if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='brake')this.game.useBrake(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='halfSpeed')this.game.useHalfSpeed(entity.id);else if(entity?.kind==='tailBlast')this.game.useTailBlast(entity.id);else if(entity?.kind==='worker')this.feedback('Drag to a pad or matching worker.');else if(entity?.kind==='bomb')this.feedback('Drag the bomb onto rocks.');}
+      if(target?.kind==='entity'){const entity=this.game.state.entities[target.id];if(entity?.kind==='barrel'&&entity.location.kind==='slot')this.game.openBarrel(entity.location.id);else if(entity?.kind==='rewind')this.game.useRewind(entity.id);else if(entity?.kind==='brake')this.game.useBrake(entity.id);else if(entity?.kind==='slow')this.game.useSlow(entity.id);else if(entity?.kind==='halfSpeed')this.game.useHalfSpeed(entity.id);else if(entity?.kind==='tailBlast')this.game.useTailBlast(entity.id);else if(entity?.kind==='worker')this.feedback('Drag to a pad or matching worker.');else if(entity?.kind==='bomb'){const point=getEntityPosition(this.game.state,entity)??{x:0,z:0};if(this.game.beginDrag(entity.id))this.game.drop(bombTarget(this.game.state,point,CONFIG));}}
       else if(target?.kind==='storage'){const stand=this.game.state.storage.find(p=>p.id===target.id);if(stand&&!stand.unlocked&&!this.game.buyStorage(stand.id)){this.tactile('reject');this.feedback(`Need ${Math.max(0,stand.price-this.game.state.coins)} more coins for storage.`);}else if(stand?.unlocked)this.feedback('Drag a bonus here to store it.');}
       else if(target?.kind==='pad'){const pad=this.game.state.pads.find(p=>p.id===target.id);if(pad&&!pad.unlocked&&!this.game.buyPad(pad.id)){this.tactile('reject');this.feedback(`Need ${Math.max(0,pad.price-this.game.state.coins)} more coins.`);}}
     }

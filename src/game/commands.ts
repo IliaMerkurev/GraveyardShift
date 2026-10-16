@@ -58,8 +58,15 @@ export function workerUpgradePrice(state: GameState, config: GameConfig): number
   return Number.isSafeInteger(price) && price > 0 ? price : null;
 }
 
+export function workerUpgradeEligible(state: GameState): boolean {
+  return state.pads.some(p => {
+    const e = p.entityId && state.entities[p.entityId];
+    return p.unlocked && !p.reserved && e && e.kind === 'worker' && e.location.kind === 'pad' && e.location.id === p.id && e.level >= 2 + state.workerDropBoost;
+  });
+}
+
 export function buyWorkerUpgrade(ctx: CommandContext): boolean {
-  if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
+  if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag || !workerUpgradeEligible(ctx.state)) return false;
   const price = workerUpgradePrice(ctx.state, ctx.config);
   if (price === null || ctx.state.coins < price) return false;
   ctx.state.coins -= price;
@@ -166,14 +173,14 @@ export function useBrake(ctx: CommandContext, entityId: string): boolean { retur
 export function useSlow(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'slow'); }
 export function useRewind(ctx: CommandContext, entityId: string): boolean { return usePlacedBonus(ctx, entityId, 'rewind'); }
 
-/** Route-and-ground footprint in field coordinates, excluding worker/purchase pads.
- * The conveyor and UI are rejected separately by the pointer view. */
-export function isBonusFieldPoint(point: Point, config: GameConfig): boolean {
-  const { path } = config;
-  return Number.isFinite(point.x) && Number.isFinite(point.z) &&
-    point.x >= path.left - path.bendRadius - .5 && point.x <= path.right + path.bendRadius + .5 &&
-    point.z >= Math.min(...path.runs) - .5 && point.z <= Math.max(...path.runs) + .5 &&
-    ![...config.pads, ...config.storage].some(pad => Math.abs(point.x - pad.x) <= .62 && Math.abs(point.z - pad.z) <= .57);
+/** Pointer routing excludes the conveyor; all other finite releases activate. */
+export function isBonusFieldPoint(point: Point, _config: GameConfig): boolean {
+  return Number.isFinite(point.x)&&Number.isFinite(point.z);
+}
+export function bombTarget(state:GameState,point:Point,config:GameConfig):DropTarget{
+  const rocks=state.stones.filter(s=>s.distance>=0&&s.hp>0).map(s=>samplePath(s.distance,config.path));
+  rocks.sort((a,b)=>Math.hypot(a.x-point.x,a.z-point.z)-Math.hypot(b.x-point.x,b.z-point.z));
+  return rocks[0]?{kind:'track',x:rocks[0].x,z:rocks[0].z}:null;
 }
 
 function canBuyPad(ctx: CommandContext, pad: Pad | undefined): pad is Pad {

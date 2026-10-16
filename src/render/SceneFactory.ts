@@ -1,3 +1,4 @@
+import {bombTarget} from '../game/commands';
 import * as THREE from 'three';
 import { createDungeonRoom, createBeveledStoneGeometry, createGothicArch, createTimberTrack, createConveyorFrame, createConveyorTunnels, conveyorSlotExposed, createConveyorTreadGeometry, createOreGeometry, createOreCrackGeometry, createStoragePlinth, createWorkerPadGeometry, dungeonGlowMaterial, dungeonMaterial } from './dungeon/DungeonKit';
 import { ParticleVfx, planBlasts } from './ParticleVfx';
@@ -142,18 +143,16 @@ export class SceneView {
     return nearest(slots);
   }
   dropTarget(clientX:number,clientY:number,_touch=false):DropTarget{
-    if(!this.state?.drag)return null;const bounds=this.canvas.getBoundingClientRect();if(clientX<bounds.left||clientX>bounds.right||clientY<bounds.top||clientY>bounds.bottom)return null;const entity=this.state.entities[this.state.drag.entityId];
-    // UI and every storage stand take precedence over bonus activation. In
-    // particular, an occupied/unaffordable stand returns an invalid storage
-    // target rather than falling through to field/track consumption.
-    for(const ui of this.shell.querySelectorAll<HTMLElement>(overlayTargets)){
+    if(!this.state?.drag)return null;const bounds=this.canvas.getBoundingClientRect(),entity=this.state.entities[this.state.drag.entityId],bonus=entity?.kind==='bomb'||!!fieldBonusVisuals[entity?.kind];if(!bonus&&(clientX<bounds.left||clientX>bounds.right||clientY<bounds.top||clientY>bounds.bottom))return null;
+    // Valid storage takes priority; other off-belt bonus releases activate.
+    if(!bonus)for(const ui of this.shell.querySelectorAll<HTMLElement>(overlayTargets)){
       const rect=ui.getBoundingClientRect();
       if(clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return null;
     }
     const groundPoint=this.world(clientX,clientY);
     // No enlarged halo here: deletion requires release inside the visible hole.
-    // Invalid items still resolve to the pit, preventing accidental bonus use.
-    if(groundPoint&&this.insidePit(groundPoint))return{kind:'discard'};
+    // Bonus releases never discard heroes.
+    if(!bonus&&groundPoint&&this.insidePit(groundPoint))return{kind:'discard'};
     // Choose the nearest stand, never the first array entry inside overlapping touch halos.
     const storageCandidates:{id:string;distance:number}[]=[];
     const ground=groundPoint?this.mapped(groundPoint,false,'field'):null;
@@ -165,16 +164,15 @@ export class SceneView {
          (ground&&Math.abs(ground.x-position.x)<=.48&&Math.abs(ground.z-position.z)<=.4))storageCandidates.push({id:stand.id,distance:Math.min(distance,occupiedDistance)});
     }
     const closestStorage=storageCandidates.sort((a,b)=>a.distance-b.distance)[0];
-    if(closestStorage)return{kind:'storage',id:closestStorage.id};
-    if(entity&&fieldBonusVisuals[entity.kind]){
-      const rect=this.canvas.getBoundingClientRect();
-      for(const pad of this.state.pads){const screen=this.project(pad,.1);if(Math.hypot(clientX-rect.left-screen.x,clientY-rect.top-screen.y)<=viewConfig.hitRadiusPx)return{kind:'pad',id:pad.id};}
-      const point=this.world(clientX,clientY);if(!point)return null;
-      const ground=this.mapped(point),beltZ=this.landscape?LANDSCAPE_LAYOUT.beltZ:PORTRAIT_LAYOUT.beltZ;
-      if(Math.abs(ground.x)<=(this.landscape?7.6:3.5)&&Math.abs(ground.z-beltZ)<=.72)return null;
-      return{kind:'field',...point};
+    if(closestStorage&&(!bonus||this.canDrop({kind:'storage',id:closestStorage.id})))return{kind:'storage',id:closestStorage.id};
+    if(bonus){
+      const point=groundPoint??{x:0,z:0},position=this.mapped(point,false,'field'),beltZ=this.landscape?LANDSCAPE_LAYOUT.beltZ:PORTRAIT_LAYOUT.beltZ;
+      if(Math.abs(position.x)<=(this.landscape?7.6:3.5)&&Math.abs(position.z-beltZ)<=.72){
+        if(entity.kind==='bomb')for(const slot of this.state.slots){const p=this.project(slot,.1,true);if(conveyorSlotExposed(slot.x)&&!slot.entityId&&Math.hypot(clientX-bounds.left-p.x,clientY-bounds.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}
+        return null;
+      }
+      return entity.kind==='bomb'?bombTarget(this.state,point,CONFIG):{kind:'field',...point};
     }
-    if(entity?.kind==='bomb'){const rect=this.canvas.getBoundingClientRect();for(const slot of this.state.slots){if(!conveyorSlotExposed(slot.x))continue;const p=this.project(slot,.1,true);if(!slot.entityId&&Math.hypot(clientX-rect.left-p.x,clientY-rect.top-p.y)<=viewConfig.hitRadiusPx)return{kind:'slot',id:slot.id};}const p=this.world(clientX,clientY);return p?{kind:'track',...p}:null;}
     const rect=this.canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;const candidates:{target:DropTarget,d:number}[]=[],direct:typeof candidates=[];
     for(const kind of ['pad','slot'] as const)for(const p of kind==='pad'?this.state.pads:this.state.slots){
       if(kind==='slot'&&!conveyorSlotExposed(p.x))continue;
