@@ -1,3 +1,4 @@
+import {BONUS_TIP} from './BonusGuide';
 import {attachFullscreen} from './Fullscreen';
 import type {MusicAudio} from '../audio/MusicAudio';
 /** External intro files stay beside the HTML; only one orientation is requested. */
@@ -19,9 +20,10 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     if(audio?.logo){(title as HTMLImageElement).src=audio.logo;(title as HTMLImageElement).alt='Graveyard Shift';}else title.textContent='GRAVEYARD SHIFT';
     const launch=document.createElement('button');launch.type='button';launch.className='intro-start__button';launch.textContent='PLAY';
     const rules=document.createElement('div');rules.className='intro-rules';rules.innerHTML='<span>▣ Tap barrels</span><span>↗ Drag miners to pads</span><span>＋ Merge equal levels</span><span>⛔ Stop the snake reaching EXIT</span>';
+    const bonuses=document.createElement('div');bonuses.className='intro-rules';bonuses.innerHTML=Object.values(BONUS_TIP).map(text=>`<span>${text}</span>`).join('');
     const hint=document.createElement('p');hint.className='intro-fullscreen-hint';hint.setAttribute('role','status');hint.hidden=true;
     const detachFullscreen=attachFullscreen(startScreen,text=>{hint.textContent=text;hint.hidden=false;});
-    startScreen.append(title,rules,launch,hint);overlay.append(frame,controls,startScreen);parent.append(overlay);
+    startScreen.append(title,rules,bonuses,launch,hint);overlay.append(frame,controls,startScreen);parent.append(overlay);
     const gestures=['pointerdown','pointerup','touchend','click','keydown'];
     let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false,pending=false,policyMuted=false,requested=false;let timeout:ReturnType<typeof setTimeout>|undefined;
     const cleanup=()=>{detachFullscreen();attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);for(const event of gestures)document.removeEventListener(event,gesture,true);video.pause();video.removeAttribute('src');video.load();overlay.remove();audio?.unlockSounds?.();void audio?.music.start().catch(()=>{});};

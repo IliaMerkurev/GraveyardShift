@@ -9,7 +9,7 @@ export const BONUS_HELP:Record<string,string>={
   halfSpeed:'↓50% Half speed — Permanently halve current speed, even below the normal minimum; acceleration continues.',
   tailBlast:'✹½ Tail blast — Destroy the rear half; the front waits for new rocks to catch up.'
 };
-const BONUS_TIP:Record<string,string>={bomb:'💣 Blast nearby rocks',rewind:'⏪ Rewind to first turn',slow:'Ⅱ Freeze · 5s',brake:'↓ Speed −20%',halfSpeed:'½ Speed ÷2',tailBlast:'✹ Destroy ½ tail'};
+export const BONUS_TIP:Record<string,string>={bomb:'💣 Blast nearby rocks',rewind:'⏪ Rewind to first turn',slow:'Ⅱ Freeze · 5s',brake:'↓ Speed −20%',halfSpeed:'½ Speed ÷2',tailBlast:'✹ Destroy ½ tail'};
 /** One passive explanation at a time; timers advance only while readable. */
 export class BonusGuide{
   private seen:string[]=[];private queue:{id:string;kind:string}[]=[];private left=0;private tip:HTMLElement;
