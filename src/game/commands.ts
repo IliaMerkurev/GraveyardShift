@@ -40,20 +40,10 @@ export function checkGoal(ctx: CommandContext): void {
   }
 }
 
-/** Read occupied work pads at reveal time, never belt cargo or a held worker. */
+/** Future worker levels depend only on purchased upgrades, never deployed heroes. */
 export function workerBarrelRange(state: GameState, boost = state.workerDropBoost): { lowest: number; highest: number } {
-  let maxLevel = 1;
-  for (const pad of state.pads) {
-    if (!pad.unlocked || pad.reserved || !pad.entityId) continue;
-    const worker = state.entities[pad.entityId];
-    if (worker?.kind !== 'worker' || worker.id !== pad.entityId ||
-        worker.location.kind !== 'pad' || worker.location.id !== pad.id ||
-        !Number.isSafeInteger(worker.level) || worker.level < 1) continue;
-    maxLevel = Math.max(maxLevel, worker.level);
-  }
-  // Paid upgrades raise both ends beyond the deployed-worker baseline.
-  const addBoost = (level: number) => level + Math.min(boost, Number.MAX_SAFE_INTEGER - level);
-  return { lowest: addBoost(Math.max(1, maxLevel - 10)), highest: addBoost(Math.max(1, maxLevel - 1)) };
+  const level = 1 + Math.min(boost, Number.MAX_SAFE_INTEGER - 1);
+  return { lowest: level, highest: level };
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
@@ -70,24 +60,14 @@ export function buyWorkerUpgrade(ctx: CommandContext): boolean {
   return true;
 }
 
-function barrelWorkerLevel(state: GameState, random: () => number): number {
-  const { lowest, highest } = workerBarrelRange(state);
-  const count = highest - lowest + 1;
-  if (count === 1) return lowest;
-  const roll = random();
-  // Squared uniform roll favors low levels without an exponentially rare top tier.
-  // The rolling window stays at most ten levels wide, even at safe-integer limits.
-  return Math.min(highest, lowest + Math.floor(count * roll * roll));
-}
-
-export function openBarrel(ctx: CommandContext, slotId: string, random: () => number): boolean {
+export function openBarrel(ctx: CommandContext, slotId: string, _random: () => number): boolean {
   if (ctx.state.paused || ctx.state.gameOver) return false;
   const slot = ctx.state.slots.find((candidate) => candidate.id === slotId);
   if (!slot || slot.reserved || !slot.entityId) return false;
   const barrel = ctx.state.entities[slot.entityId];
   if (!barrel || barrel.kind !== 'barrel') return false;
   if (barrel.content === 'worker') {
-    const level = barrelWorkerLevel(ctx.state, random);
+    const level = workerBarrelRange(ctx.state).lowest;
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: 'worker', location: { kind: 'slot', id: slot.id }, level, mining: createMiningState() };
   } else if (barrel.content === 'bomb' || barrel.content === 'rewind' || barrel.content === 'slow' || barrel.content === 'brake' || barrel.content === 'halfSpeed' || barrel.content === 'tailBlast') {
     ctx.state.entities[barrel.id] = { id: barrel.id, kind: barrel.content, location: { kind: 'slot', id: slot.id } };
