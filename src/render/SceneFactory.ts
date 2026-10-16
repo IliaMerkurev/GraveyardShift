@@ -34,6 +34,7 @@ export class SceneView {
   private oreCracks:THREE.InstancedMesh[]=[];private rooms:THREE.Group[]=[];private carriers:THREE.InstancedMesh;private slotLabels=new Map<string,HTMLDivElement>();private stones:THREE.InstancedMesh[]=[]; private particles:THREE.InstancedMesh;private coins:THREE.InstancedMesh;private beltPhase=0;private flashes=new Map<string,number>();private effects:Effect[]=[];private effectCursor=0;
   private dummy=new THREE.Object3D();private color=new THREE.Color();private raycaster=new THREE.Raycaster();private plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   private vfx:ParticleVfx;private stoneDebris:StoneDebrisVfx;private previousStonePositions=new Map<string,Point & {resource:number}>();
+  private dropPreview:DropTarget=null;
   private flights:{view:EntityView;from:THREE.Vector3;scale:THREE.Vector3;age:number}[]=[];
   private tactile=new TactileMotion();private pressed:HitTarget|null=null;
   private ripples:{mesh:THREE.Mesh;age:number;life:number}[]=[];private rippleCursor=0;
@@ -193,13 +194,21 @@ export class SceneView {
     if(held?.kind!=='worker'||entity?.kind!=='worker'||entity.location.kind==='drag'||!this.canDrop(entity.location))return '';
     return held.level===entity.level?'MERGE':entity.location.kind==='pad'&&held.level>entity.level?'REPLACE':'';
   }
+  private emptyTargets(target:DropTarget,clear=false){
+    for(const kind of ['pad','storage'] as const)for(const [id,v] of kind==='pad'?this.pads:this.storage){
+      const p=(kind==='pad'?this.state?.pads:this.state?.storage)?.find(p=>p.id===id);
+      const eligible=!clear&&!!p&&!p.entityId&&!p.reserved&&this.canDrop({kind,id});
+      if(eligible)v.label.dataset.emptyTarget=target?.kind===kind&&target.id===id?'active':'ready';else delete v.label.dataset.emptyTarget;
+    }
+  }
   showDrop(target:DropTarget,valid:boolean,bombRadius:number){
+    this.dropPreview=valid?target:null;this.emptyTargets(this.dropPreview);
     for(const [id,v] of this.entities){const e=this.state?.entities[id];v.hit.dataset.action=v.label.dataset.action=this.dropAction(e);v.hit.classList.toggle('merge-ready',!!(valid&&target&&'id' in target&&e?.kind==='worker'&&e.location.kind===target.kind&&e.location.id===target.id&&this.state?.drag&&this.state.entities[this.state.drag.entityId]?.kind==='worker'));}
     this.ring.visible=false;this.targetRing.visible=false;if(!target)return;
     const replacing=target.kind==='pad'&&this.dropAction(this.state?.entities[this.state.pads.find(p=>p.id===target.id)?.entityId??''])==='REPLACE';
     const color=valid?(replacing?0xffa544:0x8effb7):0xff8580;if(target.kind==='track'||target.kind==='field'){const p=this.mapped(target);this.ring.position.set(p.x,.08,p.z);const radius=target.kind==='field'?.55:bombRadius;this.ring.scale.set(radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldWidthScale),radius*(this.landscape?1:PORTRAIT_LAYOUT.fieldDepthScale),1);(this.ring.material as THREE.MeshBasicMaterial).color.setHex(color);this.ring.visible=true;}
     else if(target.kind==='discard'){const p=this.mapped(CONFIG.discard,false,'discard');this.targetRing.position.set(p.x,.1,p.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}
-    else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(color);this.targetRing.visible=true;}}
+    else {const p=(target.kind==='pad'?this.state?.pads:target.kind==='storage'?this.state?.storage:this.state?.slots)?.find(p=>p.id===target.id);if(p){const m=this.mapped(p,target.kind==='slot');this.targetRing.position.set(m.x,.1,m.z);(this.targetRing.material as THREE.MeshBasicMaterial).color.setHex(valid&&!p.entityId?0x6ccaff:color);this.targetRing.visible=true;}}
   }
   press(target:HitTarget|null){this.pressed=target;if(target)this.tactile.trigger(target.id,'press');}
   release(){this.pressed=null;}
@@ -223,6 +232,7 @@ export class SceneView {
     this.camera.updateMatrixWorld();
   }
   clearMergeTargets(){
+    this.dropPreview=null;this.emptyTargets(null,true);
     for(const view of this.entities.values()){
       view.hit.classList.remove('merge-target','merge-ready');view.label.classList.remove('merge-target-label');
       delete view.hit.dataset.mergeTarget;delete view.hit.dataset.action;delete view.label.dataset.action;
@@ -351,6 +361,7 @@ export class SceneView {
       v.label.setAttribute('aria-label',stand.unlocked?(occupied?'Occupied bonus storage':'Empty bonus storage'):`Buy bonus storage for ${stand.price} coins`);
       const screen=this.project(stand,.04);v.label.style.left=`${screen.x}px`;v.label.style.top=`${screen.y+17}px`;
     }
+    this.emptyTargets(this.dropPreview);
     const blast=events.find(event=>event.type==='bomb'||event.type==='tailBlast');
     if(!this.reducedMotion.matches&&!state.paused&&!state.gameOver&&!document.hidden){
       for(const effect of planBlasts(events,this.previousStonePositions)){const p=this.mapped(effect.point);this.vfx.explosion(p.x,p.z,effect.strength,effect.secondary);}
