@@ -17,4 +17,5 @@ export function attachFullscreen(bar:Element,message:(text:string)=>void){
   for(const event of ['fullscreenchange','webkitfullscreenchange'])doc.addEventListener(event,sync);
   for(const event of ['fullscreenerror','webkitfullscreenerror'])doc.addEventListener(event,failed);
   sync();bar.append(button);
+  return ()=>{for(const event of ['fullscreenchange','webkitfullscreenchange'])doc.removeEventListener(event,sync);for(const event of ['fullscreenerror','webkitfullscreenerror'])doc.removeEventListener(event,failed);};
 }

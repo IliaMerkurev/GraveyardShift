@@ -35,7 +35,7 @@ shell.addEventListener('change',event=>{if((event.target as HTMLElement).matches
 async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
   await loadSkeletonWorker();
   const game=new Game();const view=new SceneView(shell,target=>game.canDrop(target));const bridge=new PlayableBridge();let modalPaused=false;let lostFocus=false;let active=false;let introProgress=1;
-  const transfers=new CoinTransfers(shell);const bonuses=new BonusGuide(shell);
+  const transfers=new CoinTransfers(shell);const bonuses=new BonusGuide(shell,view);
   const pause=()=>{transfers.clear();sfx.setPaused(true);input.cancel();if(game.state.gameOver)return;game.setPaused(true);bridge.pause();};
   const resume=()=>{if(!active||game.state.gameOver)return;modalPaused=false;lostFocus=false;game.setPaused(document.hidden);sfx.setPaused(document.hidden);if(!document.hidden)bridge.resume();lastTime=performance.now();};
   const restart=()=>{transfers.clear();sfx.setPaused(true);input.cancel();game.reset();view.reset();hud.reset();bonuses.reset();modalPaused=false;lostFocus=false;sfx.setPaused(document.hidden);bridge.start();lastTime=performance.now();};
