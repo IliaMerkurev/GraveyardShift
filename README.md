@@ -1,74 +1,111 @@
-# RockSnakePlayableTest 0.2
+# Graveyard Shift
 
-Primitive-first browser mining/merge prototype. Baseline task: [DOTS_TASK_v0.1.md](DOTS_TASK_v0.1.md), superseded where stated by [the owner-approved v0.2 rules](docs/RULES_V02.md). This repository deliberately contains no generated models, source video, runtime services or ad-network SDK.
+A browser-based 3D mining and worker-merge game built with Three.js and TypeScript. The repository retains its original name, **RockSnakePlayableTest**; the current game is **Graveyard Shift — Undead Mining Co.**
 
-## Run and verify
+**[Play the current public build](https://graveyardshift.pearly-haven-3558.chatgpt.site)**
 
-Use Node **24.19.0**, npm **11.9.0** (also pinned in `.nvmrc` and `package.json`).
+The source repository is private. The hosted game supports portrait and landscape layouts with mouse and touch controls.
+
+## Start and play
+
+- Press **PLAY** on the logo screen. No intro video plays before that click.
+- The intro selects the portrait or landscape MP4 for the current viewport and plays at 2× speed, followed by a short zoom-out into the game. If playback fails, a **Start game** fallback is available. Browser audio restrictions may require another tap.
+- Keep the accelerating rock snake from reaching **FINISH**. Skeleton miners and bombs destroy rocks, earn coins, and create gaps that pull the front of the chain backward.
+- Tap barrels on the conveyor to reveal workers or bonuses. Drag workers onto work pads; merge matching levels to create stronger miners. Dropping a worker onto an affordable locked pad buys and occupies it.
+- Items left on the conveyor eventually leave through its exit tunnel. Held items remain safe during a drag; invalid drops return them to their source.
+- Drag unwanted workers into the **DISCARD WORKERS** pit to remove them without a coin reward.
+
+### Bonuses and progression
+
+After the fixed starter sequence, barrels reveal workers 50% of the time. Six bonuses share the remaining 50% equally:
+
+- **Bomb:** drag onto the rock chain for an area explosion.
+- **Rewind:** move the head back toward the first bend without resetting its speed or moving an already-earlier head forward.
+- **Snake pause:** freeze snake motion and its acceleration clock for five seconds; miners and the conveyor continue.
+- **20% slowdown:** permanently reduce current forward speed, subject to its configured minimum.
+- **50% slowdown:** permanently halve current forward speed, including below the usual minimum.
+- **Tail-half blast:** destroy half the current rocks from the tail, rounded up, with normal rewards.
+
+Non-bomb bonuses can be tapped or dragged onto the field. Purchase bonus storage stands for **50 / 150 / 300 coins**; each holds one bonus until used. Worker-drop upgrades start at **50 coins** and double in price, raising future barrel levels up to the highest worker currently deployed on a pad. Merge and deploy stronger workers to raise that cap.
+
+The HUD provides **Pause/Resume**, **Restart**, **Help**, and separate **Sounds / Music** settings. Audio preferences are saved locally when browser storage is available. Music continues from the intro into gameplay; procedural effects cover mining, explosions, bonuses, worker actions and UI feedback. Restart resets the run's progression.
+
+## Run locally
+
+Use **Node.js 24.19.0** and **npm 11.9.0**, as pinned in `.nvmrc` and `package.json`. A modern browser with WebGL 2 support is required.
+
+Clone the private repository with an account that has access, then run:
 
 ```sh
+git clone https://github.com/IliaMerkurev/RockSnakePlayableTest.git
+cd RockSnakePlayableTest
 npm ci
-npm run dev                  # http://127.0.0.1:5173
-npm run typecheck
-npm test
-npm run test:e2e
+npm run dev
+```
+
+Open **http://127.0.0.1:5173**. These commands work in Windows PowerShell as well as macOS/Linux terminals; no Bash-specific setup is required. If Node or npm is not found on Windows, install the pinned toolchain and reopen the terminal.
+
+## Build and preview the export
+
+```sh
 npm run build:playable
 npm run check:budget
-npm run preview:playable     # http://127.0.0.1:4173
+npm run preview:playable
 ```
 
-The finished export is `dist/playable/index.html`, one self-contained HTML. The preview URL above is local to the execution machine, not a public user URL. The user subsequently approved public built-in hosting for personal gameplay review; hosted QA URL: https://rocksnake-playable-test.pearly-haven-3558.chatgpt.site . Production gameplay was subsequently tested in Edge 155 on Windows: mouse at 360×640 and 1280×720, plus one 360×640 emulated-touch/bomb run. Actual screenshots were inspected. GitHub source remains private.
+Open **http://127.0.0.1:4173**. Serve the export over HTTP rather than opening it with a `file://` URL.
 
-## Current iteration validation
+The complete playable package is:
 
-Latest: [pause freezes acceleration](docs/PAUSE_ACCELERATION_ITERATION.md): snake-only pauses also stop its difficulty clock, while workers and the conveyor continue. Prior [barrel reward balance](docs/BARREL_BALANCE_ITERATION.md): worker 50%, bomb 15%, and rewind/pause/permanent slowdown each 35% / 3 after the fixed starter sequence. Barrels and rewind award no coins. Owner tests manually: no tests, typecheck, browser QA or Dreambook runs for these latest changes. Build directly with `npx vite build && node scripts/build-single.mjs`; the historical commands/results below do not verify this iteration.
+```text
+dist/playable/
+  index.html
+  media/
+    intro-portrait.mp4
+    intro-landscape.mp4
+```
 
-For the latest six playtest corrections, run `npm run test:feedback`, typecheck/build/budget and the bounded [feedback production QA](docs/QA_FEEDBACK.md). Do not rerun already-verified broad legacy suites. The 81 focused source checks passed. One 52.3-second Dreambook run passed all six changes plus portrait emulated-touch purchase/drop, with actual motion samples and inspected screenshots; see [production results and limits](docs/QA_FEEDBACK.md#completed-production-result--2026-10-13). Current source-check evidence is in [the feedback report](docs/TEST_REPORT_FEEDBACK.md); [prior v0.2 evidence](docs/TEST_REPORT_V02.md) describes the superseded checkpoint and is historical.
+`build:playable` runs TypeScript checking, builds with Vite, inlines application JavaScript/CSS and assets into the HTML, validates the embedded script, and copies both intro videos. The skeleton model, logo and music are embedded; the two orientation videos remain separate same-origin files. Keep their relative paths when hosting or sharing the package.
 
-## Production QA without a fresh install
+**The hard size limit is strictly below 5,000,000 bytes for `index.html` alone.** External intro videos are explicitly outside that limit. The last functional build published on 2026-10-16 (Site version 50) has a **4,991,877-byte HTML**, leaving only **8,123 bytes to the threshold**. Both videos together add **8,724,383 bytes**. The budget script reports a warning above its 2 MB target but fails at the 5 MB hard limit.
 
-If an authorized computer already has Playwright and Chrome/Edge, the standalone scripts in [docs/PRODUCTION_QA.md](docs/PRODUCTION_QA.md) use those exact paths. Start with the short boot/screenshot check, then the bounded visible-UI mouse smoke. A separate short portrait script covers emulated touch cancellation, merge and bomb targeting. None needs @playwright/test, custom browser flags or a personal profile.
+The export has no external script, stylesheet or font dependency. Its content security policy blocks application network connections while allowing the bundled same-origin video files. There is no backend or ad-network SDK; the playable bridge is browser-local.
 
-## Play
+## Validation
 
-The head begins halfway along the route and gradually accelerates toward FINISH. Reaching FINISH ends the run. Mining and bombs explode links; after a 0.35-second delay, the front slides backward toward the rear until connected. Tap a barrel to reveal a worker, bomb, cyan rewind token, purple pause token or amber permanent-slowdown token; tap the cyan token to animate the whole chain backward over 1.2 seconds to just before the first bend, without moving an already-earlier head forward. Rewind preserves speed and awards no coins. Tap a purple pause token for a five-second full snake pause; acceleration also pauses, while the belt and miners keep their normal pace. The belt keeps moving during drags: untouched items reaching its left exit are lost, but a picked-up item belongs to the drag and stays safe across its source-carrier wraps. Drag matching worker levels together on the belt or a pad, including beyond level 5. Higher levels increase mining damage while retaining the same worker geometry. Drop a worker onto an affordable locked pad to buy and occupy it in one move; click purchase also works. Drag workers back to a free belt space or between pads. Drag a bomb onto the resource stream; its ring previews the blast. Invalid moves and cancellations return to the reserved moving source safely. Restart resets the run; Help explains the controls. The prototype milestone is a level-3 worker and one purchased pad; continuing is allowed.
-
-## Structure
-
-- `src/game`: configuration, pure state, atomic commands, path and fixed-step simulation
-- `src/render`: shared primitive worker contract, instanced rigid rocks and effects, scene and projections
-- `src/input`: one mouse/touch Pointer Events controller
-- `src/ui`: state-driven DOM HUD and tutorial
-- `src/platform`: safe browser-only playable bridge; CTA is a local notice
-- `tests/unit`, `tests/e2e`: development-only verification
-- `docs/DECISIONS.md`, `docs/TEST_REPORT.md`: assumptions and actual results/limits
-
-Before running the browser suite on a supported computer, install the standard bundled Chromium with npx playwright install chromium. The harness works across operating systems without a hardcoded browser path. Browser tooling is development-only.
-
-Development-only read-only diagnostic hooks are available to browser tests. `?debug` displays rendering counters in development. Neither hook nor panel is exported in the standalone HTML. No state-mutating cheats are exposed.
-
-## Git safety
-
-Target: https://github.com/IliaMerkurev/RockSnakePlayableTest (private, independently verified by parent task). Work branch: **prototype/0.2**. **No push or merge to main/master without Ilia's separate explicit instruction.** Canonical main/prototype-0.1 baseline: `67229de8d57221becf8c78f688a277e41c55c45f`. The working branch is published via the authorized connector, never a direct push from alternate local metadata.
+Available commands:
 
 ```sh
-git config core.hooksPath .githooks
+npm run typecheck
+npm test
+npm run test:feedback
+npm run test:magnetic
+npm run test:e2e
 ```
 
-The executable local guard rejects main/master destinations. Never use force-push, `--all`, `--mirror`, automatic merge, visibility changes or protection bypasses. A local commit is not proof of publication; the remote SHA must be independently verified.
+For the Playwright suite, install its browser first with `npx playwright install chromium`. Historical production smoke scripts and their prerequisites are documented in [docs/PRODUCTION_QA.md](docs/PRODUCTION_QA.md).
 
-## Historical v0.1 validation limits
+Build/typecheck/budget and targeted checks have been used throughout development. **Do not interpret this as a current full-suite pass:** some legacy tests contain outdated renderer mocks, DOM assumptions or hint expectations. Historical reports describe their own checkpoints, not the complete current game. The latest logo/HUD/English-label build passed typecheck and build/budget checks; a fresh comprehensive browser or physical-phone regression pass was not performed for that final revision.
 
-56 unit tests and strict typecheck pass. Actual production QA passed 22 mouse checks across portrait/landscape and 9 emulated-touch/bomb checks in portrait, with no uncaught page errors. Two strict mouse console checks failed because hosting injects a Cloudflare script blocked by the export’s CSP; the CSP remains unchanged. Physical touch, full 40-case E2E, five-minute soak, blocked-network runtime and rendered performance are not tested. The cloud browser still lacks WebGL 2; laptop Edge supplied the successful runtime. See [the test report](docs/TEST_REPORT.md) for precise evidence and limits.
+## Source layout
 
-### Latest playtest corrections
+- `src/game/`: deterministic state, simulation, commands, progression and balance configuration
+- `src/render/`: scene/layout, animated skeleton workers, tactile motion, particles and stone debris
+- `src/render/dungeon/`: procedural dungeon geometry, materials and texture atlas
+- `src/audio/`: procedural effects, music playback and saved audio preferences
+- `src/input/`: mouse/touch Pointer Events interaction
+- `src/ui/`: start screen/video transition, HUD and audio controls
+- `src/assets/`: skeleton GLB, music MP3 and logo WebP embedded at build time
+- `public/media/`: external portrait and landscape intro videos
+- `scripts/`: build/export, size checks, preview server and development utilities
+- `art/dungeon/`: development model kit, manifest and export documentation
+- `tests/`: development-only unit and browser tests
+- `docs/`: rules, decisions and historical iteration/QA reports
 
-See [feedback iteration rules](docs/FEEDBACK_ITERATION.md) and [focused feedback QA](docs/QA_FEEDBACK.md). Acceleration is now noticeable within 10–20 seconds; gap closure and rewind are animated; held items survive conveyor wraps; worker drops can buy locked pads; vacated containers are removed.
+See [v0.4 rules](docs/RULES_V04.md), [storage and upgrades](docs/STORAGE_UPGRADE_ITERATION.md), and [dungeon kit notes](art/dungeon/README.md) for focused implementation context. Older task and iteration documents are historical and may describe superseded behavior.
 
-### Latest: permanent slowdown, worker disposal, easier pickup
+## Repository workflow and assets
 
-Amber ↓20% bonuses permanently reduce the snake's current underlying forward speed while its existing acceleration continues. Purple pause bonuses remain separate. Drag unwanted workers of any level into the orange-rimmed DISCARD WORKERS pit; no coins are awarded. Pickup halos are more forgiving while drop targets remain deliberate. See [rules and source-review scope](docs/SLOWDOWN_DISCARD_PICKUP_ITERATION.md). Owner performs gameplay QA; this iteration only bundles and packages the standalone.
+The latest prototype was merged into `main`. Use the owner's requested branch workflow for subsequent changes; direct changes to `main` require explicit approval. Never force-push or bypass repository protections. Verify the remote commit after publication.
 
-### Gothic environment pass (prototype/0.4)
-
-Graveyard Shift uses a compact procedural 3D dungeon kit: beveled masonry, amber braziers, green ore fissures, timber-and-bronze track and conveyor, carved storage, and a stone finish portal. The neutral workers remain placeholders for later Tripo characters. Existing layout, input, balance, tactile feedback and audio are preserved; all visuals and audio remain inside the standalone HTML, with no network assets or fonts. Keep the complete future export strictly below 5,000,000 bytes, including imported characters.
+The repository includes supplied and generated art/audio assets. No repository-wide license file is currently present; this README does not grant redistribution rights to the source or bundled media.
