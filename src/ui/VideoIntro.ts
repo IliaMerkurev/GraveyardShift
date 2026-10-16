@@ -16,7 +16,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     const startScreen=document.createElement('div');startScreen.className='intro-start';
     const title=document.createElement(audio?.logo?'img':'h1');title.className='intro-start__logo';
     if(audio?.logo){(title as HTMLImageElement).src=audio.logo;(title as HTMLImageElement).alt='Graveyard Shift';}else title.textContent='GRAVEYARD SHIFT';
-    const launch=document.createElement('button');launch.type='button';launch.className='intro-start__button';launch.textContent='Играть';
+    const launch=document.createElement('button');launch.type='button';launch.className='intro-start__button';launch.textContent='PLAY';
     startScreen.append(title,launch);overlay.append(frame,controls,startScreen);parent.append(overlay);
     const gestures=['pointerdown','pointerup','touchend','click','keydown'];
     let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false,pending=false,policyMuted=false,requested=false;let timeout:ReturnType<typeof setTimeout>|undefined;
@@ -57,7 +57,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
       const blocked=(error:unknown)=>{
         if(finished||transitioning||ticket!==attempt)return;pending=false;
         if((error as {name?:string})?.name==='NotAllowedError'){
-          controls.hidden=false;status.textContent='Коснись экрана, чтобы продолжить';skip.hidden=true;
+          controls.hidden=false;status.textContent='Tap to continue';skip.hidden=true;
         }else if((error as {name?:string})?.name==='NotSupportedError')failure();
         // AbortError is normally a load/visibility race; canplay or a gesture retries it.
       };
