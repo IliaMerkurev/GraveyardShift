@@ -51,18 +51,9 @@ export function workerBarrelRange(state: GameState, boost = state.workerDropBoos
         !Number.isSafeInteger(worker.level) || worker.level < 1) continue;
     maxLevel = Math.max(maxLevel, worker.level);
   }
-  // Clamp at reveal time too: lifting/removing the strongest worker can lower the cap.
-  // Clamp the increment before adding it to avoid safe-integer overflow.
-  const addBoost = (level: number) => level + Math.min(boost, maxLevel - level);
+  // Paid upgrades raise both ends beyond the deployed-worker baseline.
+  const addBoost = (level: number) => level + Math.min(boost, Number.MAX_SAFE_INTEGER - level);
   return { lowest: addBoost(Math.max(1, maxLevel - 10)), highest: addBoost(Math.max(1, maxLevel - 1)) };
-}
-
-/** A capped upper bound can still leave room to improve the lower bound. */
-export function workerUpgradeHasEffect(state: GameState): boolean {
-  if (!Number.isSafeInteger(state.workerDropBoost + 1)) return false;
-  const current = workerBarrelRange(state);
-  const next = workerBarrelRange(state, state.workerDropBoost + 1);
-  return next.lowest > current.lowest || next.highest > current.highest;
 }
 
 export function workerUpgradePrice(state: GameState, config: GameConfig): number | null {
@@ -73,7 +64,7 @@ export function workerUpgradePrice(state: GameState, config: GameConfig): number
 export function buyWorkerUpgrade(ctx: CommandContext): boolean {
   if (ctx.state.paused || ctx.state.gameOver || ctx.state.drag) return false;
   const price = workerUpgradePrice(ctx.state, ctx.config);
-  if (price === null || !workerUpgradeHasEffect(ctx.state) || ctx.state.coins < price) return false;
+  if (price === null || ctx.state.coins < price) return false;
   ctx.state.coins -= price;
   ctx.state.workerDropBoost++;
   return true;

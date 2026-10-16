@@ -26,7 +26,7 @@ After the fixed starter sequence, barrels reveal workers 50% of the time. Six bo
 - **50% slowdown:** permanently halve current forward speed, including below the usual minimum.
 - **Tail-half blast:** destroy half the current rocks from the tail, rounded up, with normal rewards.
 
-Non-bomb bonuses can be tapped or dragged onto the field. Purchase bonus storage stands for **50 / 150 / 300 coins**; each holds one bonus until used. Worker-drop upgrades start at **50 coins** and grow by **1.5×** per upgrade (base price × 1.5^upgrades, rounded up to whole coins), raising future barrel levels up to the highest worker currently deployed on a pad. Merge and deploy stronger workers to raise that cap.
+Non-bomb bonuses can be tapped or dragged onto the field. Purchase bonus storage stands for **50 / 150 / 300 coins**; each holds one bonus until used. Worker-drop upgrades start at **50 coins** and grow by **1.5×** per upgrade (base price × 1.5^upgrades, rounded up to whole coins). Each purchase raises both ends of the future worker-level range by one, without a cap tied to deployed workers. The button abbreviates prices with K/M; its tooltip and purchases use the exact whole-coin cost.
 
 The HUD provides **Pause/Resume**, **Restart**, **Help**, and separate **Sounds / Music** settings. Audio preferences are saved locally when browser storage is available. Music continues from the intro into gameplay; procedural effects cover mining, explosions, bonuses, worker actions and UI feedback. Restart resets the run's progression.
 
