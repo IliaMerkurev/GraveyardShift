@@ -3,22 +3,27 @@ import type {MusicAudio} from '../audio/MusicAudio';
 export const introSource=(width:number,height:number)=>`./media/intro-${height>width?'portrait':'landscape'}.mp4`;
 export type PreparedIntro=(()=>void)&{zoom?:(progress:number)=>void};
 export const introZoom=(progress:number)=>Math.exp(Math.log(2.4)*(1-Math.max(0,Math.min(1,progress))));
-type IntroAudio={music:MusicAudio;sounds:()=>boolean;unlockSounds?:()=>void};
+type IntroAudio={music:MusicAudio;sounds:()=>boolean;unlockSounds?:()=>void;onStart?:()=>void;logo?:string};
 export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro>=Promise.resolve(()=>{}),audio?:IntroAudio):Promise<void> {
   return new Promise((resolve,reject)=>{
     const overlay=document.createElement('section');overlay.className='video-intro';overlay.setAttribute('aria-label','Game introduction');
-    const video=document.createElement('video');video.className='video-intro__video';video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');video.muted=!(audio?.sounds()??true);video.defaultMuted=video.muted;video.preload='auto';
-    video.defaultPlaybackRate=2;video.playbackRate=2;video.src=introSource(window.innerWidth,window.innerHeight);
+    const video=document.createElement('video');video.className='video-intro__video';video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');video.muted=!(audio?.sounds()??true);video.defaultMuted=video.muted;video.preload='none';
+    video.defaultPlaybackRate=2;video.playbackRate=2;
     const controls=document.createElement('div');controls.className='video-intro__controls';
     const status=document.createElement('p');status.className='video-intro__status';status.setAttribute('role','status');status.textContent='Loading intro…';
     const skip=document.createElement('button');skip.type='button';skip.textContent='Start game';skip.hidden=true;
-    const frame=document.createElement('div');frame.className='intro-film-frame';const edge=document.createElement('div');edge.className='intro-edge-blur';edge.setAttribute('aria-hidden','true');frame.append(video,edge);controls.append(status,skip);overlay.append(frame,controls);parent.append(overlay);
+    const frame=document.createElement('div');frame.className='intro-film-frame';frame.hidden=true;const edge=document.createElement('div');edge.className='intro-edge-blur';edge.setAttribute('aria-hidden','true');frame.append(video,edge);controls.append(status,skip);controls.hidden=true;
+    const startScreen=document.createElement('div');startScreen.className='intro-start';
+    const title=document.createElement(audio?.logo?'img':'h1');title.className='intro-start__logo';
+    if(audio?.logo){(title as HTMLImageElement).src=audio.logo;(title as HTMLImageElement).alt='Graveyard Shift';}else title.textContent='GRAVEYARD SHIFT';
+    const launch=document.createElement('button');launch.type='button';launch.className='intro-start__button';launch.textContent='Играть';
+    startScreen.append(title,launch);overlay.append(frame,controls,startScreen);parent.append(overlay);
     const gestures=['pointerdown','pointerup','touchend','click','keydown'];
-    let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false,pending=false,policyMuted=false;
+    let finished=false,started=false,backgroundPause=false,attempt=0,transitioning=false,pending=false,policyMuted=false,requested=false;let timeout:ReturnType<typeof setTimeout>|undefined;
     const cleanup=()=>{attempt++;clearTimeout(timeout);document.removeEventListener('visibilitychange',visibility);for(const event of gestures)document.removeEventListener(event,gesture,true);video.pause();video.removeAttribute('src');video.load();overlay.remove();};
     const ready=prepared.then(begin=>({begin,error:null})).catch((error:unknown)=>({begin:null,error}));
     const finish=async()=>{
-      if(finished||transitioning)return;transitioning=true;attempt++;video.pause();controls.hidden=true;
+      if(!requested||finished||transitioning)return;transitioning=true;attempt++;video.pause();controls.hidden=true;
       const result=await ready;
       if(!result.begin){finished=true;cleanup();reject(result.error);return;}
       const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false;
@@ -40,9 +45,9 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
       }
       result.begin.zoom?.(1);finished=true;cleanup();result.begin();resolve();
     };
-    const failure=()=>{if(finished||transitioning)return;clearTimeout(timeout);attempt++;pending=false;video.pause();controls.hidden=false;status.textContent='Intro unavailable. You can start the game.';skip.hidden=false;};
+    const failure=()=>{if(!requested||finished||transitioning)return;clearTimeout(timeout);attempt++;pending=false;video.pause();controls.hidden=false;status.textContent='Intro unavailable. You can start the game.';skip.hidden=false;};
     const tryPlay=(userGesture=false)=>{
-      if(finished||transitioning||document.hidden||(!userGesture&&pending))return;
+      if(!requested||finished||transitioning||document.hidden||(!userGesture&&pending))return;
       const ticket=++attempt;pending=true;video.playbackRate=2;
       if(userGesture)policyMuted=false;
       video.muted=policyMuted||!(audio?.sounds()??true);
@@ -64,7 +69,7 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
       });
     };
     const gesture=(event:Event)=>{
-      if(!event.isTrusted)return;
+      if(!event.isTrusted||!requested)return;
       if(finished||transitioning||document.hidden)return;
       // Retry in the real activation callback, including touch release, without seeking.
       tryPlay(true);
@@ -75,7 +80,13 @@ export function showVideoIntro(parent:HTMLElement,prepared:Promise<PreparedIntro
     video.addEventListener('loadedmetadata',()=>{video.playbackRate=2;});
     video.addEventListener('canplay',()=>{if(!started||video.paused)tryPlay();});
     document.addEventListener('visibilitychange',visibility);for(const event of gestures)document.addEventListener(event,gesture,{capture:true,passive:true});
-    const timeout=setTimeout(()=>{if(!finished&&!started)failure();},12000);
-    tryPlay();
+    launch.addEventListener('click',(event)=>{
+      if(!event.isTrusted||requested)return;
+      requested=true;audio?.onStart?.();audio?.unlockSounds?.();startScreen.remove();frame.hidden=false;
+      video.src=introSource(window.innerWidth,window.innerHeight);
+      timeout=setTimeout(()=>{if(!finished&&!started)failure();},12000);
+      // Stay in this trusted click: no awaited load before video/music play.
+      tryPlay(true);
+    });
   });
 }

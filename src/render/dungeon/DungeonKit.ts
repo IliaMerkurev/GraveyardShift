@@ -8,6 +8,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const DUNGEON_PALETTE = {
   mortar:0x171a20, stone:0x41434b, stoneLight:0x5e5c60, stoneDark:0x292d35,
+  // Ore and its broken chunks need a neutral, brighter silhouette on phone screens.
+  ore:0x9b9b9b,
   iron:0x242a31, ironEdge:0x555963, bronze:0x926740, bronzeLight:0xbb8b53,
   wood:0x65432d, woodLight:0x8b5c36, jade:0x245a48, emerald:0x36ef8f,
   flame:0xff9a23, flameCore:0xffe6a4,
@@ -165,7 +167,7 @@ export function createOreGeometry(variant=0):THREE.BufferGeometry {
   const g=new THREE.IcosahedronGeometry(.225,1),a=g.getAttribute('position');
   for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i);const noise=1+.13*Math.sin(x*23+y*17+z*31+variant*2);a.setXYZ(i,x*noise,y*noise*.93,z*noise);}
   g.computeVertexNormals();const colors=new Float32Array(a.count*3);
-  for(let i=0;i<a.count;i+=3){const f=.72+seeded(i+variant*17)*.48,c=tint(P.stoneLight,f);for(let j=0;j<3;j++)c.toArray(colors,(i+j)*3);}
+  for(let i=0;i<a.count;i+=3){const f=.72+seeded(i+variant*17)*.48,c=tint(P.ore,f);for(let j=0;j<3;j++)c.toArray(colors,(i+j)*3);}
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));atlasUV(g,3);return g;
 }
 /** Fine jagged mineral seams follow selected actual edges, never float above the ore. */

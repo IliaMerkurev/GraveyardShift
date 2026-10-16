@@ -1,3 +1,4 @@
+import introLogo from './assets/GraveyardShiftLogo.webp?inline';
 import soundtrack from './assets/GraveyardShift.mp3?inline';
 import {MusicAudio} from './audio/MusicAudio';
 import {AudioSettings} from './audio/AudioSettings';
@@ -20,7 +21,8 @@ audioSettings.subscribe(value=>music.setEnabled(value.music));
 const sfx=createRockSnakeAudio();
 audioSettings.subscribe(value=>sfx.setMuted(!value.sounds));
 // The first real gesture unlocks audio even if the silent intro already ended.
-const unlockAudio=(event:Event)=>{if(!event.isTrusted)return;sfx.unlock();void music.start().catch(()=>{});};
+let introStarted=false;
+const unlockAudio=(event:Event)=>{if(!event.isTrusted||!introStarted)return;sfx.unlock();void music.start().catch(()=>{});};
 // Touch activation can arrive on release, not pointerdown. Keep retries after denial.
 for(const event of ['pointerdown','pointerup','touchend','click','keydown'])document.addEventListener(event,unlockAudio,{capture:true,passive:true});
 
@@ -72,7 +74,7 @@ async function prepareGame(shell:HTMLElement):Promise<PreparedIntro> {
 }
 async function start(){
   const stage=document.createElement('div');stage.className='game-stage';stage.inert=true;shell.append(stage);
-  try{await showVideoIntro(shell,prepareGame(stage),{music,sounds:()=>audioSettings.value.sounds,unlockSounds:sfx.unlock});}
+  try{await showVideoIntro(shell,prepareGame(stage),{music,sounds:()=>audioSettings.value.sounds,unlockSounds:sfx.unlock,onStart:()=>{introStarted=true;},logo:introLogo});}
   catch(error){shell.innerHTML='';const message=document.createElement('div');message.className='fatal';message.setAttribute('role','alert');message.textContent=error instanceof Error?error.message:'This browser could not initialize the playable.';shell.append(message);}
 }
 void start();

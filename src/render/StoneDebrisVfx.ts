@@ -19,11 +19,10 @@ function shardGeometry(){
   const g=new THREE.IcosahedronGeometry(.225,0),p=g.getAttribute('position');
   for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),warp=1+.17*Math.sin(x*23+y*17+z*31);p.setXYZ(i,x*warp,y*warp*.85,z*warp);}
   g.computeVertexNormals();const colors=new Float32Array(p.count*3),color=new THREE.Color();
-  // Match the parent ore's stone palette, facet variation and atlas. No pale
-  // fracture overlay: readability comes from the larger moving silhouettes.
+  // Match the parent ore's neutral gray palette, facet variation and atlas.
   for(let i=0;i<p.count;i+=3){
     const noise=Math.sin(i*127.1+311.7)*43758.5453;
-    color.setHex(DUNGEON_PALETTE.stoneLight).multiplyScalar(.72+(noise-Math.floor(noise))*.48);
+    color.setHex(DUNGEON_PALETTE.ore).multiplyScalar(.72+(noise-Math.floor(noise))*.48);
     for(let j=0;j<3;j++)color.toArray(colors,(i+j)*3);
   }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));atlasUV(g,3);return g;
