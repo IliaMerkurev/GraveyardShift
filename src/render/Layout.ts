@@ -22,7 +22,8 @@ export function fitCamera(camera:THREE.PerspectiveCamera,width:number,height:num
   const direction=new THREE.Vector3(...(landscape?CONFIG.camera.position:[0,20,12] as const)).normalize();
   const target=new THREE.Vector3(0,0,landscape?2.2:1);
   const right=new THREE.Vector3(1,0,0),up=new THREE.Vector3().crossVectors(direction,right).normalize();
-  const tan=Math.tan(THREE.MathUtils.degToRad(20)/2),padding=12;
+  // A flatter perspective uses the back of the room without shrinking its targets.
+  const fov=14,padding=10,tan=Math.tan(THREE.MathUtils.degToRad(fov)/2);
   const tanY=tan*Math.max(.1,1-2*padding/height),tanX=tan*width/height*Math.max(.1,1-2*padding/width);
   // Separate boxes avoid the empty upper corners of a full-room bounding box.
   const boxes=landscape?[
@@ -34,7 +35,7 @@ export function fitCamera(camera:THREE.PerspectiveCamera,width:number,height:num
     const p=new THREE.Vector3(x,y,z).sub(target),depth=p.dot(direction);
     fit=Math.max(fit,Math.abs(p.dot(right))/tanX+depth,Math.abs(p.dot(up))/tanY+depth);
   }
-  camera.fov=20;camera.aspect=width/height;camera.position.copy(target).addScaledVector(direction,fit);camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+  camera.fov=fov;camera.far=Math.max(100,fit+30);camera.aspect=width/height;camera.position.copy(target).addScaledVector(direction,fit);camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
 }
 export function mapPosition(point:Point,landscape:boolean,zone:ViewZone='field'):Point{
   if(zone==='belt')return{x:beltX(point.x,landscape),z:landscape?LANDSCAPE_LAYOUT.beltZ:PORTRAIT_LAYOUT.beltZ};

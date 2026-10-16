@@ -109,3 +109,9 @@ See [v0.4 rules](docs/RULES_V04.md), [storage and upgrades](docs/STORAGE_UPGRADE
 The latest prototype was merged into `main`. Use the owner's requested branch workflow for subsequent changes; direct changes to `main` require explicit approval. Never force-push or bypass repository protections. Verify the remote commit after publication.
 
 The repository includes supplied and generated art/audio assets. No repository-wide license file is currently present; this README does not grant redistribution rights to the source or bundled media.
+
+### Mobile soundtrack playback
+
+The embedded MP3 is decoded once into a looping Web Audio buffer, avoiding competition between separate HTML audio and video players during the intro. PLAY resumes the music context synchronously, before waiting for decoding; the same source continues through transitions, gameplay pauses and restarts. Music muting changes its gain without restarting the timeline. Hiding the page suspends its context; returning resumes it. Saved Music/Sounds preferences remain independent.
+
+Music uses one dedicated AudioContext in addition to the existing SFX context, so gameplay/SFX pause gates cannot interrupt the soundtrack. It requests the original 32 kHz sample rate, with a device-default fallback. The 111.096-second stereo PCM buffer is approximately 28.4 MB at 32 kHz or 42.7 MB at 48 kHz, excluding browser overhead; it is reused, not decoded per play or restart. Destruction stops/disconnects the source and closes the context. Browsers without Web Audio retain the HTML audio fallback. This compatibility change has focused lifecycle/unit coverage; actual Xiaomi/iPhone playback still requires device verification.
